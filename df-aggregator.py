@@ -210,15 +210,15 @@ if __name__ == '__main__':
     parser.add_option("-r", "--receivers", dest="rx_file", help="List of receiver URLs", metavar="FILE")
     parser.add_option("-d", "--database", dest="database_name", help="Database File", metavar="FILE")
     parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default 0.2. 0 to disable clustering.",
-    metavar="FILE", type="float", default=0.2)
-    parser.add_option("-c", "--confidence", dest="conf", help="Minimun confidence value, default 10",
-    metavar="FILE", type="int", default=10)
-    parser.add_option("-p", "--power", dest="pwr", help="Minimun power value, default 10",
-    metavar="FILE", type="int", default=10)
-    parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimun samples per cluster. Default 20",
-    metavar="FILE", type="int", default=20)
+    metavar="Number", type="float", default=0.2)
+    parser.add_option("-c", "--confidence", dest="conf", help="Minimum confidence value, default 10",
+    metavar="Number", type="int", default=10)
+    parser.add_option("-p", "--power", dest="pwr", help="Minimum power value, default 10",
+    metavar="Number", type="int", default=10)
+    parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default 20",
+    metavar="Number", type="int", default=20)
     parser.add_option("--dist-from-reference", dest="mdfr", help="Max distance in km from intersection with strongest signal.",
-    metavar="FILE", type="int", default=500)
+    metavar="Number", type="int", default=500)
     (options, args) = parser.parse_args()
 
     mandatories = ['geofile', 'rx_file', 'database_name']
@@ -255,6 +255,8 @@ if __name__ == '__main__':
         average_intersects = np.array([]).reshape(0,2)
 
         while True:
+            print("Receiving" + dots*'.')
+            print("Press Control+C to process data and exit.")
             intersect_list = np.array([]).reshape(0,3)
             for x in range(len(receivers)):
                 for y in range(x):
@@ -307,8 +309,6 @@ if __name__ == '__main__':
             else:
                 dots += 1
             clear()
-            print("Receiving" + dots*'.')
-            print("Press control+c to process data and exit.")
 
     except KeyboardInterrupt:
         clear()
