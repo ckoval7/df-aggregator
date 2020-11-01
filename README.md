@@ -1,6 +1,11 @@
 # DF Aggregator
 
-Usage: df-aggregator.py [options]
+## Dependencies:
+- [numpy](https://numpy.org/install/)
+- [scikit-learn](https://scikit-learn.org/stable/install.html)
+- [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
+
+## Usage: df-aggregator.py [options]
 
 ### Required inputs:
 -  -g FILE, --geofile=FILE
@@ -13,6 +18,7 @@ Usage: df-aggregator.py [options]
 
 -  -d FILE, --database=FILE
   - Name of new or existing database to store intersect information.
+  - If a database doesn't exist one is created.
   - Post processing math is done against the entire database.
 
 ### Optional Inputs:
