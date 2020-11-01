@@ -54,7 +54,7 @@ class receiver:
             self.confidence = int(xml_conf.text)
         except:
             print("Problem connecting to receiver.")
-            quit()
+            pass
 
     latitude = 0.0
     longitude = 0.0
