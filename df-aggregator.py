@@ -167,17 +167,16 @@ def process_data(database_name, outfile, eps, min_samp):
                         cluster = np.concatenate((cluster, [intersect_array[y][0:2]]), axis = 0)
                 likely_location.append(Reverse(np.mean(cluster, axis=0).tolist()))
                 best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(likely_location)))
-                # for x in range(len(likely_location)):
-                #     print(Reverse(likely_location[x]))
+
             for x in likely_location:
                 print(Reverse(x))
 
-        for i in range(len(intersect_array)):
+        for x in intersect_array:
             try:
-                if intersect_array[i][2] >= 0:
-                    intersect_list.append(Reverse(intersect_array[i][0:2].tolist()))
+                if x[2] >= 0:
+                    intersect_list.append(Reverse(x[0:2].tolist()))
             except IndexError:
-                intersect_list.append(Reverse(intersect_array[i].tolist()))
+                intersect_list.append(Reverse(x.tolist()))
         #print(intersect_list)
         all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(intersect_list)))
 
@@ -248,7 +247,6 @@ if __name__ == '__main__':
         with open(rx_file, "r") as file2:
             receiver_list = file2.readlines()
             for x in receiver_list:
-                #print(x.replace('\n', ''))
                 receivers.append(receiver(x.replace('\n', '')))
 
         avg_list = []
@@ -289,7 +287,7 @@ if __name__ == '__main__':
                             # print(f"Checking point: {intersect_list[x]} against reference {intersect_list[reference_pt]}")
                             dist = v.inverse(intersect_list[reference_pt, 0:2], intersect_list[x, 0:2])[0]
                             if dist > max_dist_from_ref:
-                                delete_these.append(x)
+                                delete_these.append(x) #deleting elements too early causes problems!
                     if not delete_these:
                         for x in delete_these:
                             intersect_list = np.delete(intersect_list, x, 0)
