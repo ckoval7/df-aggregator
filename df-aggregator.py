@@ -54,7 +54,6 @@ class receiver:
             self.confidence = int(xml_conf.text)
         except:
             print("Problem connecting to receiver.")
-            pass
 
     latitude = 0.0
     longitude = 0.0
@@ -252,7 +251,9 @@ if __name__ == '__main__':
         avg_list = []
         average_intersects = np.array([]).reshape(0,2)
 
-        while True:
+        receiving = True
+
+        while receiving:
             print("Receiving" + dots*'.')
             print("Press Control+C to process data and exit.")
             intersect_list = np.array([]).reshape(0,3)
