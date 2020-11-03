@@ -5,6 +5,8 @@ import numpy as np
 import math
 import time
 import sqlite3
+import threading
+import webgui
 from optparse import OptionParser
 from os import system, name
 from lxml import etree
@@ -54,7 +56,6 @@ class receiver:
             self.confidence = int(xml_conf.text)
         except:
             print("Problem connecting to receiver.")
-            pass
 
     latitude = 0.0
     longitude = 0.0
@@ -203,6 +204,10 @@ def clear():
         _ = system('clear')
 
 if __name__ == '__main__':
+    ipaddr = "127.0.0.1"
+    # web = threading.Thread(target=webgui.start_server,)
+    # web.daemon = True
+    # web.start()
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)
     parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
@@ -252,7 +257,9 @@ if __name__ == '__main__':
         avg_list = []
         average_intersects = np.array([]).reshape(0,2)
 
-        while True:
+        receiving = True
+
+        while receiving:
             print("Receiving" + dots*'.')
             print("Press Control+C to process data and exit.")
             intersect_list = np.array([]).reshape(0,3)
@@ -314,5 +321,5 @@ if __name__ == '__main__':
         conn.commit()
         conn.close()
         process_data(database_name, geofile, eps, min_samp)
-
+        # web.join()
         quit()
