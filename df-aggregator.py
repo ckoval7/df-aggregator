@@ -6,13 +6,16 @@ import math
 import time
 import sqlite3
 import threading
-import webgui
+#import webgui
 from optparse import OptionParser
 from os import system, name
 from lxml import etree
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 from geojson import Point, MultiPoint, Feature, FeatureCollection
+from czml3 import Packet, Document, Preamble
+
+from bottle import route, run, request, get, post, redirect, template, static_file
 
 d = 40000 #meters
 
@@ -156,7 +159,7 @@ def process_data(database_name, outfile, eps, min_samp):
             # Number of clusters in labels, ignoring noise if present.
             n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
             n_noise_ = list(labels).count(-1)
-            clear()
+            # clear()
             print('Number of clusters: %d' % n_clusters_)
             print('Outliers Removed: %d' % n_noise_)
             # print(intersect_array)
@@ -166,11 +169,13 @@ def process_data(database_name, outfile, eps, min_samp):
                 for y in range(len(intersect_array)):
                     if intersect_array[y][2] == x:
                         cluster = np.concatenate((cluster, [intersect_array[y][0:2]]), axis = 0)
-                likely_location.append(Reverse(np.mean(cluster, axis=0).tolist()))
-                best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(likely_location)))
+                likely_location.append(np.mean(cluster, axis=0).tolist())
+                #best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(likely_location)))
 
             for x in likely_location:
-                print(Reverse(x))
+                print(x)
+        else:
+            best_point = None
 
         for x in intersect_array:
             try:
@@ -179,17 +184,62 @@ def process_data(database_name, outfile, eps, min_samp):
             except IndexError:
                 intersect_list.append(Reverse(x.tolist()))
         #print(intersect_list)
-        all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(intersect_list)))
+        #all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(intersect_list)))
 
-        with open(outfile, "w") as file1:
-            if eps > 0:
+        return likely_location, intersect_list
+
+    else:
+        print("No Intersections.")
+        return None
+
+def write_geojson(best_point, all_the_points):
+    if all_the_points != None:
+        all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(all_the_points)))
+        with open(geofile, "w") as file1:
+            if best_point != None:
+                best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(best_point)))
                 file1.write(str(FeatureCollection([best_point, all_the_points])))
             else:
                 file1.write(str(FeatureCollection([all_the_points])))
         print(f"Wrote file {geofile}")
 
-    else:
-        print("No Intersections.")
+def write_czml(best_point, all_the_points):
+    print(best_point)
+    point_properties = {
+        "pixelSize":5.0,
+        "heightReference":"RELATIVE_TO_GROUND",
+        "color": {
+            "rgba": [255, 0, 0, 255],
+      }
+    }
+    best_point_properties = {
+        "pixelSize":20.0,
+        "heightReference":"RELATIVE_TO_GROUND",
+        "color": {
+            "rgba": [0, 255, 0, 255],
+      }
+    }
+    top = Preamble(name="Geolocation Data")
+    all_point_packets = []
+    best_point_packets = []
+
+    if all_the_points != None:
+        for x in all_the_points:
+            all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
+            point=point_properties,
+            position={"cartographicDegrees": [ x[0], x[1], 5 ]}))
+
+        if best_point != None:
+            for x in best_point:
+                best_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
+                point=best_point_properties,
+                position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
+
+        with open("static/output.czml", "w") as file1:
+            if best_point != None:
+                file1.write(str(Document([top] + best_point_packets + all_point_packets)))
+            else:
+                file1.write(str(Document([top] + all_point_packets)))
 
 def Reverse(lst):
     lst.reverse()
@@ -203,11 +253,29 @@ def clear():
     else:
         _ = system('clear')
 
+with open('accesstoken.txt', "r") as tokenfile:
+    access_token = tokenfile.read().replace('\n', '')
+
+@route('/static/<filepath:path>', name='static')
+def server_static(filepath):
+    return static_file(filepath, root='./static')
+
+@get('/')
+@get('/index')
+@get('/cesium')
+def cesium():
+    write_czml(*process_data(database_name, geofile, eps, min_samp))
+    return template('cesium.tpl',
+    {'access_token':access_token})
+
+def start_server(ipaddr = "127.0.0.1"):
+    run(host=ipaddr, port=8080, quiet=True, debug=False, server='paste')
+
 if __name__ == '__main__':
-    ipaddr = "127.0.0.1"
-    # web = threading.Thread(target=webgui.start_server,)
-    # web.daemon = True
-    # web.start()
+    # ipaddr = "127.0.0.1"
+    web = threading.Thread(target=start_server,)
+    web.daemon = True
+    web.start()
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)
     parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
@@ -242,7 +310,7 @@ if __name__ == '__main__':
     min_samp = options.minsamp
 
     try:
-        clear()
+        # clear()
         dots = 0
         conn = sqlite3.connect(database_name)
         c = conn.cursor()
@@ -313,13 +381,13 @@ if __name__ == '__main__':
                 dots = 1
             else:
                 dots += 1
-            clear()
+            # clear()
 
     except KeyboardInterrupt:
-        clear()
+        # clear()
         print("Processing, please wait.")
         conn.commit()
         conn.close()
-        process_data(database_name, geofile, eps, min_samp)
-        # web.join()
+        write_geojson(*process_data(database_name, geofile, eps, min_samp))
+        web.join()
         quit()

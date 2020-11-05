@@ -6,3 +6,4 @@ CesiumJS/
 test*
 *.db
 *.txt
+*.czml
