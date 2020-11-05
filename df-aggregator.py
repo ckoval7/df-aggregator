@@ -70,6 +70,14 @@ class receiver:
     confidence = 0
     doa_time = 0
 
+# class intersections:
+#     latitude = 0.0
+#     longitude = 0.0
+#     avg_power = 0.0
+#     avg_confidence = 0
+#     num_parents = 0
+#     intersect_time = 0
+
 
 def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
     # Convert points in great circle 1, degrees to radians
@@ -159,7 +167,7 @@ def process_data(database_name, outfile, eps, min_samp):
             # Number of clusters in labels, ignoring noise if present.
             n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
             n_noise_ = list(labels).count(-1)
-            # clear()
+            clear(debugging)
             print('Number of clusters: %d' % n_clusters_)
             print('Outliers Removed: %d' % n_noise_)
             # print(intersect_array)
@@ -245,13 +253,14 @@ def Reverse(lst):
     lst.reverse()
     return lst
 
-def clear():
+def clear(debugging):
+    if not debugging:
       # for windows
-    if name == 'nt':
-        _ = system('cls')
-    # for mac and linux(here, os.name is 'posix')
-    else:
-        _ = system('clear')
+        if name == 'nt':
+            _ = system('cls')
+        # for mac and linux(here, os.name is 'posix')
+        else:
+            _ = system('clear')
 
 with open('accesstoken.txt', "r") as tokenfile:
     access_token = tokenfile.read().replace('\n', '')
@@ -291,6 +300,8 @@ if __name__ == '__main__':
     metavar="Number", type="int", default=20)
     parser.add_option("--dist-from-reference", dest="mdfr", help="Max distance in km from intersection with strongest signal.",
     metavar="Number", type="int", default=500)
+    parser.add_option("--debugging", dest="debugging", help="Does not clear the screen. Useful for seeing errors and warnings.",
+    action="store_true")
     (options, args) = parser.parse_args()
 
     mandatories = ['geofile', 'rx_file', 'database_name']
@@ -308,9 +319,10 @@ if __name__ == '__main__':
     min_power = options.pwr
     max_dist_from_ref = options.mdfr
     min_samp = options.minsamp
+    debugging = False if not options.debugging else True
 
     try:
-        # clear()
+        clear(debugging)
         dots = 0
         conn = sqlite3.connect(database_name)
         c = conn.cursor()
@@ -381,10 +393,10 @@ if __name__ == '__main__':
                 dots = 1
             else:
                 dots += 1
-            # clear()
+            clear(debugging)
 
     except KeyboardInterrupt:
-        # clear()
+        clear(debugging)
         print("Processing, please wait.")
         conn.commit()
         conn.close()
