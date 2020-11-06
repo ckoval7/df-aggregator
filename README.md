@@ -32,11 +32,11 @@
 
 -  -c Number, --confidence=Number
     - Minimum confidence value, default 10
-    - Do not computer intersects for LOBs less than this value.
+    - Do not compute intersects for LOBs less than this value.
 
 -  -p Number, --power=Number
     - Minimum power value, default 10
-    - Do not computer intersects for LOBs less than this value.
+    - Do not compute intersects for LOBs less than this value.
 
 -  -m Number, --min-samples=Number
     - Minimum samples per cluster. Default 20
@@ -47,3 +47,5 @@
     - When there are more than two receivers, the intersect with the strongest average signal
   is marked as a reference point.
     - Any intersections that exceed the specified distance from the reference are thrown out.
+    
+  ![Screenshot](https://lh3.googleusercontent.com/pw/ACtC-3cWY5AnjUy0xCjxchQALfPR1TSrLotyCsFNOW5KJF9k4tjv3HRTfrk6KdtYhktbgaNbr0Y6mauIQMyDqEPSFYSOKuR0o2ThnVuS1lxtqmGVuS0RABjSYBHh8dfOddLIq4_AbCAI60Fp013WdoxXn25-MA=w1560-h837-no?authuser=0)
