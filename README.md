@@ -47,3 +47,5 @@
     - When there are more than two receivers, the intersect with the strongest average signal
   is marked as a reference point.
     - Any intersections that exceed the specified distance from the reference are thrown out.
+    
+  ![Screenshot](https://photos.app.goo.gl/14bux6bsrr95bZy9A)
