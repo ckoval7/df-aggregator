@@ -6,9 +6,9 @@ import math
 import time
 import sqlite3
 import threading
-#import webgui
+import signal
 from optparse import OptionParser
-from os import system, name
+from os import system, name, kill, getpid
 from lxml import etree
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
@@ -69,15 +69,6 @@ class receiver:
     power = 0.0
     confidence = 0
     doa_time = 0
-
-# class intersections:
-#     latitude = 0.0
-#     longitude = 0.0
-#     avg_power = 0.0
-#     avg_confidence = 0
-#     num_parents = 0
-#     intersect_time = 0
-
 
 def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
     # Convert points in great circle 1, degrees to radians
@@ -146,14 +137,14 @@ def process_data(database_name, outfile, eps, min_samp):
     c.execute("SELECT COUNT(*) FROM intersects")
     n_intersects = int(c.fetchone()[0])
     #print(n_intersects)
-    c.execute("SELECT latitude, longitude FROM intersects")
+    c.execute("SELECT latitude, longitude, num_parents FROM intersects")
     intersect_array = np.array(c.fetchall())
     # print(intersect_array)
     likely_location = []
-    best_point = []
+    weighted_location = []
     if intersect_array.size != 0:
         if eps > 0:
-            X = StandardScaler().fit_transform(intersect_array)
+            X = StandardScaler().fit_transform(intersect_array[:,0:2])
 
             # Compute DBSCAN
             db = DBSCAN(eps=eps, min_samples=min_samp).fit(X)
@@ -162,7 +153,6 @@ def process_data(database_name, outfile, eps, min_samp):
             labels = db.labels_
 
             intersect_array = np.column_stack((intersect_array, labels))
-            # print(intersect_array)
 
             # Number of clusters in labels, ignoring noise if present.
             n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
@@ -170,31 +160,30 @@ def process_data(database_name, outfile, eps, min_samp):
             clear(debugging)
             print('Number of clusters: %d' % n_clusters_)
             print('Outliers Removed: %d' % n_noise_)
-            # print(intersect_array)
 
             for x in range(n_clusters_):
-                cluster = np.array([]).reshape(0,2)
+                cluster = np.array([]).reshape(0,3)
                 for y in range(len(intersect_array)):
-                    if intersect_array[y][2] == x:
-                        cluster = np.concatenate((cluster, [intersect_array[y][0:2]]), axis = 0)
-                likely_location.append(np.mean(cluster, axis=0).tolist())
-                #best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(likely_location)))
+                    if intersect_array[y][-1] == x:
+                        cluster = np.concatenate((cluster, [intersect_array[y][0:-1]]), axis = 0)
+                weighted_location.append(np.average(cluster[:,0:2], weights=cluster[:,2], axis=0).tolist())
+                likely_location.append(np.mean(cluster[:,0:2], axis=0).tolist())
 
             for x in likely_location:
                 print(x)
         else:
-            best_point = None
+            likely_location = None
 
         for x in intersect_array:
             try:
-                if x[2] >= 0:
+                if x[-1] >= 0:
                     intersect_list.append(Reverse(x[0:2].tolist()))
             except IndexError:
                 intersect_list.append(Reverse(x.tolist()))
         #print(intersect_list)
         #all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(intersect_list)))
 
-        return likely_location, intersect_list
+        return likely_location, intersect_list, weighted_location
 
     else:
         print("No Intersections.")
@@ -211,7 +200,7 @@ def write_geojson(best_point, all_the_points):
                 file1.write(str(FeatureCollection([all_the_points])))
         print(f"Wrote file {geofile}")
 
-def write_czml(best_point, all_the_points):
+def write_czml(best_point, all_the_points, weighted_point):
     print(best_point)
     point_properties = {
         "pixelSize":5.0,
@@ -227,9 +216,17 @@ def write_czml(best_point, all_the_points):
             "rgba": [0, 255, 0, 255],
       }
     }
+    weighted_properties = {
+        "pixelSize":20.0,
+        "heightReference":"RELATIVE_TO_GROUND",
+        "color": {
+            "rgba": [0, 0, 255, 255],
+      }
+    }
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
+    weighted_point_packets = []
 
     if all_the_points != None:
         for x in all_the_points:
@@ -243,8 +240,16 @@ def write_czml(best_point, all_the_points):
                 point=best_point_properties,
                 position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
 
+        if weighted_point != None:
+            for x in weighted_point:
+                weighted_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
+                point=weighted_properties,
+                position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
+
         with open("static/output.czml", "w") as file1:
-            if best_point != None:
+            if best_point and weighted_point != None:
+                file1.write(str(Document([top] + best_point_packets + weighted_point_packets + all_point_packets)))
+            elif best_point != None:
                 file1.write(str(Document([top] + best_point_packets + all_point_packets)))
             else:
                 file1.write(str(Document([top] + all_point_packets)))
@@ -275,7 +280,18 @@ def server_static(filepath):
 def cesium():
     write_czml(*process_data(database_name, geofile, eps, min_samp))
     return template('cesium.tpl',
-    {'access_token':access_token})
+    {'access_token':access_token,
+    'epsilon':eps*100})
+
+@post('/')
+@post('/index')
+@post('/cesium')
+def update_cesium():
+    global eps
+    eps = float(request.forms.get('epsilonValue'))/100
+    print(eps)
+
+    return redirect('cesium')
 
 def start_server(ipaddr = "127.0.0.1"):
     run(host=ipaddr, port=8080, quiet=True, debug=False, server='paste')
@@ -326,7 +342,7 @@ if __name__ == '__main__':
         dots = 0
         conn = sqlite3.connect(database_name)
         c = conn.cursor()
-        c.execute("CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL, longitude REAL)")
+        c.execute("CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL, longitude REAL, num_parents INTEGER)")
 
         receivers = []
         with open(rx_file, "r") as file2:
@@ -340,8 +356,9 @@ if __name__ == '__main__':
         receiving = True
 
         while receiving:
-            print("Receiving" + dots*'.')
-            print("Press Control+C to process data and exit.")
+            if not debugging:
+                print("Receiving" + dots*'.')
+                print("Press Control+C to process data and exit.")
             intersect_list = np.array([]).reshape(0,3)
             for x in range(len(receivers)):
                 for y in range(x):
@@ -381,9 +398,9 @@ if __name__ == '__main__':
                             # print("Deleted Bad Intersection")
 
                 avg_coord = np.mean(intersect_list, axis = 0)
-                to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1]]
+                to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list)]
                 # print(to_table)
-                c.execute("INSERT INTO intersects VALUES (?,?,?)", to_table)
+                c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
                 conn.commit()
 
             for rx in receivers:
@@ -396,10 +413,9 @@ if __name__ == '__main__':
             clear(debugging)
 
     except KeyboardInterrupt:
-        clear(debugging)
-        print("Processing, please wait.")
+        # clear(debugging)
+        # print("Processing, please wait.")
         conn.commit()
         conn.close()
-        write_geojson(*process_data(database_name, geofile, eps, min_samp))
-        web.join()
-        quit()
+        #write_geojson(*process_data(database_name, geofile, eps, min_samp)[:2])
+        kill(getpid(), signal.SIGTERM)
