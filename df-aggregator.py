@@ -415,9 +415,9 @@ if __name__ == '__main__':
             clear(debugging)
 
     except KeyboardInterrupt:
-        # clear(debugging)
-        # print("Processing, please wait.")
+        clear(debugging)
+        print("Processing, please wait.")
         conn.commit()
         conn.close()
-        #write_geojson(*process_data(database_name, geofile, eps, min_samp)[:2])
+        write_geojson(*process_data(database_name, geofile, eps, min_samp)[:2])
         kill(getpid(), signal.SIGTERM)
