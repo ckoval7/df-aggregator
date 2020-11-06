@@ -32,11 +32,11 @@
 
 -  -c Number, --confidence=Number
     - Minimum confidence value, default 10
-    - Do not computer intersects for LOBs less than this value.
+    - Do not compute intersects for LOBs less than this value.
 
 -  -p Number, --power=Number
     - Minimum power value, default 10
-    - Do not computer intersects for LOBs less than this value.
+    - Do not compute intersects for LOBs less than this value.
 
 -  -m Number, --min-samples=Number
     - Minimum samples per cluster. Default 20
