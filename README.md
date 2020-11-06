@@ -4,6 +4,8 @@
 - [numpy](https://numpy.org/install/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
+- [czml3](https://pypi.org/project/czml3/)
+- [geojson](https://pypi.org/project/geojson/)
 
 ## Usage: df-aggregator.py [options]
 
