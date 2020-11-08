@@ -22,6 +22,13 @@ d = 40000 #meters
 all_pt_style = {"name": "Various Points", "marker-color": "#FF0000"}
 best_pt_style = {"name": "Most Likely TX Location", "marker-color": "#00FF00"}
 
+class math_settings:
+    def __init__(self, eps, min_samp, conf, power):
+        self.eps = eps
+        self.min_samp = min_samp
+        self.min_conf = conf
+        self.min_power = power
+
 class receiver:
     def __init__(self, station_url):
         self.station_url = station_url
@@ -128,7 +135,7 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 500
         else:
             return None
 
-def process_data(database_name, outfile, eps, min_samp):
+def process_data(database_name, outfile):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
 
@@ -143,11 +150,11 @@ def process_data(database_name, outfile, eps, min_samp):
     likely_location = []
     weighted_location = []
     if intersect_array.size != 0:
-        if eps > 0:
+        if ms.eps > 0:
             X = StandardScaler().fit_transform(intersect_array[:,0:2])
 
             # Compute DBSCAN
-            db = DBSCAN(eps=eps, min_samples=min_samp).fit(X)
+            db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
             core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
             core_samples_mask[db.core_sample_indices_] = True
             labels = db.labels_
@@ -223,16 +230,25 @@ def write_czml(best_point, all_the_points, weighted_point):
             "rgba": [0, 0, 255, 255],
       }
     }
+    rx_properties = {
+        "image":
+            {
+                "uri": "/static/dish.png"
+            },
+        "verticalOrigin": "BOTTOM",
+        "scale": 0.75
+        }
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
     weighted_point_packets = []
+    receiver_point_packets = []
 
     if all_the_points != None:
         for x in all_the_points:
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
             point=point_properties,
-            position={"cartographicDegrees": [ x[0], x[1], 5 ]}))
+            position={"cartographicDegrees": [ x[0], x[1], 10 ]}))
 
         if best_point != None:
             for x in best_point:
@@ -246,13 +262,20 @@ def write_czml(best_point, all_the_points, weighted_point):
                 point=weighted_properties,
                 position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
 
-        with open("static/output.czml", "w") as file1:
-            if best_point and weighted_point != None:
-                file1.write(str(Document([top] + best_point_packets + weighted_point_packets + all_point_packets)))
-            elif best_point != None:
-                file1.write(str(Document([top] + best_point_packets + all_point_packets)))
-            else:
-                file1.write(str(Document([top] + all_point_packets)))
+    for x in receivers:
+        receiver_point_packets.append(Packet(id=x.station_id,
+        billboard=rx_properties,
+        position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
+
+    with open("static/output.czml", "w") as file1:
+        if best_point and weighted_point != None:
+            file1.write(str(Document([top] + best_point_packets + weighted_point_packets + all_point_packets + receiver_point_packets)))
+        elif best_point != None:
+            file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets)))
+        elif all_the_points != None:
+            file1.write(str(Document([top] + all_point_packets + receiver_point_packets)))
+        else:
+            file1.write(str(Document([top] + receiver_point_packets)))
 
 def Reverse(lst):
     lst.reverse()
@@ -278,64 +301,70 @@ def server_static(filepath):
 @get('/index')
 @get('/cesium')
 def cesium():
-    write_czml(*process_data(database_name, geofile, eps, min_samp))
+    write_czml(*process_data(database_name, geofile))
     return template('cesium.tpl',
     {'access_token':access_token,
-    'epsilon':eps*100})
+    'epsilon':ms.eps*100,
+    'minpower':ms.min_power,
+    'minconf':ms.min_conf,
+    'minpoints':ms.min_samp})
 
 @post('/')
 @post('/index')
 @post('/cesium')
 def update_cesium():
-    global eps
-    eps = float(request.forms.get('epsilonValue'))/100
-    print(eps)
+    ms.eps = float(request.forms.get('epsilonValue'))/100
+    ms.min_conf = float(request.forms.get('confValue'))
+    ms.min_power = float(request.forms.get('powerValue'))
+    ms.min_samp = float(request.forms.get('minpointValue'))
 
     return redirect('cesium')
 
-def start_server(ipaddr = "127.0.0.1"):
-    run(host=ipaddr, port=8080, quiet=True, debug=False, server='paste')
+def start_server(ipaddr = "127.0.0.1", port=8080):
+    run(host=ipaddr, port=port, quiet=True, debug=True)
 
 if __name__ == '__main__':
     # ipaddr = "127.0.0.1"
-    web = threading.Thread(target=start_server,)
-    web.daemon = True
-    web.start()
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)
     parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
     parser.add_option("-r", "--receivers", dest="rx_file", help="List of receiver URLs", metavar="FILE")
     parser.add_option("-d", "--database", dest="database_name", help="Database File", metavar="FILE")
     parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default 0.2. 0 to disable clustering.",
-    metavar="Number", type="float", default=0.2)
+    metavar="NUMBER", type="float", default=0.2)
     parser.add_option("-c", "--confidence", dest="conf", help="Minimum confidence value, default 10",
-    metavar="Number", type="int", default=10)
+    metavar="NUMBER", type="int", default=10)
     parser.add_option("-p", "--power", dest="pwr", help="Minimum power value, default 10",
-    metavar="Number", type="int", default=10)
+    metavar="NUMBER", type="int", default=10)
     parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default 20",
-    metavar="Number", type="int", default=20)
-    parser.add_option("--dist-from-reference", dest="mdfr", help="Max distance in km from intersection with strongest signal.",
-    metavar="Number", type="int", default=500)
-    parser.add_option("--debugging", dest="debugging", help="Does not clear the screen. Useful for seeing errors and warnings.",
+    metavar="NUMBER", type="int", default=20)
+    parser.add_option("--ip", dest="ipaddr", help="IP Address to serve from. Default 127.0.0.1",
+    metavar="IP ADDRESS", type="str", default="127.0.0.1")
+    parser.add_option("--port", dest="port", help="Port number to serve from. Default 8080",
+    metavar="NUMBER", type="int", default=8080)
+    parser.add_option("--debug", dest="debugging", help="Does not clear the screen. Useful for seeing errors and warnings.",
     action="store_true")
     (options, args) = parser.parse_args()
 
-    mandatories = ['geofile', 'rx_file', 'database_name']
+    mandatories = ['rx_file', 'database_name']
     for m in mandatories:
       if options.__dict__[m] is None:
         print("You forgot an arguement")
         parser.print_help()
         exit(-1)
 
+    ms = math_settings(options.eps, options.minsamp, options.conf, options.pwr)
+
     geofile = options.geofile
     rx_file = options.rx_file
     database_name = options.database_name
-    eps = options.eps
-    min_conf = options.conf
-    min_power = options.pwr
-    max_dist_from_ref = options.mdfr
-    min_samp = options.minsamp
     debugging = False if not options.debugging else True
+
+    max_age = 5
+
+    web = threading.Thread(target=start_server,args=(options.ipaddr, options.port))
+    web.daemon = True
+    web.start()
 
     try:
         clear(debugging)
@@ -366,12 +395,17 @@ if __name__ == '__main__':
                 for y in range(x):
                     if x != y:
                         try:
-                            if receivers[x].confidence > min_conf and receivers[y].confidence > min_conf:
+                            if (receivers[x].confidence > ms.min_conf and
+                            receivers[y].confidence > ms.min_conf and
+                            receivers[x].power > ms.min_power and
+                            receivers[y].power > ms.min_power and
+                            abs(receivers[x].doa_time - receivers[y].doa_time) < max_age and
+                            receivers[x].frequency == receivers[y].frequency):
                                 intersection = list(plot_intersects(receivers[x].latitude, receivers[x].longitude,
                                 receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa))
                                 print(intersection)
-                                avg_pwr = np.mean([receivers[x].power, receivers[y].power])
-                                intersection.append(avg_pwr)
+                                avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
+                                intersection.append(avg_conf)
                                 intersection = np.array([intersection])
                                 # print(f"Intersect: {intersection}")
                                 if intersection.any() != None:
@@ -380,26 +414,8 @@ if __name__ == '__main__':
                         except TypeError: # I can't figure out what's causing me to need this here
                             pass
 
-            pwr_list = []
-            delete_these = []
             if intersect_list.size != 0:
-                #print(intersect_list)
-                if intersect_list.size > 1:
-                    for x in range(len(intersect_list)):
-                        pwr_list.append(intersect_list[x, 2])
-                    reference_pt = pwr_list.index(max(pwr_list))
-                    for x in range(len(intersect_list)):
-                        if x != reference_pt:
-                            # print(f"Checking point: {intersect_list[x]} against reference {intersect_list[reference_pt]}")
-                            dist = v.inverse(intersect_list[reference_pt, 0:2], intersect_list[x, 0:2])[0]
-                            if dist > max_dist_from_ref:
-                                delete_these.append(x) #deleting elements too early causes problems!
-                    if not delete_these:
-                        for x in delete_these:
-                            intersect_list = np.delete(intersect_list, x, 0)
-                            # print("Deleted Bad Intersection")
-
-                avg_coord = np.mean(intersect_list, axis = 0)
+                avg_coord = np.average(intersect_list[:,0:2], weights=intersect_list[:,-1], axis = 0)
                 to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list)]
                 # print(to_table)
                 c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
@@ -419,5 +435,6 @@ if __name__ == '__main__':
         print("Processing, please wait.")
         conn.commit()
         conn.close()
-        write_geojson(*process_data(database_name, geofile, eps, min_samp)[:2])
+        if geofile != None:
+            write_geojson(*process_data(database_name, geofile)[:2])
         kill(getpid(), signal.SIGTERM)
