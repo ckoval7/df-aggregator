@@ -59,5 +59,7 @@
 
 -  --debug
     - Does not clear the screen. Useful for seeing errors and warnings.
+    
+Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number you specified.
 
   ![Screenshot](https://i.ibb.co/HPZcD0K/Screenshot-from-2020-11-07-23-30-16.png)
