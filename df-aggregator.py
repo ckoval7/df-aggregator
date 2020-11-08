@@ -151,6 +151,10 @@ def process_data(database_name, outfile):
     # print(intersect_array)
     likely_location = []
     weighted_location = []
+    ellipsedata = []
+
+    n_std=3.0
+
     if intersect_array.size != 0:
         if ms.eps > 0:
             X = StandardScaler().fit_transform(intersect_array[:,0:2])
@@ -176,7 +180,18 @@ def process_data(database_name, outfile):
                     if intersect_array[y][-1] == x:
                         cluster = np.concatenate((cluster, [intersect_array[y][0:-1]]), axis = 0)
                 weighted_location.append(np.average(cluster[:,0:2], weights=cluster[:,2], axis=0).tolist())
-                likely_location.append(np.mean(cluster[:,0:2], axis=0).tolist())
+                clustermean = np.mean(cluster[:,0:2], axis=0)
+                likely_location.append(clustermean.tolist())
+                cov = np.cov(cluster[:,0], cluster[:,1])
+                pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
+                ell_radius_x = np.sqrt(1 + pearson)
+                ell_radius_y = np.sqrt(1 - pearson)
+                scale_x = np.sqrt(cov[0, 0]) * n_std
+                scale_y = np.sqrt(cov[1, 1]) * n_std
+                u = [[ell_radius_x * scale_x, ell_radius_y * scale_y], clustermean.tolist()]
+                w = np.sum(u, axis = 0)
+                ellipsedata.append([*v.inverse(clustermean.tolist(), w), *clustermean.tolist()])
+
 
             for x in likely_location:
                 print(x)
@@ -192,7 +207,7 @@ def process_data(database_name, outfile):
         #print(intersect_list)
         #all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(intersect_list)))
 
-        return likely_location, intersect_list, weighted_location
+        return likely_location, intersect_list, weighted_location, ellipsedata
 
     else:
         print("No Intersections.")
@@ -209,8 +224,7 @@ def write_geojson(best_point, all_the_points):
                 file1.write(str(FeatureCollection([all_the_points])))
         print(f"Wrote file {geofile}")
 
-def write_czml(best_point, all_the_points, weighted_point):
-    print(best_point)
+def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
     point_properties = {
         "pixelSize":5.0,
         "heightReference":"RELATIVE_TO_GROUND",
@@ -240,11 +254,25 @@ def write_czml(best_point, all_the_points, weighted_point):
         "verticalOrigin": "BOTTOM",
         "scale": 0.75
         }
+
+    ellipse_properties = {
+        # "semiMajorAxis": ,
+        # "semiMinorAxis": ,
+        # "rotation": ,
+        "heightReference": "RELATIVE_TO_GROUND",
+        "outline": "true",
+        "outlineColor": {"rgba": [255, 0, 0, 255]},
+        "color": {
+            "rgba": [255, 0, 0, 128],
+            }
+        }
+
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
     weighted_point_packets = []
     receiver_point_packets = []
+    ellipse_packets = []
 
     if all_the_points != None:
         for x in all_the_points:
@@ -264,6 +292,18 @@ def write_czml(best_point, all_the_points, weighted_point):
                 point=weighted_properties,
                 position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
 
+        if ellipsedata != None:
+            for x in ellipsedata:
+                rotation = 360 - x[1]
+                if rotation < 0:
+                    rotation += 360
+                elif rotation > 359:
+                    rotation -= 360
+                ellipse_info = {"semiMajorAxis": x[0], "semiMinorAxis": x[0]/2, "rotation": math.radians(rotation + 45)}
+                ellipse_packets.append(Packet(id=str(x[2]) + ", " + str(x[3]),
+                ellipse={**ellipse_properties, **ellipse_info},
+                position={"cartographicDegrees": [ x[3], x[2], 15 ]}))
+
     for x in receivers:
         receiver_point_packets.append(Packet(id=x.station_id,
         billboard=rx_properties,
@@ -271,7 +311,8 @@ def write_czml(best_point, all_the_points, weighted_point):
 
     with open("static/output.czml", "w") as file1:
         if best_point and weighted_point != None:
-            file1.write(str(Document([top] + best_point_packets + weighted_point_packets + all_point_packets + receiver_point_packets)))
+            file1.write(str(Document([top] + best_point_packets + weighted_point_packets +
+                all_point_packets + receiver_point_packets + ellipse_packets)))
         elif best_point != None:
             file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets)))
         elif all_the_points != None:
