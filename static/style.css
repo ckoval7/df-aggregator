@@ -126,8 +126,19 @@ span {
 }
 
 .slidespan {
-  width: 80%; /* Width of the outside container */
-  padding: 10px;
+  width: 70%; /* Width of the outside container */
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.slidetitle {
+  width: 15%;
+  text-align: right;
+}
+
+.slidevalue {
+  width: 10%;
+  text-align: left;
 }
 /* The slider itself */
 .slider {

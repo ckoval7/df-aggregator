@@ -28,22 +28,53 @@
  </div>
  <div class="slidecontainer">
   <form action="/" method="post">
-    <span><h4>epsilon:</h4></span>
+    <span class="slidetitle"><h4>Min Power*:</h4></span>
+    <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span>
+    <span class="slidevalue" id="power"></span>
+    <span class="slidetitle"><h4>Min Confidence*:</h4></span>
+    <span class="slidespan"><input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange"></span>
+    <span class="slidevalue" id="confidence"></span>
+    <span class="slidetitle"><h4>epsilon:</h4></span>
     <span class="slidespan"><input name="epsilonValue" type="range" min="0" max="100" value="{{epsilon}}" class="slider" id="epsilonRange"></span>
-  	<span><p><input value="Update" type="submit" style="height:40px;"/></p></span>
+    <span class="slidevalue" id="epsilon"></span>
+    <span class="slidetitle"><h4>Min Points per Cluster:</h4></span>
+    <span class="slidespan"><input name="minpointValue" type="range" min="0" max="200" value="{{minpoints}}" class="slider" id="minpointRange"></span>
+    <span class="slidevalue" id="minpoints"></span>
+    <div style="width:15%; text-align:right;"><input value="Update" type="submit" style="height:40px;"/></div>
   </form>
-  <p>Value: <span id="epsilon"></span></p>
+
+<p>* Does not affect historical data.</p>
 </div>
 <script>
-var slider = document.getElementById("epsilonRange");
-var output = document.getElementById("epsilon");
-output.innerHTML = slider.value/100; // Display the default slider value
+var powerslider = document.getElementById("powerRange");
+var poweroutput = document.getElementById("power");
+poweroutput.innerHTML = powerslider.value;
+
+var confslider = document.getElementById("confRange");
+var confoutput = document.getElementById("confidence");
+confoutput.innerHTML = confslider.value;
+
+var epsslider = document.getElementById("epsilonRange");
+var epsoutput = document.getElementById("epsilon");
+epsoutput.innerHTML = epsslider.value/100;
+
+var minpointslider = document.getElementById("minpointRange");
+var minpointoutput = document.getElementById("minpoints");
+minpointoutput.innerHTML = minpointslider.value;
 
 // Update the current slider value (each time you drag the slider handle)
-slider.oninput = function() {
-  output.innerHTML = this.value/100;
+epsslider.oninput = function() {
+  epsoutput.innerHTML = this.value/100;
+}
+powerslider.oninput = function() {
+  poweroutput.innerHTML = this.value;
+}
+confslider.oninput = function() {
+  confoutput.innerHTML = this.value;
+}
+minpointslider.oninput = function() {
+  minpointoutput.innerHTML = this.value;
 }
 </script>
- <h4>Buttons here in the future!</h4>
 </body>
 </html>
