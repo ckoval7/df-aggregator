@@ -56,4 +56,4 @@
 -  --debug
     - Does not clear the screen. Useful for seeing errors and warnings.
 
-  ![Screenshot](https://lh3.googleusercontent.com/pw/ACtC-3cWY5AnjUy0xCjxchQALfPR1TSrLotyCsFNOW5KJF9k4tjv3HRTfrk6KdtYhktbgaNbr0Y6mauIQMyDqEPSFYSOKuR0o2ThnVuS1lxtqmGVuS0RABjSYBHh8dfOddLIq4_AbCAI60Fp013WdoxXn25-MA=w1560-h837-no?authuser=0)
+  ![Screenshot](https://i.ibb.co/HPZcD0K/Screenshot-from-2020-11-07-23-30-16.png)
