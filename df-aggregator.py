@@ -28,6 +28,7 @@ class math_settings:
         self.min_samp = min_samp
         self.min_conf = conf
         self.min_power = power
+    receiving = True
 
 class receiver:
     def __init__(self, station_url):
@@ -36,7 +37,7 @@ class receiver:
             self.update()
         except:
             print("Problem connecting to receiver.")
-            quit()
+            raise IOError
 
     def update(self):
         try:
@@ -66,6 +67,7 @@ class receiver:
             self.confidence = int(xml_conf.text)
         except:
             print("Problem connecting to receiver.")
+            raise IOError
 
     latitude = 0.0
     longitude = 0.0
@@ -307,7 +309,8 @@ def cesium():
     'epsilon':ms.eps*100,
     'minpower':ms.min_power,
     'minconf':ms.min_conf,
-    'minpoints':ms.min_samp})
+    'minpoints':ms.min_samp,
+    'rx_state':"checked" if ms.receiving == True else ""})
 
 @post('/')
 @post('/index')
@@ -317,11 +320,71 @@ def update_cesium():
     ms.min_conf = float(request.forms.get('confValue'))
     ms.min_power = float(request.forms.get('powerValue'))
     ms.min_samp = float(request.forms.get('minpointValue'))
+    ms.receiving = True if request.forms.get('rx_en') == "on" else False
 
     return redirect('cesium')
 
 def start_server(ipaddr = "127.0.0.1", port=8080):
     run(host=ipaddr, port=port, quiet=True, debug=True)
+
+def run_receiver(receivers):
+    clear(debugging)
+    dots = 0
+
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL, longitude REAL, num_parents INTEGER)")
+
+    while ms.receiving:
+        if not debugging:
+            print("Receiving" + dots*'.')
+            print("Press Control+C to process data and exit.")
+
+        intersect_list = np.array([]).reshape(0,3)
+        for x in range(len(receivers)):
+            for y in range(x):
+                if x != y:
+                    try:
+                        if (receivers[x].confidence > ms.min_conf and
+                        receivers[y].confidence > ms.min_conf and
+                        receivers[x].power > ms.min_power and
+                        receivers[y].power > ms.min_power and
+                        abs(receivers[x].doa_time - receivers[y].doa_time) < max_age and
+                        receivers[x].frequency == receivers[y].frequency):
+                            intersection = list(plot_intersects(receivers[x].latitude, receivers[x].longitude,
+                            receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa))
+                            print(intersection)
+                            avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
+                            intersection.append(avg_conf)
+                            intersection = np.array([intersection])
+                            # print(f"Intersect: {intersection}")
+                            if intersection.any() != None:
+                                intersect_list = np.concatenate((intersect_list, intersection), axis=0)
+                                #print(intersect_list)
+                    except TypeError: # I can't figure out what's causing me to need this here
+                        pass
+
+        if intersect_list.size != 0:
+            avg_coord = np.average(intersect_list[:,0:2], weights=intersect_list[:,-1], axis = 0)
+            to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list)]
+            # print(to_table)
+            c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
+            conn.commit()
+
+        for rx in receivers:
+            try:
+                rx.update()
+            except IOError:
+                ms.receiving = False
+
+        time.sleep(1)
+        if dots > 5:
+            dots = 1
+        else:
+            dots += 1
+        clear(debugging)
+
+    conn.close()
 
 if __name__ == '__main__':
     # ipaddr = "127.0.0.1"
@@ -338,6 +401,8 @@ if __name__ == '__main__':
     metavar="NUMBER", type="int", default=10)
     parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default 20",
     metavar="NUMBER", type="int", default=20)
+    parser.add_option("-o", "--offline", dest="disable", help="Starts program with receiver turned off.",
+    action="store_false", default=True)
     parser.add_option("--ip", dest="ipaddr", help="IP Address to serve from. Default 127.0.0.1",
     metavar="IP ADDRESS", type="str", default="127.0.0.1")
     parser.add_option("--port", dest="port", help="Port number to serve from. Default 8080",
@@ -359,6 +424,7 @@ if __name__ == '__main__':
     rx_file = options.rx_file
     database_name = options.database_name
     debugging = False if not options.debugging else True
+    ms.receiving = options.disable
 
     max_age = 5
 
@@ -367,74 +433,29 @@ if __name__ == '__main__':
     web.start()
 
     try:
-        clear(debugging)
-        dots = 0
-        conn = sqlite3.connect(database_name)
-        c = conn.cursor()
-        c.execute("CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL, longitude REAL, num_parents INTEGER)")
 
         receivers = []
         with open(rx_file, "r") as file2:
             receiver_list = file2.readlines()
             for x in receiver_list:
-                receivers.append(receiver(x.replace('\n', '')))
+                try:
+                    receivers.append(receiver(x.replace('\n', '')))
+                except IOError:
+                    ms.receiving = False
+        # average_intersects = np.array([]).reshape(0,2)
 
-        avg_list = []
-        average_intersects = np.array([]).reshape(0,2)
-
-        receiving = True
-
-        while receiving:
-
-            if not debugging:
-                print("Receiving" + dots*'.')
-                print("Press Control+C to process data and exit.")
-
-            intersect_list = np.array([]).reshape(0,3)
-            for x in range(len(receivers)):
-                for y in range(x):
-                    if x != y:
-                        try:
-                            if (receivers[x].confidence > ms.min_conf and
-                            receivers[y].confidence > ms.min_conf and
-                            receivers[x].power > ms.min_power and
-                            receivers[y].power > ms.min_power and
-                            abs(receivers[x].doa_time - receivers[y].doa_time) < max_age and
-                            receivers[x].frequency == receivers[y].frequency):
-                                intersection = list(plot_intersects(receivers[x].latitude, receivers[x].longitude,
-                                receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa))
-                                print(intersection)
-                                avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
-                                intersection.append(avg_conf)
-                                intersection = np.array([intersection])
-                                # print(f"Intersect: {intersection}")
-                                if intersection.any() != None:
-                                    intersect_list = np.concatenate((intersect_list, intersection), axis=0)
-                                    #print(intersect_list)
-                        except TypeError: # I can't figure out what's causing me to need this here
-                            pass
-
-            if intersect_list.size != 0:
-                avg_coord = np.average(intersect_list[:,0:2], weights=intersect_list[:,-1], axis = 0)
-                to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list)]
-                # print(to_table)
-                c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
-                conn.commit()
-
-            for rx in receivers:
-                rx.update()
-            time.sleep(1)
-            if dots > 5:
-                dots = 1
-            else:
-                dots += 1
+        while True:
+            if ms.receiving:
+                run_receiver(receivers)
             clear(debugging)
+            if not debugging:
+                print("Receiver Paused")
+            time.sleep(1)
 
     except KeyboardInterrupt:
         clear(debugging)
         print("Processing, please wait.")
-        conn.commit()
-        conn.close()
+        ms.receiving = False
         if geofile != None:
             write_geojson(*process_data(database_name, geofile)[:2])
         kill(getpid(), signal.SIGTERM)

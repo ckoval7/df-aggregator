@@ -40,6 +40,13 @@
     <span class="slidetitle"><h4>Min Points per Cluster:</h4></span>
     <span class="slidespan"><input name="minpointValue" type="range" min="0" max="200" value="{{minpoints}}" class="slider" id="minpointRange"></span>
     <span class="slidevalue" id="minpoints"></span>
+    <span class="slidetitle"><h4>Receiver Enable:</h4></span>
+    <span class="slidespan" style="text-align:left;">
+    <!-- Rounded switch -->
+    <label class="switch">
+      <input name="rx_en" {{rx_state}} type="checkbox">
+      <span class="switchslider round"></span>
+    </label></span>
     <div style="width:15%; text-align:right;"><input value="Update" type="submit" style="height:40px;"/></div>
   </form>
 

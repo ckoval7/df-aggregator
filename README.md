@@ -46,6 +46,10 @@
 -  -m Number, --min-samples=Number
     - Minimum samples per cluster. Default 20
     - A higher value can yield more accurate results, but requires more data.
+    
+-  -o, --offline
+    - Starts program with receiver turned off.
+    - Useful for looking at stored data when you can't connect to receivers.
 
 -  --ip=IP ADDRESS
     - IP Address to serve from. Default 127.0.0.1
