@@ -10,7 +10,7 @@
 ## Other things you'll need:
 - [Cesium Ion Token](https://cesium.com/docs/tutorials/quick-start/)
     - Create a single line file named ```accesstoken.txt```
-- [Extended XML Kerberos Software](https://github.com/ckoval7/kerberossdr)
+- [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
 
 ## Usage: df-aggregator.py [options]
 
