@@ -327,9 +327,9 @@ if __name__ == '__main__':
     # ipaddr = "127.0.0.1"
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)
+    parser.add_option("-r", "--receivers", dest="rx_file", help="REQUIRED List of receiver URLs", metavar="FILE")
+    parser.add_option("-d", "--database", dest="database_name", help="REQUIRED Database File", metavar="FILE")
     parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
-    parser.add_option("-r", "--receivers", dest="rx_file", help="List of receiver URLs", metavar="FILE")
-    parser.add_option("-d", "--database", dest="database_name", help="Database File", metavar="FILE")
     parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default 0.2. 0 to disable clustering.",
     metavar="NUMBER", type="float", default=0.2)
     parser.add_option("-c", "--confidence", dest="conf", help="Minimum confidence value, default 10",
