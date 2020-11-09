@@ -184,13 +184,15 @@ def process_data(database_name, outfile):
                 likely_location.append(clustermean.tolist())
                 cov = np.cov(cluster[:,0], cluster[:,1])
                 pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
-                ell_radius_x = np.sqrt(1 + pearson)
-                ell_radius_y = np.sqrt(1 - pearson)
-                scale_x = np.sqrt(cov[0, 0]) * n_std
-                scale_y = np.sqrt(cov[1, 1]) * n_std
-                u = [[ell_radius_x * scale_x, ell_radius_y * scale_y], clustermean.tolist()]
+                ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(cov[0, 0]) * n_std
+                ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(cov[1, 1]) * n_std
+                axis_x = v.inverse(clustermean.tolist(), (ell_radius_x + clustermean[0], clustermean[1]))[0]
+                axis_y = v.inverse(clustermean.tolist(), (clustermean[0], ell_radius_y + clustermean[1]))[0]
+
+                u = [[ell_radius_x, ell_radius_y], clustermean.tolist()]
                 w = np.sum(u, axis = 0)
-                ellipsedata.append([*v.inverse(clustermean.tolist(), w), *clustermean.tolist()])
+                ellipsedata.append([axis_x, axis_y, v.inverse(clustermean.tolist(), w)[1], *clustermean.tolist()])
+                print(ellipsedata)
 
 
             for x in likely_location:
@@ -251,19 +253,23 @@ def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
             {
                 "uri": "/static/dish.png"
             },
+        # "rotation": "Cesium.Math.PI_OVER_FOUR",
         "verticalOrigin": "BOTTOM",
-        "scale": 0.75
+        "scale": 0.75,
+        "heightReference":"RELATIVE_TO_GROUND",
+        "height": 48,
+        "width": 48
         }
 
     ellipse_properties = {
-        # "semiMajorAxis": ,
-        # "semiMinorAxis": ,
-        # "rotation": ,
         "heightReference": "RELATIVE_TO_GROUND",
-        "outline": "true",
-        "outlineColor": {"rgba": [255, 0, 0, 255]},
-        "color": {
-            "rgba": [255, 0, 0, 128],
+        "granularity": 0.008722222,
+        "material": {
+            "solidColor": {
+                "color": {
+                    "rgba": [255, 0, 0, 90]
+                    }
+                }
             }
         }
 
@@ -294,15 +300,24 @@ def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
 
         if ellipsedata != None:
             for x in ellipsedata:
-                rotation = 360 - x[1]
+                if x[0] >= x[1]:
+                    semiMajorAxis = x[0]
+                    semiMinorAxis = x[1]
+                    rotation = 360 - x[2]
+                else:
+                    semiMajorAxis = x[1]
+                    semiMinorAxis = x[0]
+                    rotation = 360 - x[2]
+                    rotation += 90
                 if rotation < 0:
                     rotation += 360
                 elif rotation > 359:
                     rotation -= 360
-                ellipse_info = {"semiMajorAxis": x[0], "semiMinorAxis": x[0]/2, "rotation": math.radians(rotation + 45)}
-                ellipse_packets.append(Packet(id=str(x[2]) + ", " + str(x[3]),
+
+                ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": math.radians(rotation-45)}
+                ellipse_packets.append(Packet(id=str(x[3]) + ", " + str(x[4]),
                 ellipse={**ellipse_properties, **ellipse_info},
-                position={"cartographicDegrees": [ x[3], x[2], 15 ]}))
+                position={"cartographicDegrees": [ x[4], x[3], 15 ]}))
 
     for x in receivers:
         receiver_point_packets.append(Packet(id=x.station_id,

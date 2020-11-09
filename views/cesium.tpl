@@ -22,7 +22,7 @@
     viewer.zoomTo(dataSourcePromise);
 
     // Add Cesium OSM Buildings, a global 3D buildings layer.
-    const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+    // const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
 
   </script>
  </div>
