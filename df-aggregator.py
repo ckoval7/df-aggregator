@@ -146,7 +146,8 @@ def process_data(database_name, outfile):
     c.execute("SELECT COUNT(*) FROM intersects")
     n_intersects = int(c.fetchone()[0])
     #print(n_intersects)
-    c.execute("SELECT latitude, longitude, num_parents FROM intersects")
+    # c.execute("SELECT latitude, longitude, num_parents FROM intersects")
+    c.execute("SELECT longitude, latitude, num_parents FROM intersects")
     intersect_array = np.array(c.fetchall())
     # print(intersect_array)
     likely_location = []
@@ -179,37 +180,45 @@ def process_data(database_name, outfile):
                 for y in range(len(intersect_array)):
                     if intersect_array[y][-1] == x:
                         cluster = np.concatenate((cluster, [intersect_array[y][0:-1]]), axis = 0)
-                weighted_location.append(np.average(cluster[:,0:2], weights=cluster[:,2], axis=0).tolist())
+                # weighted_location.append(np.average(cluster[:,0:2], weights=cluster[:,2], axis=0).tolist())
                 clustermean = np.mean(cluster[:,0:2], axis=0)
                 likely_location.append(clustermean.tolist())
                 cov = np.cov(cluster[:,0], cluster[:,1])
-                pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
-                ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(cov[0, 0]) * n_std
-                ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(cov[1, 1]) * n_std
-                axis_x = v.inverse(clustermean.tolist(), (ell_radius_x + clustermean[0], clustermean[1]))[0]
-                axis_y = v.inverse(clustermean.tolist(), (clustermean[0], ell_radius_y + clustermean[1]))[0]
+                a = cov[0,0]
+                b = cov[0,1]
+                c = cov[1,1]
+                lam1 = a+c/2 + np.sqrt((a-c/2)**2 + b**2)
+                lam2 = a+c/2 - np.sqrt((a-c/2)**2 + b**2)
+                pearson = b/np.sqrt(a * c)
+                ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(a) * n_std
+                ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
+                axis_x = v.inverse(Reverse(clustermean.tolist()), (ell_radius_x + clustermean[1], clustermean[0]))[0]
+                axis_y = v.inverse(Reverse(clustermean.tolist()), (clustermean[1], ell_radius_y + clustermean[0]))[0]
 
-                u = [[ell_radius_x, ell_radius_y], clustermean.tolist()]
-                w = np.sum(u, axis = 0)
-                ellipsedata.append([axis_x, axis_y, v.inverse(clustermean.tolist(), w)[1], *clustermean.tolist()])
-                print(ellipsedata)
+                if b == 0 and a >= c:
+                    rotation = 0
+                elif b == 0 and a < c:
+                    rotation = np.pi/2
+                else:
+                    rotation = math.atan2(lam1 - a, b)
 
+                ellipsedata.append([axis_x, axis_y, rotation, *clustermean.tolist()])
 
             for x in likely_location:
-                print(x)
+                print(Reverse(x))
         else:
             likely_location = None
 
         for x in intersect_array:
             try:
                 if x[-1] >= 0:
-                    intersect_list.append(Reverse(x[0:2].tolist()))
+                    intersect_list.append(x[0:2].tolist())
             except IndexError:
-                intersect_list.append(Reverse(x.tolist()))
+                intersect_list.append(x.tolist())
         #print(intersect_list)
         #all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(intersect_list)))
 
-        return likely_location, intersect_list, weighted_location, ellipsedata
+        return likely_location, intersect_list, ellipsedata
 
     else:
         print("No Intersections.")
@@ -226,7 +235,7 @@ def write_geojson(best_point, all_the_points):
                 file1.write(str(FeatureCollection([all_the_points])))
         print(f"Wrote file {geofile}")
 
-def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
+def write_czml(best_point, all_the_points, ellipsedata):
     point_properties = {
         "pixelSize":5.0,
         "heightReference":"RELATIVE_TO_GROUND",
@@ -241,13 +250,13 @@ def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
             "rgba": [0, 255, 0, 255],
       }
     }
-    weighted_properties = {
-        "pixelSize":20.0,
-        "heightReference":"RELATIVE_TO_GROUND",
-        "color": {
-            "rgba": [0, 0, 255, 255],
-      }
-    }
+    # weighted_properties = {
+    #     "pixelSize":20.0,
+    #     "heightReference":"RELATIVE_TO_GROUND",
+    #     "color": {
+    #         "rgba": [0, 0, 255, 255],
+    #   }
+    # }
     rx_properties = {
         "image":
             {
@@ -276,7 +285,7 @@ def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
-    weighted_point_packets = []
+    # weighted_point_packets = []
     receiver_point_packets = []
     ellipse_packets = []
 
@@ -292,32 +301,28 @@ def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
                 point=best_point_properties,
                 position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
 
-        if weighted_point != None:
-            for x in weighted_point:
-                weighted_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
-                point=weighted_properties,
-                position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
+        # if weighted_point != None:
+        #     for x in weighted_point:
+        #         weighted_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
+        #         point=weighted_properties,
+        #         position={"cartographicDegrees": [ x[0], x[1], 15 ]}))
 
         if ellipsedata != None:
             for x in ellipsedata:
+                rotation = 2 * np.pi - x[2]
                 if x[0] >= x[1]:
                     semiMajorAxis = x[0]
                     semiMinorAxis = x[1]
-                    rotation = 360 - x[2]
+                    rotation += np.pi/2
                 else:
                     semiMajorAxis = x[1]
                     semiMinorAxis = x[0]
-                    rotation = 360 - x[2]
-                    rotation += 90
-                if rotation < 0:
-                    rotation += 360
-                elif rotation > 359:
-                    rotation -= 360
+                    # rotation += np.pi/2
 
-                ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": math.radians(rotation-45)}
-                ellipse_packets.append(Packet(id=str(x[3]) + ", " + str(x[4]),
+                ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
+                ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
                 ellipse={**ellipse_properties, **ellipse_info},
-                position={"cartographicDegrees": [ x[4], x[3], 15 ]}))
+                position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
 
     for x in receivers:
         receiver_point_packets.append(Packet(id=x.station_id,
@@ -325,9 +330,8 @@ def write_czml(best_point, all_the_points, weighted_point, ellipsedata):
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
     with open("static/output.czml", "w") as file1:
-        if best_point and weighted_point != None:
-            file1.write(str(Document([top] + best_point_packets + weighted_point_packets +
-                all_point_packets + receiver_point_packets + ellipse_packets)))
+        if best_point and ellipsedata != None:
+            file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets + ellipse_packets)))
         elif best_point != None:
             file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets)))
         elif all_the_points != None:
@@ -443,7 +447,6 @@ def run_receiver(receivers):
     conn.close()
 
 if __name__ == '__main__':
-    # ipaddr = "127.0.0.1"
     usage = "usage: %prog -r FILE -d FILE [options]"
     parser = OptionParser(usage=usage)
     parser.add_option("-r", "--receivers", dest="rx_file", help="REQUIRED List of receiver URLs", metavar="FILE")
@@ -498,7 +501,6 @@ if __name__ == '__main__':
                     receivers.append(receiver(x.replace('\n', '')))
                 except IOError:
                     ms.receiving = False
-        # average_intersects = np.array([]).reshape(0,2)
 
         while True:
             if ms.receiving:

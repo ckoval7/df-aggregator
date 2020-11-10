@@ -1,10 +1,12 @@
 # DF Aggregator
 
 ## Dependencies:
+- Python >= 3.6
 - [numpy](https://numpy.org/install/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
-- [czml3](https://pypi.org/project/czml3/)
+- [czml3](https://github.com/poliastro/czml3)
+    - As of this writing, the version from pip does not support ellipses. Please use the version from GitHub.
 - [geojson](https://pypi.org/project/geojson/)
 
 ## Other things you'll need:
@@ -46,7 +48,7 @@
 -  -m Number, --min-samples=Number
     - Minimum samples per cluster. Default 20
     - A higher value can yield more accurate results, but requires more data.
-    
+
 -  -o, --offline
     - Starts program with receiver turned off.
     - Useful for looking at stored data when you can't connect to receivers.
@@ -59,7 +61,7 @@
 
 -  --debug
     - Does not clear the screen. Useful for seeing errors and warnings.
-    
+
 Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number you specified.
 
   ![Screenshot](https://i.ibb.co/HPZcD0K/Screenshot-from-2020-11-07-23-30-16.png)
