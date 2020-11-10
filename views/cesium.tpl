@@ -29,7 +29,7 @@
  <div class="slidecontainer">
   <form action="/" method="post">
     <div><span class="slidetitle"><h4>Min Power*:</h4></span>
-    <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span><
+    <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span>
     <span class="slidevalue" id="power"></span></div>
     <div><span class="slidetitle"><h4>Min Confidence*:</h4></span>
     <span class="slidespan"><input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange"></span>
