@@ -14,6 +14,8 @@
     - Create a single line file named ```accesstoken.txt```
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
 
+  ![Screenshot](https://i.ibb.co/Ch1sFZH/Screenshot-from-2020-11-09-20-21-03.png)
+
 ## Usage: df-aggregator.py [options]
 
 ### Required inputs:
@@ -68,5 +70,3 @@
     - Does not clear the screen. Useful for seeing errors and warnings.
 
 Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number you specified.
-
-  ![Screenshot](https://i.ibb.co/Ch1sFZH/Screenshot-from-2020-11-09-20-21-03.png)
