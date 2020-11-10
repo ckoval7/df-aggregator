@@ -28,29 +28,37 @@
  </div>
  <div class="slidecontainer">
   <form action="/" method="post">
-    <span class="slidetitle"><h4>Min Power*:</h4></span>
-    <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span>
-    <span class="slidevalue" id="power"></span>
-    <span class="slidetitle"><h4>Min Confidence*:</h4></span>
+    <div><span class="slidetitle"><h4>Min Power*:</h4></span>
+    <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span><
+    <span class="slidevalue" id="power"></span></div>
+    <div><span class="slidetitle"><h4>Min Confidence*:</h4></span>
     <span class="slidespan"><input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange"></span>
-    <span class="slidevalue" id="confidence"></span>
-    <span class="slidetitle"><h4>epsilon:</h4></span>
+    <span class="slidevalue" id="confidence"></span></div>
+    <div><span class="slidetitle"><h4>epsilon:</h4></span>
     <span class="slidespan"><input name="epsilonValue" type="range" min="0" max="100" value="{{epsilon}}" class="slider" id="epsilonRange"></span>
-    <span class="slidevalue" id="epsilon"></span>
-    <span class="slidetitle"><h4>Min Points per Cluster:</h4></span>
+    <span class="slidevalue" id="epsilon"></span></div>
+    <div><span class="slidetitle"><h4>Min Points per Cluster:</h4></span>
     <span class="slidespan"><input name="minpointValue" type="range" min="0" max="200" value="{{minpoints}}" class="slider" id="minpointRange"></span>
-    <span class="slidevalue" id="minpoints"></span>
-    <span class="slidetitle"><h4>Receiver Enable:</h4></span>
-    <span class="slidespan" style="text-align:left;">
+    <span class="slidevalue" id="minpoints"></span></div>
+    <div><span class="slidetitle"><h4>Receiver Enable:</h4></span>
+    <span class="slidespan" style="text-align:left; width: 80px;">
     <!-- Rounded switch -->
     <label class="switch">
       <input name="rx_en" {{rx_state}} type="checkbox">
       <span class="switchslider round"></span>
     </label></span>
+    <span class="slidetitle"><h4>Plot All intersect Points**:</h4></span>
+    <span class="slidespan" style="text-align:left; width: 80px;">
+    <!-- Rounded switch -->
+    <label class="switch">
+      <input name="intersect_en" {{intersect_state}} type="checkbox">
+      <span class="switchslider round"></span>
+    </label></span><span>Enabling this can cause longer load times.</span></div>
     <div style="width:15%; text-align:right;"><input value="Update" type="submit" style="height:40px;"/></div>
   </form>
 
 <p>* Does not affect historical data.</p>
+<p>** This setting does not apply if clustering is turned off (epsilon = 0).</p>
 </div>
 <script>
 var powerslider = document.getElementById("powerRange");

@@ -49,6 +49,11 @@
     - Minimum samples per cluster. Default 20
     - A higher value can yield more accurate results, but requires more data.
 
+-  --plot_intersects     
+    - Plots all the intersect points in a cluster.
+    - Only applies when clustering is turned on.
+    - This creates larger CZML files.
+
 -  -o, --offline
     - Starts program with receiver turned off.
     - Useful for looking at stored data when you can't connect to receivers.
@@ -64,4 +69,4 @@
 
 Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number you specified.
 
-  ![Screenshot](https://i.ibb.co/HPZcD0K/Screenshot-from-2020-11-07-23-30-16.png)
+  ![Screenshot](https://i.ibb.co/Ch1sFZH/Screenshot-from-2020-11-09-20-21-03.png)

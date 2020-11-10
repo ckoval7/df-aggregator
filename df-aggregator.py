@@ -29,6 +29,7 @@ class math_settings:
         self.min_conf = conf
         self.min_power = power
     receiving = True
+    plotintersects = False
 
 class receiver:
     def __init__(self, station_url):
@@ -36,7 +37,6 @@ class receiver:
         try:
             self.update()
         except:
-            print("Problem connecting to receiver.")
             raise IOError
 
     def update(self):
@@ -65,8 +65,9 @@ class receiver:
             self.power = float(xml_power.text)
             xml_conf = xml_contents.find('CONF')
             self.confidence = int(xml_conf.text)
+        except KeyboardInterrupt:
+            finish()
         except:
-            print("Problem connecting to receiver.")
             raise IOError
 
     latitude = 0.0
@@ -145,11 +146,8 @@ def process_data(database_name, outfile):
 
     c.execute("SELECT COUNT(*) FROM intersects")
     n_intersects = int(c.fetchone()[0])
-    #print(n_intersects)
-    # c.execute("SELECT latitude, longitude, num_parents FROM intersects")
     c.execute("SELECT longitude, latitude, num_parents FROM intersects")
     intersect_array = np.array(c.fetchall())
-    # print(intersect_array)
     likely_location = []
     weighted_location = []
     ellipsedata = []
@@ -215,8 +213,6 @@ def process_data(database_name, outfile):
                     intersect_list.append(x[0:2].tolist())
             except IndexError:
                 intersect_list.append(x.tolist())
-        #print(intersect_list)
-        #all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(intersect_list)))
 
         return likely_location, intersect_list, ellipsedata
 
@@ -229,7 +225,10 @@ def write_geojson(best_point, all_the_points):
         all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(all_the_points)))
         with open(geofile, "w") as file1:
             if best_point != None:
-                best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(best_point)))
+                reversed_best_point = []
+                for x in best_point:
+                    reversed_best_point.append(Reverse(x))
+                best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(reversed_best_point)))
                 file1.write(str(FeatureCollection([best_point, all_the_points])))
             else:
                 file1.write(str(FeatureCollection([all_the_points])))
@@ -289,40 +288,40 @@ def write_czml(best_point, all_the_points, ellipsedata):
     receiver_point_packets = []
     ellipse_packets = []
 
-    if all_the_points != None:
+    if all_the_points != None and (ms.plotintersects or ms.eps == 0):
         for x in all_the_points:
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
             point=point_properties,
             position={"cartographicDegrees": [ x[0], x[1], 10 ]}))
 
-        if best_point != None:
-            for x in best_point:
-                best_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
-                point=best_point_properties,
-                position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
+    if best_point != None:
+        for x in best_point:
+            best_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
+            point=best_point_properties,
+            position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
 
-        # if weighted_point != None:
-        #     for x in weighted_point:
-        #         weighted_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
-        #         point=weighted_properties,
-        #         position={"cartographicDegrees": [ x[0], x[1], 15 ]}))
+    # if weighted_point != None:
+    #     for x in weighted_point:
+    #         weighted_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
+    #         point=weighted_properties,
+    #         position={"cartographicDegrees": [ x[0], x[1], 15 ]}))
 
-        if ellipsedata != None:
-            for x in ellipsedata:
-                rotation = 2 * np.pi - x[2]
-                if x[0] >= x[1]:
-                    semiMajorAxis = x[0]
-                    semiMinorAxis = x[1]
-                    rotation += np.pi/2
-                else:
-                    semiMajorAxis = x[1]
-                    semiMinorAxis = x[0]
-                    # rotation += np.pi/2
+    if ellipsedata != None:
+        for x in ellipsedata:
+            rotation = 2 * np.pi - x[2]
+            if x[0] >= x[1]:
+                semiMajorAxis = x[0]
+                semiMinorAxis = x[1]
+                rotation += np.pi/2
+            else:
+                semiMajorAxis = x[1]
+                semiMinorAxis = x[0]
+                # rotation += np.pi/2
 
-                ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
-                ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
-                ellipse={**ellipse_properties, **ellipse_info},
-                position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
+            ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
+            ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
+            ellipse={**ellipse_properties, **ellipse_info},
+            position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
 
     for x in receivers:
         receiver_point_packets.append(Packet(id=x.station_id,
@@ -330,14 +329,22 @@ def write_czml(best_point, all_the_points, ellipsedata):
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
     with open("static/output.czml", "w") as file1:
-        if best_point and ellipsedata != None:
-            file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets + ellipse_packets)))
-        elif best_point != None:
-            file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets)))
-        elif all_the_points != None:
-            file1.write(str(Document([top] + all_point_packets + receiver_point_packets)))
-        else:
-            file1.write(str(Document([top] + receiver_point_packets)))
+        # if best_point and ellipsedata != None:
+        file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets + ellipse_packets)))
+        # elif best_point != None:
+        #     file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets)))
+        # elif all_the_points != None:
+        #     file1.write(str(Document([top] + all_point_packets + receiver_point_packets)))
+        # else:
+        #     file1.write(str(Document([top] + receiver_point_packets)))
+
+def finish():
+    clear(debugging)
+    print("Processing, please wait.")
+    ms.receiving = False
+    if geofile != None:
+        write_geojson(*process_data(database_name, geofile)[:2])
+    kill(getpid(), signal.SIGTERM)
 
 def Reverse(lst):
     lst.reverse()
@@ -370,7 +377,8 @@ def cesium():
     'minpower':ms.min_power,
     'minconf':ms.min_conf,
     'minpoints':ms.min_samp,
-    'rx_state':"checked" if ms.receiving == True else ""})
+    'rx_state':"checked" if ms.receiving == True else "",
+    'intersect_state':"checked" if ms.plotintersects == True else ""})
 
 @post('/')
 @post('/index')
@@ -381,6 +389,7 @@ def update_cesium():
     ms.min_power = float(request.forms.get('powerValue'))
     ms.min_samp = float(request.forms.get('minpointValue'))
     ms.receiving = True if request.forms.get('rx_en') == "on" else False
+    ms.plotintersects = True if request.forms.get('intersect_en') == "on" else False
 
     return redirect('cesium')
 
@@ -417,17 +426,15 @@ def run_receiver(receivers):
                             avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
                             intersection.append(avg_conf)
                             intersection = np.array([intersection])
-                            # print(f"Intersect: {intersection}")
                             if intersection.any() != None:
                                 intersect_list = np.concatenate((intersect_list, intersection), axis=0)
-                                #print(intersect_list)
+
                     except TypeError: # I can't figure out what's causing me to need this here
                         pass
 
         if intersect_list.size != 0:
             avg_coord = np.average(intersect_list[:,0:2], weights=intersect_list[:,-1], axis = 0)
             to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list)]
-            # print(to_table)
             c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
             conn.commit()
 
@@ -435,6 +442,7 @@ def run_receiver(receivers):
             try:
                 rx.update()
             except IOError:
+                print("Problem connecting to receiver.")
                 ms.receiving = False
 
         time.sleep(1)
@@ -460,6 +468,8 @@ if __name__ == '__main__':
     metavar="NUMBER", type="int", default=10)
     parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default 20",
     metavar="NUMBER", type="int", default=20)
+    parser.add_option("--plot_intersects", dest="plotintersects", help="""Plots all the intersect points in a cluster.
+     Only applies when clustering is turned on. This creates larger CZML files.""",action="store_true")
     parser.add_option("-o", "--offline", dest="disable", help="Starts program with receiver turned off.",
     action="store_false", default=True)
     parser.add_option("--ip", dest="ipaddr", help="IP Address to serve from. Default 127.0.0.1",
@@ -484,6 +494,7 @@ if __name__ == '__main__':
     database_name = options.database_name
     debugging = False if not options.debugging else True
     ms.receiving = options.disable
+    ms.plotintersects = options.plotintersects
 
     max_age = 5
 
@@ -511,9 +522,4 @@ if __name__ == '__main__':
             time.sleep(1)
 
     except KeyboardInterrupt:
-        clear(debugging)
-        print("Processing, please wait.")
-        ms.receiving = False
-        if geofile != None:
-            write_geojson(*process_data(database_name, geofile)[:2])
-        kill(getpid(), signal.SIGTERM)
+        finish()
