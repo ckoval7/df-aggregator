@@ -19,9 +19,6 @@ from bottle import route, run, request, get, post, redirect, template, static_fi
 
 d = 40000 #meters
 
-all_pt_style = {"name": "Various Points", "marker-color": "#FF0000"}
-best_pt_style = {"name": "Most Likely TX Location", "marker-color": "#00FF00"}
-
 class math_settings:
     def __init__(self, eps, min_samp, conf, power):
         self.eps = eps
@@ -221,6 +218,8 @@ def process_data(database_name, outfile):
         return None
 
 def write_geojson(best_point, all_the_points):
+    all_pt_style = {"name": "Various Points", "marker-color": "#FF0000"}
+    best_pt_style = {"name": "Most Likely TX Location", "marker-color": "#00FF00"}
     if all_the_points != None:
         all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(all_the_points)))
         with open(geofile, "w") as file1:
@@ -270,7 +269,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
         }
 
     ellipse_properties = {
-        "heightReference": "RELATIVE_TO_GROUND",
         "granularity": 0.008722222,
         "material": {
             "solidColor": {

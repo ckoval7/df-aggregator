@@ -9,13 +9,17 @@
 </head>
 <body>
   <h2>DF Aggregator</h2>
-  <div id="cesiumContainer" style="height: 800px"></div>
+  <div id="cesiumContainer" style="height: 800px">
+
+  </div>
   <script>
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     var viewer = new Cesium.Viewer('cesiumContainer', {
       terrainProvider: Cesium.createWorldTerrain()
     });
+    viewer.clock.shouldAnimate = true;
+
 
     var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
     viewer.dataSources.add(dataSourcePromise);
@@ -25,9 +29,8 @@
     // const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
 
   </script>
- </div>
- <div class="slidecontainer">
-  <form action="/" method="post">
+  <div class="slidecontainer">
+    <form action="/" method="post">
     <div><span class="slidetitle"><h4>Min Power*:</h4></span>
     <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span>
     <span class="slidevalue" id="power"></span></div>
@@ -44,52 +47,52 @@
     <span class="slidespan" style="text-align:left; width: 80px;">
     <!-- Rounded switch -->
     <label class="switch">
-      <input name="rx_en" {{rx_state}} type="checkbox">
-      <span class="switchslider round"></span>
+    <input name="rx_en" {{rx_state}} type="checkbox">
+    <span class="switchslider round"></span>
     </label></span>
     <span class="slidetitle"><h4>Plot All intersect Points**:</h4></span>
     <span class="slidespan" style="text-align:left; width: 80px;">
     <!-- Rounded switch -->
     <label class="switch">
-      <input name="intersect_en" {{intersect_state}} type="checkbox">
-      <span class="switchslider round"></span>
+    <input name="intersect_en" {{intersect_state}} type="checkbox">
+    <span class="switchslider round"></span>
     </label></span><span>Enabling this can cause longer load times.</span></div>
     <div style="width:15%; text-align:right;"><input value="Update" type="submit" style="height:40px;"/></div>
-  </form>
+    </form>
 
-<p>* Does not affect historical data.</p>
-<p>** This setting does not apply if clustering is turned off (epsilon = 0).</p>
-</div>
-<script>
-var powerslider = document.getElementById("powerRange");
-var poweroutput = document.getElementById("power");
-poweroutput.innerHTML = powerslider.value;
+    <p>* Does not affect historical data.</p>
+    <p>** This setting does not apply if clustering is turned off (epsilon = 0).</p>
+  </div>
+  <script>
+    var powerslider = document.getElementById("powerRange");
+    var poweroutput = document.getElementById("power");
+    poweroutput.innerHTML = powerslider.value;
 
-var confslider = document.getElementById("confRange");
-var confoutput = document.getElementById("confidence");
-confoutput.innerHTML = confslider.value;
+    var confslider = document.getElementById("confRange");
+    var confoutput = document.getElementById("confidence");
+    confoutput.innerHTML = confslider.value;
 
-var epsslider = document.getElementById("epsilonRange");
-var epsoutput = document.getElementById("epsilon");
-epsoutput.innerHTML = epsslider.value/100;
+    var epsslider = document.getElementById("epsilonRange");
+    var epsoutput = document.getElementById("epsilon");
+    epsoutput.innerHTML = epsslider.value/100;
 
-var minpointslider = document.getElementById("minpointRange");
-var minpointoutput = document.getElementById("minpoints");
-minpointoutput.innerHTML = minpointslider.value;
+    var minpointslider = document.getElementById("minpointRange");
+    var minpointoutput = document.getElementById("minpoints");
+    minpointoutput.innerHTML = minpointslider.value;
 
-// Update the current slider value (each time you drag the slider handle)
-epsslider.oninput = function() {
-  epsoutput.innerHTML = this.value/100;
-}
-powerslider.oninput = function() {
-  poweroutput.innerHTML = this.value;
-}
-confslider.oninput = function() {
-  confoutput.innerHTML = this.value;
-}
-minpointslider.oninput = function() {
-  minpointoutput.innerHTML = this.value;
-}
-</script>
+    // Update the current slider value (each time you drag the slider handle)
+    epsslider.oninput = function() {
+      epsoutput.innerHTML = this.value/100;
+    }
+    powerslider.oninput = function() {
+      poweroutput.innerHTML = this.value;
+    }
+    confslider.oninput = function() {
+      confoutput.innerHTML = this.value;
+    }
+    minpointslider.oninput = function() {
+      minpointoutput.innerHTML = this.value;
+    }
+  </script>
 </body>
 </html>
