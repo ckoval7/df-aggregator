@@ -242,7 +242,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
       }
     }
     best_point_properties = {
-        "pixelSize":20.0,
+        "pixelSize":12.0,
         "heightReference":"RELATIVE_TO_GROUND",
         "color": {
             "rgba": [0, 255, 0, 255],
@@ -306,15 +306,16 @@ def write_czml(best_point, all_the_points, ellipsedata):
 
     if ellipsedata != None:
         for x in ellipsedata:
-            rotation = 2 * np.pi - x[2]
+            # rotation = 2 * np.pi - x[2]
             if x[0] >= x[1]:
                 semiMajorAxis = x[0]
                 semiMinorAxis = x[1]
+                rotation = 2 * np.pi - x[2]
                 rotation += np.pi/2
             else:
+                rotation = x[2]
                 semiMajorAxis = x[1]
                 semiMinorAxis = x[0]
-                # rotation += np.pi/2
 
             ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
             ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
