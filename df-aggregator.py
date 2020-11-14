@@ -248,13 +248,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
             "rgba": [0, 255, 0, 255],
       }
     }
-    # weighted_properties = {
-    #     "pixelSize":20.0,
-    #     "heightReference":"RELATIVE_TO_GROUND",
-    #     "color": {
-    #         "rgba": [0, 0, 255, 255],
-    #   }
-    # }
     rx_properties = {
         "image":
             {
@@ -282,7 +275,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
-    # weighted_point_packets = []
     receiver_point_packets = []
     ellipse_packets = []
 
@@ -298,25 +290,20 @@ def write_czml(best_point, all_the_points, ellipsedata):
             point=best_point_properties,
             position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
 
-    # if weighted_point != None:
-    #     for x in weighted_point:
-    #         weighted_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
-    #         point=weighted_properties,
-    #         position={"cartographicDegrees": [ x[0], x[1], 15 ]}))
-
     if ellipsedata != None:
         for x in ellipsedata:
             # rotation = 2 * np.pi - x[2]
             if x[0] >= x[1]:
                 semiMajorAxis = x[0]
                 semiMinorAxis = x[1]
-                # rotation = x[2]
                 rotation = 2 * np.pi - x[2]
                 rotation += np.pi/2
+                # print(f"{x[4], x[3]} is inveted")
             else:
                 rotation = x[2]
                 semiMajorAxis = x[1]
                 semiMinorAxis = x[0]
+                # print(f"{x[4], x[3]} is NOT inveted")
 
             ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
             ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
@@ -329,14 +316,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
     with open("static/output.czml", "w") as file1:
-        # if best_point and ellipsedata != None:
         file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets + ellipse_packets)))
-        # elif best_point != None:
-        #     file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets)))
-        # elif all_the_points != None:
-        #     file1.write(str(Document([top] + all_point_packets + receiver_point_packets)))
-        # else:
-        #     file1.write(str(Document([top] + receiver_point_packets)))
 
 def finish():
     clear(debugging)
@@ -385,18 +365,9 @@ def cesium():
 # @post('/cesium')
 @get('/update')
 def update_cesium():
-    # ms.eps = float(request.forms.get('epsilonValue'))/100
-    # ms.min_conf = float(request.forms.get('confValue'))
-    # ms.min_power = float(request.forms.get('powerValue'))
-    # ms.min_samp = float(request.forms.get('minpointValue'))
-    # ms.receiving = True if request.forms.get('rx_en') == "on" else False
-    # ms.plotintersects = True if request.forms.get('intersect_en') == "on" else False
     ms.eps = float(request.query.eps) if request.query.eps else ms.eps
-    # print(request.query.eps, ms.eps)
     ms.min_conf = float(request.query.minconf) if request.query.minconf else ms.min_conf
-    # print(request.query.minconf, ms.min_conf)
     ms.min_power = float(request.query.minpower) if request.query.minpower else ms.min_power
-    # print(request.query.minpower, ms.min_power)
     ms.min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
 
     if request.query.rx == "true":
@@ -410,7 +381,6 @@ def update_cesium():
 
     write_czml(*process_data(database_name, geofile))
     return "OK"
-    # return redirect('cesium')
 
 def start_server(ipaddr = "127.0.0.1", port=8080):
     run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)

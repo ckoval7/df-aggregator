@@ -19,6 +19,10 @@
       homeButton: false,
       timeline: false
     });
+    var clock = new Cesium.Clock({
+       clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
+    });
+
     viewer.clock.shouldAnimate = true;
     viewer.zoomTo(loadCzml());
 
@@ -27,8 +31,11 @@
       xmlHttp.open( "GET", "/update?"+parameter, true ); // false for synchronous request
       xmlHttp.send( null );
       xmlHttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
+        if (this.readyState == 3) {
           clearOld();
+          // loadCzml();
+        } else if (this.readyState == 4 && this.status == 200) {
+          // clearOld();
           loadCzml();
         };
       }
@@ -49,50 +56,59 @@
 
   </script>
   <div class="slidecontainer">
-    <form action="/" method="post">
+    <!-- <form action="/" method="post"> -->
       <div class="tooltip">
-        <span class="slidetitle"><h4>Min Power:</h4></span>
-        <span class="tooltiptext">Does not affect historical data.</span>
-        <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span>
+        <!-- <span class="slidetitle"><h4>Min Power:</h4></span> -->
+        <span class="tooltiptext">Minimum Power: <br>
+          Minimun power level to record an intersection.Does not affect historical data.</span>
+        <span class="slidespan"><input name="powerValue" type="range" min="0" max="50" value="{{minpower}}" class="slider" id="powerRange"></span>
         <span class="slidevalue" id="power"></span>
       </div>
       <div class="tooltip">
-        <span class="slidetitle"><h4>Min Confidence:</h4></span>
-        <span class="tooltiptext">Does not affect historical data.</span>
+        <!-- <span class="slidetitle"><h4>Min Confidence:</h4></span> -->
+        <span class="tooltiptext">Minimum Confidence:<br>
+          Minimum confidence level to record an intersection. Does not affect historical data.</span>
         <span class="slidespan"><input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange"></span>
         <span class="slidevalue" id="confidence"></span>
       </div>
-      <div>
-        <span class="slidetitle"><h4>epsilon:</h4></span>
+      <div class="tooltip">
+        <!-- <span class="slidetitle"><h4>epsilon:</h4></span> -->
+        <span class="tooltiptext">Epsilon:<br>
+          Maximum distance between neighboring points in a cluster. Set to 0 to disable clustering.<br>
+          Disabling clustering will plot all intersections and may cause longer load times.</span>
         <span class="slidespan"><input name="epsilonValue" type="range" min="0" max="1" step="0.01" value="{{epsilon}}" class="slider" id="epsilonRange"></span>
         <span class="slidevalue" id="epsilon"></span>
       </div>
-        <div>
-        <span class="slidetitle"><h4>Min Points per Cluster:</h4></span>
-        <span class="slidespan"><input name="minpointValue" type="range" min="0" max="200" step="5" value="{{minpoints}}" class="slider" id="minpointRange"></span>
+      <div class="tooltip">
+        <span class="tooltiptext">Minimum points per cluster</span>
+        <!-- <span class="slidetitle"><h4>Min Points per Cluster:</h4></span> -->
+        <span class="slidespan"><input name="minpointValue" type="range" min="0" max="300" step="5" value="{{minpoints}}" class="slider" id="minpointRange"></span>
         <span class="slidevalue" id="minpoints"></span>
       </div>
-      <div>
-        <span class="slidetitle"><h4>Receiver Enable:</h4></span>
-        <span class="slidespan" style="text-align:left; width: 80px;">
-        <!-- Rounded switch -->
-        <label class="switch">
-        <input id="rx_en" name="rx_en" {{rx_state}} type="checkbox">
-        <span class="switchslider round"></span>
-        </label></span>
-        <div class="tooltip">
-          <span class="slidetitle"><h4>Plot All intersect Points:</h4></span>
-          <span class="slidespan" style="text-align:left; width: 80px;">
+      <div style="width: 300px">
+        <span>
+          <span class="slidetitle"><h4>Enable Receiver:</h4></span>
+          <span class="slidespan" style="text-align:left;width: 100px;margin: 5px;">
+          <!-- Rounded switch -->
+          <label class="switch">
+          <input id="rx_en" name="rx_en" {{rx_state}} type="checkbox">
+          <span class="switchslider round"></span>
+          </label></span>
+        </span>
+        <span class="tooltip">
+          <span class="slidetitle"><h4>Plot All Intersect Points:</h4></span>
+          <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
           <!-- Rounded switch -->
           <label class="switch">
             <input id="intersect_en" name="intersect_en" {{intersect_state}} type="checkbox">
             <span class="switchslider round"></span>
-          </label></span><span class="tooltiptext" style="width: 360px;">This setting does not apply if clustering is turned off (epsilon = 0).
+          </label></span>
+          <span class="tooltiptext">This setting does not apply if clustering is turned off (epsilon = 0).<br>
             Enabling this can cause longer load times.</span>
-        </div>
+        </span>
       </div>
       <!-- <div style="width:15%; text-align:right;"><input onclick="loadCzml()" value="Update" type="button" style="height:40px;"/></div> -->
-    </form>
+    <!-- </form> -->
   </div>
   <script>
     var powerslider = document.getElementById("powerRange");
