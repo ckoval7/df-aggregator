@@ -263,6 +263,11 @@ input:checked + .switchslider:before {
   position: relative;
   display: block;
   z-index: 1;
+  opacity: 0.5;
+}
+
+.tooltip:hover {
+  opacity: 1.0;
 }
 
 .tooltip .tooltiptext {

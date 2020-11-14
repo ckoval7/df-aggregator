@@ -58,6 +58,18 @@
   <div class="slidecontainer">
     <!-- <form action="/" method="post"> -->
       <div class="tooltip">
+        <span>
+        <span class="slidetitle"><h4>Enable Receiver:</h4></span>
+        <span class="slidespan" style="text-align:left;width: 100px;margin: 5px;">
+        <!-- Rounded switch -->
+        <label class="switch">
+        <input id="rx_en" name="rx_en" {{rx_state}} type="checkbox">
+        <span class="switchslider round"></span>
+        </label></span>
+        </span>
+        <span class="tooltiptext">Enables or disables capturing intersections.</span>
+      </div>
+      <div class="tooltip">
         <!-- <span class="slidetitle"><h4>Min Power:</h4></span> -->
         <span class="tooltiptext">Minimum Power: <br>
           Minimun power level to record an intersection.Does not affect historical data.</span>
@@ -86,15 +98,6 @@
         <span class="slidevalue" id="minpoints"></span>
       </div>
       <div style="width: 300px">
-        <span>
-          <span class="slidetitle"><h4>Enable Receiver:</h4></span>
-          <span class="slidespan" style="text-align:left;width: 100px;margin: 5px;">
-          <!-- Rounded switch -->
-          <label class="switch">
-          <input id="rx_en" name="rx_en" {{rx_state}} type="checkbox">
-          <span class="switchslider round"></span>
-          </label></span>
-        </span>
         <span class="tooltip">
           <span class="slidetitle"><h4>Plot All Intersect Points:</h4></span>
           <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
