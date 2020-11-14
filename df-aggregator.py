@@ -310,6 +310,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
             if x[0] >= x[1]:
                 semiMajorAxis = x[0]
                 semiMinorAxis = x[1]
+                # rotation = x[2]
                 rotation = 2 * np.pi - x[2]
                 rotation += np.pi/2
             else:
@@ -372,28 +373,47 @@ def cesium():
     write_czml(*process_data(database_name, geofile))
     return template('cesium.tpl',
     {'access_token':access_token,
-    'epsilon':ms.eps*100,
+    'epsilon':ms.eps,
     'minpower':ms.min_power,
     'minconf':ms.min_conf,
     'minpoints':ms.min_samp,
     'rx_state':"checked" if ms.receiving == True else "",
     'intersect_state':"checked" if ms.plotintersects == True else ""})
 
-@post('/')
-@post('/index')
-@post('/cesium')
+# @post('/')
+# @post('/index')
+# @post('/cesium')
+@get('/update')
 def update_cesium():
-    ms.eps = float(request.forms.get('epsilonValue'))/100
-    ms.min_conf = float(request.forms.get('confValue'))
-    ms.min_power = float(request.forms.get('powerValue'))
-    ms.min_samp = float(request.forms.get('minpointValue'))
-    ms.receiving = True if request.forms.get('rx_en') == "on" else False
-    ms.plotintersects = True if request.forms.get('intersect_en') == "on" else False
+    # ms.eps = float(request.forms.get('epsilonValue'))/100
+    # ms.min_conf = float(request.forms.get('confValue'))
+    # ms.min_power = float(request.forms.get('powerValue'))
+    # ms.min_samp = float(request.forms.get('minpointValue'))
+    # ms.receiving = True if request.forms.get('rx_en') == "on" else False
+    # ms.plotintersects = True if request.forms.get('intersect_en') == "on" else False
+    ms.eps = float(request.query.eps) if request.query.eps else ms.eps
+    # print(request.query.eps, ms.eps)
+    ms.min_conf = float(request.query.minconf) if request.query.minconf else ms.min_conf
+    # print(request.query.minconf, ms.min_conf)
+    ms.min_power = float(request.query.minpower) if request.query.minpower else ms.min_power
+    # print(request.query.minpower, ms.min_power)
+    ms.min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
 
-    return redirect('cesium')
+    if request.query.rx == "true":
+        ms.receiving = True
+    elif request.query.rx == "false":
+        ms.receiving = False
+    if request.query.plotpts == "true":
+        ms.plotintersects = True
+    elif request.query.plotpts == "false":
+        ms.plotintersects = False
+
+    write_czml(*process_data(database_name, geofile))
+    return "OK"
+    # return redirect('cesium')
 
 def start_server(ipaddr = "127.0.0.1", port=8080):
-    run(host=ipaddr, port=port, quiet=True, debug=True)
+    run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
 
 def run_receiver(receivers):
     clear(debugging)

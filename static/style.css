@@ -123,6 +123,17 @@ span {
 /*Slider Stuff*/
 .slidecontainer {
   width: 100%; /* Width of the outside container */
+  max-width: 800px;
+  color: white;
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000;
+
+    position: fixed;
+    top: 10px;
+    left: 10px;
 }
 
 .slidespan {
@@ -138,8 +149,9 @@ span {
 }
 
 .slidevalue {
-  width: 10%;
+  width: 40px;
   text-align: left;
+  font-weight: bold;
 }
 /* The slider itself */
 .slider {
@@ -238,4 +250,46 @@ input:checked + .switchslider:before {
 
 .switchslider.round:before {
   border-radius: 50%;
+}
+
+.tooltip {
+  position: relative;
+  display: block;
+  z-index: 1;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 240px;
+  background-color: rgba(0,0,0,0.5);
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 0;
+
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 10;
+  top: -5px;
+  right: 100%;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}
+
+.cesium-viewer {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    margin: 0;
+}
+
+#cesiumContainer {
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    z-index: 0;
+    overflow: hidden;
 }

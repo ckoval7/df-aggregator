@@ -8,22 +8,41 @@
   <link href="/static/style.css" rel="stylesheet">
 </head>
 <body>
-  <h2>DF Aggregator</h2>
-  <div id="cesiumContainer" style="height: 800px">
+  <div id="cesiumContainer">
 
   </div>
   <script>
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     var viewer = new Cesium.Viewer('cesiumContainer', {
-      terrainProvider: Cesium.createWorldTerrain()
+      terrainProvider: Cesium.createWorldTerrain(),
+      homeButton: false,
+      timeline: false
     });
     viewer.clock.shouldAnimate = true;
+    viewer.zoomTo(loadCzml());
 
+    function updateParams(parameter) {
+      var xmlHttp = new XMLHttpRequest();
+      xmlHttp.open( "GET", "/update?"+parameter, true ); // false for synchronous request
+      xmlHttp.send( null );
+      xmlHttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+          clearOld();
+          loadCzml();
+        };
+      }
+    }
 
-    var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
-    viewer.dataSources.add(dataSourcePromise);
-    viewer.zoomTo(dataSourcePromise);
+    function loadCzml() {
+      var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
+      viewer.dataSources.add(dataSourcePromise);
+      return dataSourcePromise;
+    }
+
+    function clearOld() {
+      viewer.dataSources.removeAll(true);
+    }
 
     // Add Cesium OSM Buildings, a global 3D buildings layer.
     // const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
@@ -31,37 +50,49 @@
   </script>
   <div class="slidecontainer">
     <form action="/" method="post">
-    <div><span class="slidetitle"><h4>Min Power*:</h4></span>
-    <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span>
-    <span class="slidevalue" id="power"></span></div>
-    <div><span class="slidetitle"><h4>Min Confidence*:</h4></span>
-    <span class="slidespan"><input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange"></span>
-    <span class="slidevalue" id="confidence"></span></div>
-    <div><span class="slidetitle"><h4>epsilon:</h4></span>
-    <span class="slidespan"><input name="epsilonValue" type="range" min="0" max="100" value="{{epsilon}}" class="slider" id="epsilonRange"></span>
-    <span class="slidevalue" id="epsilon"></span></div>
-    <div><span class="slidetitle"><h4>Min Points per Cluster:</h4></span>
-    <span class="slidespan"><input name="minpointValue" type="range" min="0" max="200" value="{{minpoints}}" class="slider" id="minpointRange"></span>
-    <span class="slidevalue" id="minpoints"></span></div>
-    <div><span class="slidetitle"><h4>Receiver Enable:</h4></span>
-    <span class="slidespan" style="text-align:left; width: 80px;">
-    <!-- Rounded switch -->
-    <label class="switch">
-    <input name="rx_en" {{rx_state}} type="checkbox">
-    <span class="switchslider round"></span>
-    </label></span>
-    <span class="slidetitle"><h4>Plot All intersect Points**:</h4></span>
-    <span class="slidespan" style="text-align:left; width: 80px;">
-    <!-- Rounded switch -->
-    <label class="switch">
-    <input name="intersect_en" {{intersect_state}} type="checkbox">
-    <span class="switchslider round"></span>
-    </label></span><span>Enabling this can cause longer load times.</span></div>
-    <div style="width:15%; text-align:right;"><input value="Update" type="submit" style="height:40px;"/></div>
+      <div class="tooltip">
+        <span class="slidetitle"><h4>Min Power:</h4></span>
+        <span class="tooltiptext">Does not affect historical data.</span>
+        <span class="slidespan"><input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange"></span>
+        <span class="slidevalue" id="power"></span>
+      </div>
+      <div class="tooltip">
+        <span class="slidetitle"><h4>Min Confidence:</h4></span>
+        <span class="tooltiptext">Does not affect historical data.</span>
+        <span class="slidespan"><input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange"></span>
+        <span class="slidevalue" id="confidence"></span>
+      </div>
+      <div>
+        <span class="slidetitle"><h4>epsilon:</h4></span>
+        <span class="slidespan"><input name="epsilonValue" type="range" min="0" max="1" step="0.01" value="{{epsilon}}" class="slider" id="epsilonRange"></span>
+        <span class="slidevalue" id="epsilon"></span>
+      </div>
+        <div>
+        <span class="slidetitle"><h4>Min Points per Cluster:</h4></span>
+        <span class="slidespan"><input name="minpointValue" type="range" min="0" max="200" step="5" value="{{minpoints}}" class="slider" id="minpointRange"></span>
+        <span class="slidevalue" id="minpoints"></span>
+      </div>
+      <div>
+        <span class="slidetitle"><h4>Receiver Enable:</h4></span>
+        <span class="slidespan" style="text-align:left; width: 80px;">
+        <!-- Rounded switch -->
+        <label class="switch">
+        <input id="rx_en" name="rx_en" {{rx_state}} type="checkbox">
+        <span class="switchslider round"></span>
+        </label></span>
+        <div class="tooltip">
+          <span class="slidetitle"><h4>Plot All intersect Points:</h4></span>
+          <span class="slidespan" style="text-align:left; width: 80px;">
+          <!-- Rounded switch -->
+          <label class="switch">
+            <input id="intersect_en" name="intersect_en" {{intersect_state}} type="checkbox">
+            <span class="switchslider round"></span>
+          </label></span><span class="tooltiptext" style="width: 360px;">This setting does not apply if clustering is turned off (epsilon = 0).
+            Enabling this can cause longer load times.</span>
+        </div>
+      </div>
+      <!-- <div style="width:15%; text-align:right;"><input onclick="loadCzml()" value="Update" type="button" style="height:40px;"/></div> -->
     </form>
-
-    <p>* Does not affect historical data.</p>
-    <p>** This setting does not apply if clustering is turned off (epsilon = 0).</p>
   </div>
   <script>
     var powerslider = document.getElementById("powerRange");
@@ -74,25 +105,50 @@
 
     var epsslider = document.getElementById("epsilonRange");
     var epsoutput = document.getElementById("epsilon");
-    epsoutput.innerHTML = epsslider.value/100;
+    epsoutput.innerHTML = epsslider.value;
 
     var minpointslider = document.getElementById("minpointRange");
     var minpointoutput = document.getElementById("minpoints");
     minpointoutput.innerHTML = minpointslider.value;
 
+    var rx_enable = document.getElementById("rx_en");
+
+    var intersect_en = document.getElementById("intersect_en");
+
     // Update the current slider value (each time you drag the slider handle)
     epsslider.oninput = function() {
-      epsoutput.innerHTML = this.value/100;
+      epsoutput.innerHTML = this.value;
+      updateParams("eps="+this.value);
     }
     powerslider.oninput = function() {
       poweroutput.innerHTML = this.value;
+      updateParams("minpower="+this.value);
     }
     confslider.oninput = function() {
       confoutput.innerHTML = this.value;
+      updateParams("minconf="+this.value);
     }
     minpointslider.oninput = function() {
       minpointoutput.innerHTML = this.value;
+      updateParams("minpts="+this.value);
     }
+
+    rx_enable.onchange = function() {
+      if (rx_enable.checked) {
+        updateParams("rx=true");
+      } else {
+        updateParams("rx=false");
+      }
+    }
+
+    intersect_en.onchange = function() {
+      if (intersect_en.checked) {
+        updateParams("plotpts=true");
+      } else {
+        updateParams("plotpts=false");
+      }
+    }
+
   </script>
 </body>
 </html>
