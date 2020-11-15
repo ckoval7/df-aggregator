@@ -14,7 +14,7 @@
     - Create a single line file named ```accesstoken.txt```
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
 
-![Screenshot](https://github.com/ckoval7/df-aggregator/raw/master/screenshots/Screenshot%20from%202020-11-14%2010-03-41.png)
+![Screenshot](https://github.com/ckoval7/df-aggregator/raw/master/screenshots/Screenshot%20from%2020-11-15%09-31-22.png)
 
 ## Usage: df-aggregator.py [options]
 
