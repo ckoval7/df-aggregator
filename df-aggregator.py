@@ -76,6 +76,8 @@ class receiver:
     power = 0.0
     confidence = 0
     doa_time = 0
+    isMobile = False
+    isActive = True
 
 def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
     # Convert points in great circle 1, degrees to radians
@@ -358,11 +360,9 @@ def cesium():
     'minconf':ms.min_conf,
     'minpoints':ms.min_samp,
     'rx_state':"checked" if ms.receiving == True else "",
-    'intersect_state':"checked" if ms.plotintersects == True else ""})
+    'intersect_state':"checked" if ms.plotintersects == True else "",
+    'receivers':receivers})
 
-# @post('/')
-# @post('/index')
-# @post('/cesium')
 @get('/update')
 def update_cesium():
     ms.eps = float(request.query.eps) if request.query.eps else ms.eps
@@ -403,11 +403,11 @@ def run_receiver(receivers):
             for y in range(x):
                 if x != y:
                     try:
-                        if (receivers[x].confidence > ms.min_conf and
-                        receivers[y].confidence > ms.min_conf and
-                        receivers[x].power > ms.min_power and
-                        receivers[y].power > ms.min_power and
-                        abs(receivers[x].doa_time - receivers[y].doa_time) < max_age and
+                        if (receivers[x].confidence >= ms.min_conf and
+                        receivers[y].confidence >= ms.min_conf and
+                        receivers[x].power >= ms.min_power and
+                        receivers[y].power >= ms.min_power and
+                        abs(receivers[x].doa_time - receivers[y].doa_time) <= max_age and
                         receivers[x].frequency == receivers[y].frequency):
                             intersection = list(plot_intersects(receivers[x].latitude, receivers[x].longitude,
                             receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa))

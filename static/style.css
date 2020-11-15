@@ -131,9 +131,9 @@ span {
     -1px 1px 0 #000,
     1px 1px 0 #000;
 
-    position: fixed;
-    top: 10px;
-    left: 10px;
+  position: fixed;
+  top: 10px;
+  left: 10px;
   -webkit-touch-callout: none; /* iOS Safari */
   -webkit-user-select: none; /* Safari */
   -khtml-user-select: none; /* Konqueror HTML */
@@ -277,7 +277,7 @@ input:checked + .switchslider:before {
   color: #fff;
   text-align: center;
   border-radius: 6px;
-  padding: 5px 0;
+  padding: 8px;
 
   /* Position the tooltip */
   position: absolute;

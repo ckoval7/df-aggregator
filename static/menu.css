@@ -1,0 +1,125 @@
+body {
+  overflow: hidden;
+}
+
+#menuToggle
+{
+  display: block;
+  position: absolute;
+  top: 95px;
+  right: 40px;
+
+  opacity: 0.8;
+
+  z-index: 1;
+}
+
+#menuToggle input
+{
+  display: block;
+  width: 40px;
+  height: 32px;
+  position: absolute;
+  top: -7px;
+  left: -5px;
+
+  cursor: pointer;
+
+  opacity: 0; /* hide this */
+  z-index: 2; /* and place it over the hamburger */
+
+  -webkit-touch-callout: none;
+}
+
+.borger
+{
+  display: block;
+  width: 40px;
+  height: 5px;
+  margin-bottom: 5px;
+  position: relative;
+
+  background: #eee;
+  border-radius: 3px;
+
+  z-index: 1;
+
+  transform-origin: 4px 0px;
+
+  transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0),
+              background 0.5s cubic-bezier(0.77,0.2,0.05,1.0),
+              opacity 0.55s ease;
+
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#menuToggle:hover {
+  opacity: 1.0;
+}
+
+.borger:first-child
+{
+  transform-origin: 0% 0%;
+}
+
+.borger:nth-last-child(2)
+{
+  transform-origin: 0% 100%;
+}
+
+#menuToggle input:checked ~ .borger
+{
+  opacity: 1;
+  transform: rotate(45deg) translate(-3px, -2px);
+  /* background: #232323; */
+}
+
+#menuToggle input:checked ~ .borger:nth-last-child(3)
+{
+  opacity: 0;
+  transform: rotate(0deg) scale(0.2, 0.2);
+}
+
+#menuToggle input:checked ~ .borger:nth-last-child(2)
+{
+  transform: rotate(-45deg) translate(0, -0px);
+}
+
+#menu {
+  position: absolute;
+  width: 500px;
+  margin: -75px 0 0 90px;
+  padding: 25px;
+  padding-top: 55px;
+  background-color: rgba(0,0,0,0.5);
+  color: #fff;
+  list-style-type: none;
+  -webkit-font-smoothing: antialiased;
+  /* to stop flickering of text in safari */
+  transform: none;
+  transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0);
+}
+
+#menu li {
+  padding: 10px 0;
+  font-size: 22px;
+}
+
+#menuToggle input:checked ~ ul {
+  transform-origin: 0% 0%;
+  transform: translate(-100%, 0);
+  transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0);
+}
+
+.receiver {
+  background: #d4d4d4;
+  color: #111;
+  font-weight: bold;
+  padding: 5px;
+  margin: 5px;
+  vertical-align: middle;
+}
+.receiver span {
+  display: block;
+}
