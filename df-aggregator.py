@@ -251,7 +251,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
     rx_properties = {
         "image":
             {
-                "uri": "/static/dish.png"
+                "uri": "/static/tower.svg"
             },
         # "rotation": "Cesium.Math.PI_OVER_FOUR",
         "verticalOrigin": "BOTTOM",

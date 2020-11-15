@@ -70,3 +70,6 @@
     - Does not clear the screen. Useful for seeing errors and warnings.
 
 Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number you specified.
+
+## Credits
+Tower and car icons made by Freepik from www.flaticon.com
