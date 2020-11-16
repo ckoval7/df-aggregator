@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.75/Build/Cesium/Cesium.js"></script>
@@ -58,18 +59,18 @@
   </script>
   <div id="menuToggle">
 
-    <input type="checkbox" />
+    <input id="burgerbars" type="checkbox" />
 
     <span class="borger"></span>
     <span class="borger"></span>
     <span class="borger"></span>
 
     <ul id="menu">
-      <h2 style="color: #eee;">Receivers</h2>
+      <h2 style="color: #eee; padding-left: 5px;">Receivers</h2>
       % for x in receivers:
       <div class="receiver">
         <span>Station ID: <a href="{{x.station_url}}" target="_blank">{{x.station_id}}</a></span>
-        <span>Location: {{x.latitude}}, {{x.longitude}}</span>
+        <span>Location: {{x.latitude}}&#176;, {{x.longitude}}&#176;</span>
         <span>Heading: {{x.heading}}&#176;</span>
         <span>Tuned to {{x.frequency}} MHz</span>
       </div>

@@ -1,21 +1,17 @@
 body {
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
-#menuToggle
-{
+#menuToggle {
   display: block;
   position: absolute;
   top: 95px;
   right: 40px;
-
   opacity: 0.8;
-
   z-index: 1;
 }
 
-#menuToggle input
-{
+#menuToggle #burgerbars {
   display: block;
   width: 40px;
   height: 32px;
@@ -31,8 +27,7 @@ body {
   -webkit-touch-callout: none;
 }
 
-.borger
-{
+.borger {
   display: block;
   width: 40px;
   height: 5px;
@@ -68,26 +63,23 @@ body {
   transform-origin: 0% 100%;
 }
 
-#menuToggle input:checked ~ .borger
-{
+#menuToggle #burgerbars:checked ~ .borger {
   opacity: 1;
   transform: rotate(45deg) translate(-3px, -2px);
   /* background: #232323; */
 }
 
-#menuToggle input:checked ~ .borger:nth-last-child(3)
-{
+#menuToggle #burgerbars:checked ~ .borger:nth-last-child(3) {
   opacity: 0;
   transform: rotate(0deg) scale(0.2, 0.2);
 }
 
-#menuToggle input:checked ~ .borger:nth-last-child(2)
-{
+#menuToggle #burgerbars:checked ~ .borger:nth-last-child(2) {
   transform: rotate(-45deg) translate(0, -0px);
 }
 
 #menu {
-  position: absolute;
+  position: fixed;
   width: 500px;
   margin: -75px 0 0 90px;
   padding: 25px;
@@ -106,7 +98,7 @@ body {
   font-size: 22px;
 }
 
-#menuToggle input:checked ~ ul {
+#menuToggle #burgerbars:checked ~ ul {
   transform-origin: 0% 0%;
   transform: translate(-100%, 0);
   transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0);
