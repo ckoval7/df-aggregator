@@ -143,11 +143,14 @@ def process_data(database_name, outfile):
     c = conn.cursor()
 
     intersect_list = []
-
-    c.execute("SELECT COUNT(*) FROM intersects")
-    n_intersects = int(c.fetchone()[0])
-    c.execute("SELECT longitude, latitude, time FROM intersects")
-    intersect_array = np.array(c.fetchall())
+    try:
+        c.execute("SELECT COUNT(*) FROM intersects")
+        n_intersects = int(c.fetchone()[0])
+        c.execute("SELECT longitude, latitude, time FROM intersects")
+        intersect_array = np.array(c.fetchall())
+    except sqlite3.OperationalError:
+        n_intersects = 0
+        intersect_array = np.array([])
     likely_location = []
     weighted_location = []
     ellipsedata = []
@@ -214,11 +217,11 @@ def process_data(database_name, outfile):
             except IndexError:
                 intersect_list.append(x.tolist())
 
-        return likely_location, intersect_list, ellipsedata
 
     else:
         print("No Intersections.")
-        return None
+        # return None
+    return likely_location, intersect_list, ellipsedata
 
 def write_geojson(best_point, all_the_points):
     all_pt_style = {"name": "Various Points", "marker-color": "#FF0000"}
@@ -281,7 +284,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
     receiver_point_packets = []
     ellipse_packets = []
 
-    if all_the_points != None and (ms.plotintersects or ms.eps == 0):
+    if len(all_the_points) > 0 and (ms.plotintersects or ms.eps == 0):
         all_the_points = np.array(all_the_points)
         scaled_time = minmax_scale(all_the_points[:,-1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
@@ -293,13 +296,13 @@ def write_czml(best_point, all_the_points, ellipsedata):
             position={"cartographicDegrees": [ x[0], x[1], 10 ]},
             ))
 
-    if best_point != None:
+    if len(best_point) > 0:
         for x in best_point:
             best_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
             point=best_point_properties,
             position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
 
-    if ellipsedata != None:
+    if len(ellipsedata) > 0:
         for x in ellipsedata:
             # rotation = 2 * np.pi - x[2]
             if x[0] >= x[1]:
