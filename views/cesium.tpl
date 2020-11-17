@@ -84,7 +84,6 @@
   <span class="switchslider round"></span>
 </label></span>
 </span> -->
-
   <div class="slidecontainer">
     <div class="tooltip">
       <span>
@@ -121,7 +120,7 @@
       <span class="slidespan"><input name="minpointValue" type="range" min="0" max="300" step="5" value="{{minpoints}}" class="slider" id="minpointRange"></span>
       <span class="slidevalue" id="minpoints"></span>
     </div>
-    <div style="width: 300px">
+    <div style="width: 600px">
       <span class="tooltip">
         <span class="slidetitle"><h4>Plot All Intersect Points:</h4></span>
         <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
@@ -132,6 +131,9 @@
         <span class="tooltiptext">This setting does not apply if clustering is turned off (epsilon = 0).<br>
           Enabling this can cause longer load times.</span>
       </span>
+    </div>
+    <div>
+      <span><input id="refreshbutton" class="slider" type="button" value="Refresh" onclick="updateParams()"></span>
     </div>
   </div>
   <script>

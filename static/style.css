@@ -143,6 +143,14 @@ span {
                                   supported by Chrome, Edge, Opera and Firefox */
 }
 
+#refreshbutton {
+  padding: 10px;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 600;
+  height: auto;
+}
+
 .slidespan {
   width: 550px; /* Width of the outside container */
 /*  padding-top: 10px;
