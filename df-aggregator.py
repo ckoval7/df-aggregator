@@ -7,11 +7,12 @@ import time
 import sqlite3
 import threading
 import signal
+from colorsys import hsv_to_rgb
 from optparse import OptionParser
 from os import system, name, kill, getpid
 from lxml import etree
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import Point, MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
 
@@ -145,7 +146,7 @@ def process_data(database_name, outfile):
 
     c.execute("SELECT COUNT(*) FROM intersects")
     n_intersects = int(c.fetchone()[0])
-    c.execute("SELECT longitude, latitude, num_parents FROM intersects")
+    c.execute("SELECT longitude, latitude, time FROM intersects")
     intersect_array = np.array(c.fetchall())
     likely_location = []
     weighted_location = []
@@ -209,7 +210,7 @@ def process_data(database_name, outfile):
         for x in intersect_array:
             try:
                 if x[-1] >= 0:
-                    intersect_list.append(x[0:2].tolist())
+                    intersect_list.append(x[0:3].tolist())
             except IndexError:
                 intersect_list.append(x.tolist())
 
@@ -239,9 +240,9 @@ def write_czml(best_point, all_the_points, ellipsedata):
     point_properties = {
         "pixelSize":5.0,
         "heightReference":"RELATIVE_TO_GROUND",
-        "color": {
-            "rgba": [255, 0, 0, 255],
-      }
+      #   "color": {
+      #       "rgba": [255, 0, 0, 255],
+      # }
     }
     best_point_properties = {
         "pixelSize":12.0,
@@ -281,10 +282,16 @@ def write_czml(best_point, all_the_points, ellipsedata):
     ellipse_packets = []
 
     if all_the_points != None and (ms.plotintersects or ms.eps == 0):
+        all_the_points = np.array(all_the_points)
+        scaled_time = minmax_scale(all_the_points[:,-1])
+        all_the_points = np.column_stack((all_the_points, scaled_time))
         for x in all_the_points:
+            rgb = hsvtorgb(x[-1]/3, 0.8, 0.8)
+            color_property = {"color":{"rgba": [*rgb, 255]}}
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
-            point=point_properties,
-            position={"cartographicDegrees": [ x[0], x[1], 10 ]}))
+            point={**point_properties, **color_property},
+            position={"cartographicDegrees": [ x[0], x[1], 10 ]},
+            ))
 
     if best_point != None:
         for x in best_point:
@@ -319,6 +326,13 @@ def write_czml(best_point, all_the_points, ellipsedata):
 
     with open("static/output.czml", "w") as file1:
         file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets + ellipse_packets)))
+
+def hsvtorgb(h, s, v):
+    rgb_out = []
+    rgb = hsv_to_rgb(h, s, v)
+    for x in rgb:
+        rgb_out.append(int(x * 255))
+    return rgb_out
 
 def finish():
     clear(debugging)
