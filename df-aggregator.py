@@ -207,8 +207,8 @@ def process_data(database_name, outfile):
 
             for x in likely_location:
                 print(Reverse(x))
-        else:
-            likely_location = None
+        # else:
+        #     likely_location = None
 
         for x in intersect_array:
             try:
