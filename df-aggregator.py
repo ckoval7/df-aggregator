@@ -289,11 +289,11 @@ def write_czml(best_point, all_the_points, ellipsedata):
         scaled_time = minmax_scale(all_the_points[:,-1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
         for x in all_the_points:
-            rgb = hsvtorgb(x[-1]/3, 0.8, 0.8)
+            rgb = hsvtorgb(x[-1]/3, 0.9, 0.9)
             color_property = {"color":{"rgba": [*rgb, 255]}}
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
             point={**point_properties, **color_property},
-            position={"cartographicDegrees": [ x[0], x[1], 10 ]},
+            position={"cartographicDegrees": [ x[0], x[1], 20 ]},
             ))
 
     if len(best_point) > 0:

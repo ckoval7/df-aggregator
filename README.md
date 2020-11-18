@@ -7,13 +7,13 @@
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
 - [czml3](https://github.com/poliastro/czml3)
     - As of this writing, the version from pip does not support ellipses. Please use the version from GitHub.
-- [geojson](https://pypi.org/project/geojson/)
 
 ## Other things you'll need:
 - [Cesium Ion Token](https://cesium.com/docs/tutorials/quick-start/)
     - Create a single line file named ```accesstoken.txt```
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
-
+    - This is available for both Qt4 (original version) and Qt5 (Ubuntu 20.04+). Just check out the appropriate branch.
+    
 ![Screenshot](https://github.com/ckoval7/df-aggregator/raw/master/screenshots/Screenshot%20from%202020-11-15%2009-31-22.png)
 
 ## Usage: df-aggregator.py [options]
@@ -71,5 +71,16 @@
 
 Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number you specified.
 
-## Credits
+
+## Map Colors:
+
+- A red ellipse represents the significant majority of the intersections in a particular cluster.
+  It makes up the full area where the transmitter is most certainly located.
+- The large green dot at the center of the ellipse is the likely location of the transmitter.
+  It is simply computed as the mean of all intersections in that cluster.
+- The smaller dots, if turned on vary in color from red to green. These dots are the individual
+  intersections. The color represents the age relative to the full data set. Red is older, green is
+  newer. This is very helpful for following moving targets.
+
+### Attributions
 Tower and car icons made by Freepik from www.flaticon.com
