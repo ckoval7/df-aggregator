@@ -255,10 +255,10 @@ def write_czml(best_point, all_the_points, ellipsedata):
       }
     }
     rx_properties = {
-        "image":
-            {
-                "uri": "/static/tower.svg"
-            },
+        # "image":
+        #     {
+        #         "uri": "/static/tower.svg"
+        #     },
         # "rotation": "Cesium.Math.PI_OVER_FOUR",
         "verticalOrigin": "BOTTOM",
         "scale": 0.75,
@@ -323,8 +323,16 @@ def write_czml(best_point, all_the_points, ellipsedata):
             position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
 
     for x in receivers:
+        if x.isMobile == True:
+            rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
+            # if x.heading > 0 or x.heading < 180:
+            #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
+            # elif x.heading < 0 or x.heading > 180:
+            #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
+        else:
+            rx_icon = {"image":{"uri":"/static/tower.svg"}}
         receiver_point_packets.append(Packet(id=x.station_id,
-        billboard=rx_properties,
+        billboard={**rx_properties, **rx_icon},
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
     with open("static/output.czml", "w") as file1:
@@ -391,10 +399,19 @@ def update_cesium():
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
+
     if request.query.plotpts == "true":
         ms.plotintersects = True
     elif request.query.plotpts == "false":
         ms.plotintersects = False
+
+    if request.query.ismobile:
+        rx_index = int(request.query.ismobile)
+        receivers[rx_index].isMobile = True
+
+    if request.query.isnotmobile:
+        rx_index = int(request.query.isnotmobile)
+        receivers[rx_index].isMobile = False
 
     write_czml(*process_data(database_name, geofile))
     return "OK"

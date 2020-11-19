@@ -105,6 +105,7 @@ body {
 }
 
 .receiver {
+  position: relative;
   background: #d4d4d4;
   color: #111;
   font-weight: bold;
@@ -114,4 +115,26 @@ body {
 }
 .receiver span {
   display: block;
+}
+
+.edit-icon {
+  display: block;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.edit-checkbox {
+  cursor: pointer;
+  opacity: 0; /* hide this */
+  z-index: 2; /* and place it on top */
+}
+
+.no-select {
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome, Edge, Opera and Firefox */
 }

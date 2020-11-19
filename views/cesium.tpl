@@ -6,6 +6,7 @@
   <!-- Include the CesiumJS JavaScript and CSS files -->
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.75/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.75/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="/static/style.css" rel="stylesheet">
   <link href="/static/menu.css" rel="stylesheet">
 </head>
@@ -43,6 +44,10 @@
       }
     }
 
+    // function updateRx() {
+    //
+    // }
+
     function loadCzml() {
       var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
       viewer.dataSources.add(dataSourcePromise);
@@ -67,23 +72,47 @@
 
     <ul id="menu">
       <h2 style="color: #eee; padding-left: 5px;">Receivers</h2>
-      % for x in receivers:
+      % for rx_index, x in enumerate(receivers):
+      %     bad_chars = ["/", "-", "?", " ", ";", ":"]
+      %     for bad in bad_chars:
+      %         id = x.station_id.replace(bad, '')
+      %     end
+      %     ismobile = "checked" if x.isMobile == True else ""
       <div class="receiver">
-        <span>Station ID: <a href="{{x.station_url}}" target="_blank">{{x.station_id}}</a></span>
-        <span>Location: {{x.latitude}}&#176;, {{x.longitude}}&#176;</span>
-        <span>Heading: {{x.heading}}&#176;</span>
-        <span>Tuned to {{x.frequency}} MHz</span>
+        <span id="{{x.station_id}}-id">Station ID: <a href="{{x.station_url}}" target="_blank">{{x.station_id}}</a></span>
+        <span id="{{x.station_id}}-location">Location: {{x.latitude}}&#176;, {{x.longitude}}&#176;</span>
+        <span id="{{x.station_id}}-heading">Heading: {{x.heading}}&#176;</span>
+        <span id="{{x.station_id}}-freq">Tuned to {{x.frequency}} MHz</span>
+        <input id="{{x.station_id}}-edit" class="edit-checkbox edit-icon" type="checkbox" />
+        <span id="{{x.station_id}}-editicon" class="material-icons edit-icon no-select">create</span>
+        <span id="{{x.station_id}}-mobile"><input type="hidden" id="mobilerx_toggle_{{id}}"/></span>
+        <script>
+          var mobile_{{id}} = "{{x.station_id}}-mobile";
+          // var editIcon = document.getElementById("{{x.station_id}}-editicon")
+          var editButton_{{id}} = document.getElementById("{{x.station_id}}-edit");
+          editButton_{{id}}.onchange = function() {
+            var isMobileCheck_{{id}} = document.getElementById("mobilerx_toggle_{{id}}");
+            if (editButton_{{id}}.checked) {
+              document.getElementById("{{x.station_id}}-editicon").innerHTML = "save";
+              document.getElementById(mobile_{{id}}).innerHTML = "Mobile Receiver: <input {{ismobile}} id=\"mobilerx_toggle_{{id}}\" type=\"checkbox\" />";
+            } else {
+              isMobileCheck_{{id}} = document.getElementById("mobilerx_toggle_{{id}}");
+              if (isMobileCheck_{{id}}.checked) {
+                updateParams("ismobile={{rx_index}}");
+              } else {
+                updateParams("isnotmobile={{rx_index}}");
+              }
+
+              document.getElementById(mobile_{{id}}).innerHTML = "";
+              document.getElementById("{{x.station_id}}-editicon").innerHTML = "create";
+            }
+          }
+        </script>
       </div>
       % end
     </ul>
   </div>
-  <!-- <span>Location:</span>
-  <span>Mobile Receiver:
-  <label class="switch">
-  <input id="isMobile" name="isMobile" type="checkbox">
-  <span class="switchslider round"></span>
-</label></span>
-</span> -->
+
   <div class="slidecontainer">
     <div class="tooltip">
       <span>
