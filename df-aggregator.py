@@ -405,13 +405,16 @@ def update_cesium():
     elif request.query.plotpts == "false":
         ms.plotintersects = False
 
-    if request.query.ismobile:
-        rx_index = int(request.query.ismobile)
-        receivers[rx_index].isMobile = True
+    try:
+        if request.query.ismobile:
+            rx_index = int(request.query.ismobile)
+            receivers[rx_index].isMobile = True
 
-    if request.query.isnotmobile:
-        rx_index = int(request.query.isnotmobile)
-        receivers[rx_index].isMobile = False
+        if request.query.isnotmobile:
+            rx_index = int(request.query.isnotmobile)
+            receivers[rx_index].isMobile = False
+    except IndexError:
+        print("I got some bad data. Doing nothing out of spite.")
 
     write_czml(*process_data(database_name, geofile))
     return "OK"
