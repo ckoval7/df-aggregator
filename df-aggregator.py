@@ -32,6 +32,7 @@ class math_settings:
 class receiver:
     def __init__(self, station_url):
         self.station_url = station_url
+        self.isAuto = True
         try:
             self.update()
         except:
@@ -418,6 +419,10 @@ def update_cesium():
 
     write_czml(*process_data(database_name, geofile))
     return "OK"
+
+@get('/rx_params')
+def rx_params():
+    return template('rx_params.tpl', {'receivers':receivers})
 
 def start_server(ipaddr = "127.0.0.1", port=8080):
     run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)

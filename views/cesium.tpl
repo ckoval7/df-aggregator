@@ -45,8 +45,19 @@
     }
 
     // function updateRx() {
+    //   var xmlHttp = new XMLHttpRequest();
+    //   xmlHttp.open( "GET", "/rx_params", true ); // false for synchronous request
+    //   xmlHttp.send( null );
+    //   xmlHttp.onreadystatechange = function() {
+    //     if (this.readyState == 4 && this.status == 200) {
+    //       var response = xmlHttp.responseText;
+    //       var xml = parseXml(response);
     //
+    //       xml.getElementsByTagName("STATION_ID").childNodes[i].nodeValue[i];
+    //     };
+    //   }
     // }
+
 
     function loadCzml() {
       var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
@@ -73,28 +84,68 @@
     <ul id="menu">
       <h2 style="color: #eee; padding-left: 5px;">Receivers</h2>
       % for rx_index, x in enumerate(receivers):
-      %     bad_chars = ["/", "-", "?", " ", ";", ":"]
-      %     for bad in bad_chars:
-      %         id = x.station_id.replace(bad, '')
-      %     end
+      %     id = rx_index
       %     ismobile = "checked" if x.isMobile == True else ""
       <div class="receiver">
+        <span id="{{x.station_id}}-url"><input type="hidden" id="url_{{id}}"/></span>
+        <span id="{{x.station_id}}-mobile"><input type="hidden" id="mobilerx_toggle_{{id}}"/></span>
+        <span id="{{x.station_id}}-manual"><input type="hidden" id="manual_toggle_{{id}}"/></span>
         <span id="{{x.station_id}}-id">Station ID: <a href="{{x.station_url}}" target="_blank">{{x.station_id}}</a></span>
         <span id="{{x.station_id}}-location">Location: {{x.latitude}}&#176;, {{x.longitude}}&#176;</span>
         <span id="{{x.station_id}}-heading">Heading: {{x.heading}}&#176;</span>
         <span id="{{x.station_id}}-freq">Tuned to {{x.frequency}} MHz</span>
         <input id="{{x.station_id}}-edit" class="edit-checkbox edit-icon" type="checkbox" />
         <span id="{{x.station_id}}-editicon" class="material-icons edit-icon no-select">create</span>
-        <span id="{{x.station_id}}-mobile"><input type="hidden" id="mobilerx_toggle_{{id}}"/></span>
         <script>
+          var stationUrlHtml_{{id}} =
+          "<input type=\"hidden\" id=\"url_{{id}}\"/>";
+          var edit_stationUrlHtml_{{id}} =
+          "Station URL:<input style=\"width: 300px;\" type=\"text\" value=\"{{x.station_url}}\" name=\"station_url_{{id}}\" />";
+          var stationIDhtml_{{id}} =
+          "Station ID: <a href=\"{{x.station_url}}\" target=\"_blank\">{{x.station_id}}</a>";
+          var edit_stationIDhtml_{{id}} =
+          "Station ID:<input style=\"width: 105px;\" type=\"text\" value=\"{{x.station_id}}\" name=\"station_id_{{id}}\" />";
+          var manualInfo_{{id}} =
+          "<input type=\"hidden\" id=\"manual_toggle_{{id}}\"/>";
+          var edit_manualInfo_{{id}} =
+          "Manually input receiver info: <input id=\"manual_toggle_{{id}}\" type=\"checkbox\" />";
+          var locationHtml_{{id}} =
+          "Location: {{x.latitude}}&#176;, {{x.longitude}}&#176;";
+          var edit_locationHtml_{{id}} =
+          "Latitude:<input style=\"width: 105px;\" type=\"text\" value=\"{{x.latitude}}\" name=\"station_lat_{{id}}\" />"
+          + " Longitude:<input style=\"width: 105px;\" type=\"text\" value=\"{{x.longitude}}\" name=\"station_lon_{{id}}\" />";
+          var heading_{{id}} =
+          "Heading: {{x.heading}}&#176;";
+          var edit_heading_{{id}} =
+          "Heading:<input style=\"width: 105px;\" type=\"text\" value=\"{{x.heading}}\" name=\"station_heading_{{id}}\" />";
+          var freqHtml_{{id}} =
+          "Tuned to {{x.frequency}} MHz";
+          var edit_freqHtml_{{id}} =
+          "Frequency:<input style=\"width: 105px;\" type=\"text\" value=\"{{x.frequency}}\" name=\"frequency_{{id}}\" />";
+
           var mobile_{{id}} = "{{x.station_id}}-mobile";
-          // var editIcon = document.getElementById("{{x.station_id}}-editicon")
           var editButton_{{id}} = document.getElementById("{{x.station_id}}-edit");
           editButton_{{id}}.onchange = function() {
             var isMobileCheck_{{id}} = document.getElementById("mobilerx_toggle_{{id}}");
             if (editButton_{{id}}.checked) {
               document.getElementById("{{x.station_id}}-editicon").innerHTML = "save";
-              document.getElementById(mobile_{{id}}).innerHTML = "Mobile Receiver: <input {{ismobile}} id=\"mobilerx_toggle_{{id}}\" type=\"checkbox\" />";
+              document.getElementById(mobile_{{id}}).innerHTML =
+              "Mobile Receiver: <input {{ismobile}} id=\"mobilerx_toggle_{{id}}\" type=\"checkbox\" />";
+              document.getElementById("{{x.station_id}}-manual").innerHTML = edit_manualInfo_{{id}};
+              document.getElementById("{{x.station_id}}-url").innerHTML = edit_stationUrlHtml_{{id}};
+              document.getElementById("manual_toggle_{{id}}").onchange = function() {
+                if (document.getElementById("manual_toggle_{{id}}").checked) {
+                  document.getElementById("{{x.station_id}}-id").innerHTML = edit_stationIDhtml_{{id}};
+                  document.getElementById("{{x.station_id}}-location").innerHTML = edit_locationHtml_{{id}};
+                  document.getElementById("{{x.station_id}}-heading").innerHTML = edit_heading_{{id}};
+                  document.getElementById("{{x.station_id}}-freq").innerHTML = edit_freqHtml_{{id}};
+                } else {
+                  document.getElementById("{{x.station_id}}-id").innerHTML = stationIDhtml_{{id}};
+                  document.getElementById("{{x.station_id}}-location").innerHTML = locationHtml_{{id}};
+                  document.getElementById("{{x.station_id}}-heading").innerHTML = heading_{{id}};
+                  document.getElementById("{{x.station_id}}-freq").innerHTML = freqHtml_{{id}};
+                }
+              }
             } else {
               isMobileCheck_{{id}} = document.getElementById("mobilerx_toggle_{{id}}");
               if (isMobileCheck_{{id}}.checked) {
@@ -105,11 +156,40 @@
 
               document.getElementById(mobile_{{id}}).innerHTML = "";
               document.getElementById("{{x.station_id}}-editicon").innerHTML = "create";
+              document.getElementById("{{x.station_id}}-manual").innerHTML = manualInfo_{{id}};
+              document.getElementById("{{x.station_id}}-url").innerHTML = stationUrlHtml_{{id}};
+              document.getElementById("{{x.station_id}}-id").innerHTML = stationIDhtml_{{id}};
+              document.getElementById("{{x.station_id}}-location").innerHTML = locationHtml_{{id}};
+              document.getElementById("{{x.station_id}}-heading").innerHTML = heading_{{id}};
+              document.getElementById("{{x.station_id}}-freq").innerHTML = freqHtml_{{id}};
             }
           }
         </script>
       </div>
       % end
+      <input id="add_station" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
+      <span id="add_station_icon" class="material-icons add-icon no-select">add_circle_outline</span>
+      <div id="new_rx_div" style="padding: 0;" class="receiver">
+        <span id="new-url"><input type="hidden" id="url_new"/></span>
+      </div>
+      <script>
+      var stationUrlHtml_new =
+      "<input type=\"hidden\" id=\"url_new\"/>";
+      var edit_stationUrlHtml_new =
+      "Station URL:<input style=\"width: 300px;\" type=\"text\" name=\"station_url_new\" />";
+      var add_button = document.getElementById("add_station");
+      add_button.onchange = function() {
+        if (add_button.checked) {
+          document.getElementById("new-url").innerHTML = edit_stationUrlHtml_new;
+          document.getElementById("add_station_icon").innerHTML = "save";
+          document.getElementById("new_rx_div").style.padding = "5px";
+        } else {
+          document.getElementById("new-url").innerHTML = stationUrlHtml_new;
+          document.getElementById("add_station_icon").innerHTML = "add_circle_outline";
+          document.getElementById("new_rx_div").style.padding = "0";
+        }
+      }
+      </script>
     </ul>
   </div>
 
@@ -128,25 +208,33 @@
     <div class="tooltip">
       <span class="tooltiptext">Minimum Power: <br>
         Minimun power level to record an intersection.Does not affect historical data.</span>
-      <span class="slidespan"><input name="powerValue" type="range" min="0" max="50" value="{{minpower}}" class="slider" id="powerRange"></span>
+      <span class="slidespan">
+        <input name="powerValue" type="range" min="0" max="50" value="{{minpower}}" class="slider" id="powerRange">
+      </span>
       <span class="slidevalue" id="power"></span>
     </div>
     <div class="tooltip">
       <span class="tooltiptext">Minimum Confidence:<br>
         Minimum confidence level to record an intersection. Does not affect historical data.</span>
-      <span class="slidespan"><input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange"></span>
+      <span class="slidespan">
+        <input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange">
+      </span>
       <span class="slidevalue" id="confidence"></span>
     </div>
     <div class="tooltip">
       <span class="tooltiptext">Epsilon:<br>
         Maximum distance between neighboring points in a cluster. Set to 0 to disable clustering.<br>
         Disabling clustering will plot all intersections and may cause longer load times.</span>
-      <span class="slidespan"><input name="epsilonValue" type="range" min="0" max="1" step="0.01" value="{{epsilon}}" class="slider" id="epsilonRange"></span>
+      <span class="slidespan">
+        <input name="epsilonValue" type="range" min="0" max="1" step="0.01" value="{{epsilon}}" class="slider" id="epsilonRange">
+      </span>
       <span class="slidevalue" id="epsilon"></span>
     </div>
     <div class="tooltip">
       <span class="tooltiptext">Minimum points per cluster</span>
-      <span class="slidespan"><input name="minpointValue" type="range" min="0" max="300" step="5" value="{{minpoints}}" class="slider" id="minpointRange"></span>
+      <span class="slidespan">
+        <input name="minpointValue" type="range" min="0" max="300" step="5" value="{{minpoints}}" class="slider" id="minpointRange">
+      </span>
       <span class="slidevalue" id="minpoints"></span>
     </div>
     <div style="width: 600px">

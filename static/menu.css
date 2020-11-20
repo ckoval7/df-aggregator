@@ -84,6 +84,7 @@ body {
   margin: -75px 0 0 90px;
   padding: 25px;
   padding-top: 55px;
+  padding-bottom: 37px;
   background-color: rgba(0,0,0,0.5);
   color: #fff;
   list-style-type: none;
@@ -122,6 +123,14 @@ body {
   position: absolute;
   top: 5px;
   right: 5px;
+}
+
+.add-icon {
+  display: block;
+  position: absolute;
+  bottom: 7px;
+  right: 30px;
+  font-size: 23pt;
 }
 
 .edit-checkbox {
