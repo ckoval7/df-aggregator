@@ -2,6 +2,11 @@ body {
   overflow-x: hidden;
 }
 
+#menuToggle p {
+  display: inline-block;
+  margin: 1px;
+}
+
 #menuToggle {
   display: block;
   position: absolute;

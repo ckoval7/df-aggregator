@@ -15,6 +15,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import Point, MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
+import json
 
 from bottle import route, run, request, get, post, redirect, template, static_file
 
@@ -68,6 +69,13 @@ class receiver:
             finish()
         except:
             raise IOError
+
+    def receiver_dict(self):
+        return ({'station_id': self.station_id, 'station_url': self.station_url,
+        'latitude':self.latitude, 'longitude':self.longitude, 'heading':self.heading,
+        'doa':self.doa, 'frequency':self.frequency, 'power':self.power,
+        'confidence':self.confidence, 'doa_time':self.doa_time, 'mobile': self.isMobile,
+        'active':self.isActive, 'auto':self.isAuto})
 
     latitude = 0.0
     longitude = 0.0
@@ -422,7 +430,15 @@ def update_cesium():
 
 @get('/rx_params')
 def rx_params():
-    return template('rx_params.tpl', {'receivers':receivers})
+    all_rx = {'receivers':{}}
+    rx_properties = []
+    for index, x in enumerate(receivers):
+        rx = x.receiver_dict()
+        rx['uid'] = index
+        rx_properties.append(rx)
+    all_rx['receivers'] = rx_properties
+    return json.dumps(all_rx)
+
 
 def start_server(ipaddr = "127.0.0.1", port=8080):
     run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
