@@ -5,12 +5,13 @@
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.75/Build/Cesium/Cesium.js"></script>
+  <script src="/static/receiver_configurator.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.75/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="/static/style.css" rel="stylesheet">
   <link href="/static/menu.css" rel="stylesheet">
 </head>
-<body onload="showReceivers()">
+<body onload="loadRx(createReceivers)">
   <div id="cesiumContainer">
 
   </div>
@@ -34,22 +35,10 @@
       xmlHttp.open( "GET", "/update?"+parameter, true ); // false for synchronous request
       xmlHttp.send( null );
       xmlHttp.onload = function() {
+        loadRx(refreshRx);
         clearOld();
         loadCzml();
       }
-    }
-
-    function updateRx() {
-      return new Promise(function(myResolve, myReject) {
-        let request = new XMLHttpRequest();
-        request.open( "GET", "/rx_params", true );
-        // request.responseType = 'json';
-        request.onload = function() {
-          if (request.status == 200) {myResolve(request.response);}
-          else {myResolve("File not Found");}
-        };
-        request.send( null );
-      });
     }
 
     function loadCzml() {
@@ -76,125 +65,35 @@
 
     <ul id="menu">
       <h2 style="color: #eee; padding-left: 5px;">Receivers</h2>
-        <script>
-          var rx_json;
-          updateRx().then(JSON.parse).then(function(response) {
-            rx_json = response;
-          });
-          function showReceivers() {
-            const receivers = rx_json['receivers'];
-            for (let i = 0; i < Object.keys(receivers).length; i++) {
-              var stationUrlHtml = document.createElement('input');
-              stationUrlHtml.type = 'hidden';
-              stationUrlHtml.id = "url_" + receivers[i].uid
-              var edit_stationUrlHtml =
-              "Station URL:<input style=\"width: 300px;\" type=\"text\" value=\"\" name=\"station_url_" + receivers[i].uid + "\" />";
 
-              mobileToggle = document.createElement('input');
-              mobileToggle.type = 'hidden';
-              mobileToggle.id = "mobilerx_toggle_" + receivers[i].uid
-
-              var stationIDhtml = document.createElement('p');
-              stationIDhtml.innerHTML = "Station ID:&nbsp";
-              var stationIDhtmlLink = document.createElement('a');
-              stationIDhtmlLink.href = receivers[i].station_url;
-              stationIDhtmlLink.target = '_blank';
-              stationIDhtmlLink.innerHTML = receivers[i].station_id;
-              var edit_stationIDhtml =
-              "Station ID:<input style=\"width: 105px;\" type=\"text\" value=\"\" name=\"station_id_" + receivers[i].uid + "\" />";
-
-              var manualInfo = document.createElement('input');
-              manualInfo.type = 'hidden';
-              manualInfo.id = "manual_toggle_" + receivers[i].uid
-              var edit_manualInfo =
-              "Manually input receiver info: <input id=\"manual_toggle_" + receivers[i].uid + "\" type=\"checkbox\" />";
-
-              var locationHtml = document.createElement('p');
-              locationHtml.innerHTML = "Location: " + receivers[i].latitude + "&#176;, " + receivers[i].longitude + "&#176;";
-              var edit_locationHtml =
-              "Latitude:<input style=\"width: 105px;\" type=\"text\" value=\"receivers[i].latitude\" name=\"station_lat_" + receivers[i].uid + "\" />"
-              + " Longitude:<input style=\"width: 105px;\" type=\"text\" value=\"receivers[i].longitude\" name=\"station_lon_" + receivers[i].uid + "\" />";
-
-              var heading = document.createElement('p');
-              heading.innerHTML = "Heading: " + receivers[i].heading + "&#176;";
-              var edit_heading =
-              "Heading:<input style=\"width: 105px;\" type=\"text\" value=\"" + receivers[i].heading + "\" name=\"station_heading_" + receivers[i].uid + "\" />";
-
-              var freqHtml = document.createElement('p');
-              freqHtml.innerHTML = "Tuned to " + receivers[i].frequency + "MHz";
-              var edit_freqHtml =
-              "Frequency:<input style=\"width: 105px;\" type=\"text\" value=\"" + receivers[i].frequency + "\" name=\"frequency_" + receivers[i].uid + "\" />";
-
-              const rxcard = document.createElement('div');
-              rxcard.className = "receiver";
-
-              const urlspan = document.createElement('span');
-              const mobilespan = document.createElement('span');
-              const manualspan = document.createElement('span');
-              const idspan = document.createElement('span');
-              const locationspan =document.createElement('span');
-              const headingspan = document.createElement('span');
-              const freqspan = document.createElement('span');
-              const editiconspan = document.createElement('span');
-              editiconspan.classList.add("material-icons", "edit-icon", "no-select");
-              editiconspan.innerHTML = "create";
-
-              const editcheck = document.createElement('input');
-              editcheck.classList.add("edit-checkbox", "edit-icon");
-              editcheck.type = 'checkbox';
-
-              urlspan.id = receivers[i].uid + "-url";
-              mobilespan.id = receivers[i].uid + "-mobile";
-              manualspan.id = receivers[i].uid + "-manual";
-              idspan.id = receivers[i].uid + "-id";
-              locationspan.id = receivers[i].uid + "-location";
-              headingspan.id = receivers[i].uid + "-heading";
-              freqspan.id = receivers[i].uid + "-freq";
-              editiconspan.id = receivers[i].uid + "-editicon";
-
-              document.getElementById("menu").appendChild(rxcard);
-
-              rxcard.appendChild(urlspan);
-              rxcard.appendChild(mobilespan);
-              rxcard.appendChild(manualspan);
-              rxcard.appendChild(idspan);
-              rxcard.appendChild(locationspan);
-              rxcard.appendChild(headingspan);
-              rxcard.appendChild(freqspan);
-              rxcard.appendChild(editiconspan);
-              rxcard.appendChild(editcheck);
-
-              urlspan.appendChild(stationUrlHtml);
-              mobilespan.appendChild(mobileToggle);
-              manualspan.appendChild(manualInfo);
-              idspan.appendChild(stationIDhtml);
-              idspan.appendChild(stationIDhtmlLink);
-              locationspan.appendChild(locationHtml);
-              headingspan.appendChild(heading);
-              freqspan.appendChild(freqHtml);
-
-            }
-          }
-
-        </script>
       <input id="add_station" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
       <span id="add_station_icon" class="material-icons add-icon no-select">add_circle_outline</span>
-      <div id="new_rx_div" style="padding: 0;" class="receiver">
-        <span id="new-url"><input type="hidden" id="url_new"/></span>
+      <div style="visibility: hidden; height: 0;" id="new_rx_div" style="padding: 0;" class="receiver">
+        <span id="new-url">Station URL:
+        </span>
       </div>
       <script>
-      var stationUrlHtml_new =
-      "<input type=\"hidden\" id=\"url_new\"/>";
-      var edit_stationUrlHtml_new =
-      "Station URL:<input style=\"width: 300px;\" type=\"text\" name=\"station_url_new\" />";
-      var add_button = document.getElementById("add_station");
+
+      var stationUrlHtml_new = document.createElement('input');
+      stationUrlHtml_new.type = 'text';
+      stationUrlHtml_new.id = 'url-new';
+      stationUrlHtml_new.style.width = '300px';
+      document.getElementById("new-url").appendChild(stationUrlHtml_new);
+      var add_button = document.getElementById("add_station"); //Button to add new RX
       add_button.onchange = function() {
         if (add_button.checked) {
-          document.getElementById("new-url").innerHTML = edit_stationUrlHtml_new;
+          stationUrlHtml_new.value = "";
+          document.getElementById("new_rx_div").style.height = 'auto';
+          document.getElementById("new_rx_div").style.visibility = "visible";
           document.getElementById("add_station_icon").innerHTML = "save";
           document.getElementById("new_rx_div").style.padding = "5px";
         } else {
-          document.getElementById("new-url").innerHTML = stationUrlHtml_new;
+          var newrxurl = stationUrlHtml_new.value
+          if (newrxurl != "") {
+            makeNewRx(newrxurl);
+          }
+          document.getElementById("new_rx_div").style.height = 0;
+          document.getElementById("new_rx_div").style.visibility = "hidden";
           document.getElementById("add_station_icon").innerHTML = "add_circle_outline";
           document.getElementById("new_rx_div").style.padding = "0";
         }
@@ -287,18 +186,26 @@
     // Update the current slider value (each time you drag the slider handle)
     epsslider.oninput = function() {
       epsoutput.innerHTML = this.value;
+    }
+    epsslider.onmouseup = function() {
       updateParams("eps="+this.value);
     }
     powerslider.oninput = function() {
       poweroutput.innerHTML = this.value;
+    }
+    powerslider.onmouseup = function() {
       updateParams("minpower="+this.value);
     }
     confslider.oninput = function() {
       confoutput.innerHTML = this.value;
+    }
+    confslider.onmouseup = function() {
       updateParams("minconf="+this.value);
     }
     minpointslider.oninput = function() {
       minpointoutput.innerHTML = this.value;
+    }
+    minpointslider.onmouseup = function() {
       updateParams("minpts="+this.value);
     }
 

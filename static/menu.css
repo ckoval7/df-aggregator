@@ -142,6 +142,15 @@ body {
   cursor: pointer;
   opacity: 0; /* hide this */
   z-index: 2; /* and place it on top */
+  width: 20px;
+  height: 20px;
+}
+
+.delete-icon {
+  display: block;
+  position: absolute;
+  top: 5px;
+  right: 30px;
 }
 
 .no-select {

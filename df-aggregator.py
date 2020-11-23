@@ -17,7 +17,7 @@ from geojson import Point, MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
 import json
 
-from bottle import route, run, request, get, post, redirect, template, static_file
+from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 
 d = 40000 #meters
 
@@ -331,7 +331,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
             ellipse={**ellipse_properties, **ellipse_info},
             position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
 
-    for x in receivers:
+    for index, x in enumerate(receivers):
         if x.isMobile == True:
             rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
             # if x.heading > 0 or x.heading < 180:
@@ -340,7 +340,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
             #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
         else:
             rx_icon = {"image":{"uri":"/static/tower.svg"}}
-        receiver_point_packets.append(Packet(id=x.station_id,
+        receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
         billboard={**rx_properties, **rx_icon},
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
@@ -414,17 +414,6 @@ def update_cesium():
     elif request.query.plotpts == "false":
         ms.plotintersects = False
 
-    try:
-        if request.query.ismobile:
-            rx_index = int(request.query.ismobile)
-            receivers[rx_index].isMobile = True
-
-        if request.query.isnotmobile:
-            rx_index = int(request.query.isnotmobile)
-            receivers[rx_index].isMobile = False
-    except IndexError:
-        print("I got some bad data. Doing nothing out of spite.")
-
     write_czml(*process_data(database_name, geofile))
     return "OK"
 
@@ -437,8 +426,26 @@ def rx_params():
         rx['uid'] = index
         rx_properties.append(rx)
     all_rx['receivers'] = rx_properties
+    response.headers['Content-Type'] = 'application/json'
     return json.dumps(all_rx)
 
+@put('/rx_params/<uid>')
+def update_rx(uid):
+    data = json.load(request.body)
+    if uid == "new":
+        receivers.append(receiver(data['station_url'].replace('\n', '')))
+        print("Created new DF Station at " + data['station_url'])
+    elif uid == "del":
+        del receivers[int(data['uid'])]
+    else:
+        uid = int(uid)
+        try:
+            receivers[uid].isMobile = data['mobile']
+            receivers[uid].station_url = data['station_url']
+            receivers[uid].update()
+        except IndexError:
+            print("I got some bad data. Doing nothing out of spite.")
+    return redirect('/rx_params')
 
 def start_server(ipaddr = "127.0.0.1", port=8080):
     run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
