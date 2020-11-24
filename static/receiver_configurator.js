@@ -1,9 +1,15 @@
+// *************************************************
+// * Gets Rx data from backend
+// *************************************************
 function updateRx(callBack, id) {
   fetch("/rx_params")
   .then(data=>{return data.json()})
   .then(res=>{callBack(res, id)})
 }
 
+// ******************************************************
+// * Makes Changes to Receiver, Saves, & Refreshes Cards
+// ******************************************************
 function editReceivers(rx_json, id) {
   const receivers = rx_json['receivers'];
   var stationUrlHtml =
@@ -92,6 +98,9 @@ function editReceivers(rx_json, id) {
   }
 }
 
+// ****************************************************
+// * Sends Rx station URL to backend and refreshes map
+// ****************************************************
 function makeNewRx(url) {
   const new_rx = {"station_url":url};
   // console.log(new_rx);
@@ -112,11 +121,17 @@ function makeNewRx(url) {
   // loadCzml();
 }
 
+// *****************************************
+// * Removes the Rx UI Card
+// *****************************************
 function removerx(uid) {
   const rxcard = document.getElementById("rx-" + uid);
   rxcard.remove();
 }
 
+// *******************************************
+// * Removes Rx from Backend and Reloads Map
+// *******************************************
 function deleteReceiver(uid) {
   const del_rx = {"uid":uid};
   // console.log(new_rx);
@@ -137,6 +152,9 @@ function deleteReceiver(uid) {
   // loadCzml();
 }
 
+// *******************************************
+// * Fills in Rx UI cards with Rx info 
+// *******************************************
 function showReceivers(rx_json, id) {
   const receivers = rx_json['receivers'];
 
@@ -177,6 +195,10 @@ function showReceivers(rx_json, id) {
 
 }
 
+// ****************************************************
+// * Creates cards on UI for Receiver information.
+// * Iterates through Rx objects on page load/Rx add.
+// ****************************************************
 function createReceivers(rx_json, id) {
   var receivers
   if (id == true) {
@@ -246,6 +268,9 @@ function createReceivers(rx_json, id) {
   }
 }
 
+// ****************************************************
+// * Refreshes info on Rx UI Cards (Refresh button)
+// ****************************************************
 function refreshRx(rx_json, id) {
   const receivers = rx_json['receivers'];
   for (let i = 0; i < Object.keys(receivers).length; i++) {
@@ -253,6 +278,9 @@ function refreshRx(rx_json, id) {
   }
 }
 
+// ****************************************************
+// * Main function - Loads all Receivers
+// ****************************************************
 function loadRx(action) {
   updateRx(action, null);
 }
