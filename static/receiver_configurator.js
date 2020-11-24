@@ -167,7 +167,7 @@ function showReceivers(rx_json, id) {
   const freqspan = document.getElementById(id + "-freq");
 
   document.getElementById(id + "-mobile").innerHTML = "";
-  document.getElementById(id + "-editicon").innerHTML = "create";
+  document.getElementById(id + "-editicon").innerHTML = "edit";
   document.getElementById(id + "-manual").innerHTML = manualInfo;
   document.getElementById(id + "-url").innerHTML = stationUrlHtml;
   document.getElementById(id + "-id").innerHTML = stationIDhtml;
@@ -201,7 +201,7 @@ function createReceivers(rx_json, id) {
 
     const editiconspan = document.createElement('span');
     editiconspan.classList.add("material-icons", "edit-icon", "no-select");
-    editiconspan.innerHTML = "create";
+    editiconspan.innerHTML = "edit";
 
     const editcheck = document.createElement('input');
     editcheck.classList.add("edit-checkbox", "edit-icon");
