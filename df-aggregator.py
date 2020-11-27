@@ -23,6 +23,10 @@ from bottle import route, run, request, get, post, put, response, redirect, temp
 d = 40000 #meters
 receivers = []
 
+###############################################
+# Stores settings realted to intersect capture
+# and post-processing.
+###############################################
 class math_settings:
     def __init__(self, eps, min_samp, conf, power):
         self.eps = eps
@@ -32,6 +36,10 @@ class math_settings:
     receiving = True
     plotintersects = False
 
+################################################
+# Stores all variables pertaining to a reveiver.
+# Also updates receiver variable upon request.
+################################################
 class receiver:
     def __init__(self, station_url):
         self.station_url = station_url
@@ -43,6 +51,7 @@ class receiver:
         except:
             raise IOError
 
+    # Updates receiver from the remote URL
     def update(self):
         try:
             xml_contents = etree.parse(self.station_url)
@@ -74,6 +83,8 @@ class receiver:
         except:
             raise IOError
 
+    # Returns receivers properties as a dict,
+    # useful for passing data to the WebUI
     def receiver_dict(self):
         return ({'station_id': self.station_id, 'station_url': self.station_url,
         'latitude':self.latitude, 'longitude':self.longitude, 'heading':self.heading,
@@ -93,6 +104,9 @@ class receiver:
     isMobile = False
     isActive = True
 
+###############################################
+# Converts Lat/Lon to polar coordinates
+###############################################
 def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
     # Convert points in great circle 1, degrees to radians
     p1_lat1_rad = math.radians(lat_a)
@@ -110,8 +124,9 @@ def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
 
     return ([x1, y1, z1], [x2, y2, z2])
 
-# Find line of intersection between two planes
-# L = np.cross(N1, N2)
+#####################################################
+# Find line of intersection between two great circles
+#####################################################
 def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 50000):
     # plot another point on the lob
     # v.direct(lat_a, lon_a, doa_a, d)
@@ -151,6 +166,10 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 500
         else:
             return None
 
+###############################################
+# Computes DBSCAN Alorithm is applicable,
+# finds the mean of a cluster of intersections.
+###############################################
 def process_data(database_name, outfile):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
@@ -236,6 +255,9 @@ def process_data(database_name, outfile):
         # return None
     return likely_location, intersect_list, ellipsedata
 
+###############################################
+# Writes a geojson file upon request.
+###############################################
 def write_geojson(best_point, all_the_points):
     all_pt_style = {"name": "Various Points", "marker-color": "#FF0000"}
     best_pt_style = {"name": "Most Likely TX Location", "marker-color": "#00FF00"}
@@ -252,6 +274,9 @@ def write_geojson(best_point, all_the_points):
                 file1.write(str(FeatureCollection([all_the_points])))
         print(f"Wrote file {geofile}")
 
+###############################################
+# Writes output.czml used by the WebUI
+###############################################
 def write_czml(best_point, all_the_points, ellipsedata):
     point_properties = {
         "pixelSize":5.0,
@@ -346,6 +371,9 @@ def write_czml(best_point, all_the_points, ellipsedata):
     with open("static/output.czml", "w") as file1:
         file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets + ellipse_packets)))
 
+###############################################
+# Converts HSV color values to RGB.
+###############################################
 def hsvtorgb(h, s, v):
     rgb_out = []
     rgb = hsv_to_rgb(h, s, v)
@@ -353,6 +381,9 @@ def hsvtorgb(h, s, v):
         rgb_out.append(int(x * 255))
     return rgb_out
 
+###############################################
+# Thangs to do before closing the program.
+###############################################
 def finish():
     clear(debugging)
     print("Processing, please wait.")
@@ -362,10 +393,17 @@ def finish():
         write_geojson(*process_data(database_name, geofile)[:2])
     kill(getpid(), signal.SIGTERM)
 
+###############################################
+# Returns a reverse ordered list.
+# This should probably be replaced.
+###############################################
 def Reverse(lst):
     lst.reverse()
     return lst
 
+###############################################
+# CLears the screen if debugging is off.
+###############################################
 def clear(debugging):
     if not debugging:
       # for windows
@@ -375,10 +413,19 @@ def clear(debugging):
         else:
             _ = system('clear')
 
+
+###############################################
+# Serves static files such as CSS and JS to the
+# WebUI
+###############################################
 @route('/static/<filepath:path>', name='static')
 def server_static(filepath):
     return static_file(filepath, root='./static')
 
+###############################################
+# Loads the main page of the WebUI
+# http://[ip]:[port]/
+###############################################
 @get('/')
 @get('/index')
 @get('/cesium')
@@ -396,6 +443,10 @@ def cesium():
     'intersect_state':"checked" if ms.plotintersects == True else "",
     'receivers':receivers})
 
+###############################################
+# GET Request to update parameters from the
+# UI sliders. Not meant to be user facing.
+###############################################
 @get('/update')
 def update_cesium():
     ms.eps = float(request.query.eps) if request.query.eps else ms.eps
@@ -416,6 +467,10 @@ def update_cesium():
     write_czml(*process_data(database_name, geofile))
     return "OK"
 
+###############################################
+# Returns a JSON file to the WebUI with
+# information to fill in the RX cards.
+###############################################
 @get('/rx_params')
 def rx_params():
     all_rx = {'receivers':{}}
@@ -428,6 +483,10 @@ def rx_params():
     response.headers['Content-Type'] = 'application/json'
     return json.dumps(all_rx)
 
+###############################################
+# PUT request to update receiver variables
+# from the WebUI
+###############################################
 @put('/rx_params/<action>')
 def update_rx(action):
     data = json.load(request.body)
@@ -449,9 +508,17 @@ def update_rx(action):
             print("I got some bad data. Doing nothing out of spite.")
     return redirect('/rx_params')
 
+###############################################
+# Starts the Bottle webserver.
+###############################################
 def start_server(ipaddr = "127.0.0.1", port=8080):
     run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
 
+###############################################
+# Captures DOA data and computes intersections
+# if the receiver is enabled. Writes the
+# intersections to the database.
+###############################################
 def run_receiver(receivers):
     clear(debugging)
     dots = 0
@@ -511,6 +578,10 @@ def run_receiver(receivers):
 
     conn.close()
 
+###############################################
+# Adds a new receiver to the program, saves it
+# in the database.
+###############################################
 def add_receiver(receiver_url):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
@@ -540,6 +611,10 @@ def add_receiver(receiver_url):
         ms.receiving = False
     conn.close()
 
+###############################################
+# Reads receivers from the database into the
+# program.
+###############################################
 def read_rx_table():
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
@@ -553,6 +628,10 @@ def read_rx_table():
         rx_list = []
     conn.close()
 
+###############################################
+# Updates the database with any changes made to
+# the receivers.
+###############################################
 def update_rx_table():
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
@@ -568,6 +647,10 @@ def update_rx_table():
         conn.commit()
     conn.close()
 
+###############################################
+# Removes a receiver from the program and
+# database upon request.
+###############################################
 def del_receiver(del_rx):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
@@ -576,6 +659,9 @@ def del_receiver(del_rx):
     conn.close()
 
 if __name__ == '__main__':
+    ###############################################
+    # Help info printed when calling the program
+    ###############################################
     usage = "usage: %prog -d FILE [options]"
     parser = OptionParser(usage=usage)
     parser.add_option("-d", "--database", dest="database_name", help="REQUIRED Database File", metavar="FILE")
@@ -624,6 +710,10 @@ if __name__ == '__main__':
     web.start()
 
     try:
+        ###############################################
+        # Reds receivers from the database first, then
+        # loads receivers in from a user provided list.
+        ###############################################
         read_rx_table()
         if rx_file:
             print("I got a file!")
@@ -633,6 +723,9 @@ if __name__ == '__main__':
                     receiver_url = x.replace('\n', '')
                     add_receiver(receiver_url)
 
+        ###############################################
+        # Run the main loop!
+        ###############################################
         while True:
             if ms.receiving:
                 run_receiver(receivers)
