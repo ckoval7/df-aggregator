@@ -13,15 +13,12 @@
     - Create a single line file named ```accesstoken.txt```
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
     - This is available for both Qt4 (original version) and Qt5 (Ubuntu 20.04+). Just check out the appropriate branch.
-    
+
 ![Screenshot](https://github.com/ckoval7/df-aggregator/raw/master/screenshots/Screenshot%20from%202020-11-15%2009-31-22.png)
 
 ## Usage: df-aggregator.py [options]
 
 ### Required inputs:
--  -r FILE, --receivers=FILE
-    - List of receiver URLs
-    - Do not include quotes. Each receiver should be on a new line.
 
 -  -d FILE, --database=FILE
     - Name of new or existing database to store intersect information.
@@ -29,6 +26,10 @@
     - Post processing math is done against the entire database.
 
 ### Optional Inputs:
+-  -r FILE, --receivers=FILE
+    - List of receiver URLs
+    - Do not include quotes. Each receiver should be on a new line.
+
 -  -g FILE, --geofile=FILE
     - GeoJSON Output File
     - Conventional file extension: .geojson

@@ -7,6 +7,7 @@ import time
 import sqlite3
 import threading
 import signal
+import hashlib
 from colorsys import hsv_to_rgb
 from optparse import OptionParser
 from os import system, name, kill, getpid
@@ -20,6 +21,7 @@ import json
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 
 d = 40000 #meters
+receivers = []
 
 class math_settings:
     def __init__(self, eps, min_samp, conf, power):
@@ -34,6 +36,8 @@ class receiver:
     def __init__(self, station_url):
         self.station_url = station_url
         self.isAuto = True
+        # hashed_url = hashlib.md5(station_url.encode('utf-8')).hexdigest()
+        # self.uid = hashed_url[:5] + hashed_url[-5:]
         try:
             self.update()
         except:
@@ -153,15 +157,15 @@ def process_data(database_name, outfile):
 
     intersect_list = []
     try:
-        c.execute("SELECT COUNT(*) FROM intersects")
-        n_intersects = int(c.fetchone()[0])
+        # c.execute("SELECT COUNT(*) FROM intersects")
+        # n_intersects = int(c.fetchone()[0])
         c.execute("SELECT longitude, latitude, time FROM intersects")
         intersect_array = np.array(c.fetchall())
     except sqlite3.OperationalError:
         n_intersects = 0
         intersect_array = np.array([])
     likely_location = []
-    weighted_location = []
+    # weighted_location = []
     ellipsedata = []
 
     n_std=3.0
@@ -264,11 +268,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
       }
     }
     rx_properties = {
-        # "image":
-        #     {
-        #         "uri": "/static/tower.svg"
-        #     },
-        # "rotation": "Cesium.Math.PI_OVER_FOUR",
         "verticalOrigin": "BOTTOM",
         "scale": 0.75,
         "heightReference":"RELATIVE_TO_GROUND",
@@ -358,6 +357,7 @@ def finish():
     clear(debugging)
     print("Processing, please wait.")
     ms.receiving = False
+    update_rx_table()
     if geofile != None:
         write_geojson(*process_data(database_name, geofile)[:2])
     kill(getpid(), signal.SIGTERM)
@@ -375,9 +375,6 @@ def clear(debugging):
         else:
             _ = system('clear')
 
-with open('accesstoken.txt', "r") as tokenfile:
-    access_token = tokenfile.read().replace('\n', '')
-
 @route('/static/<filepath:path>', name='static')
 def server_static(filepath):
     return static_file(filepath, root='./static')
@@ -386,6 +383,8 @@ def server_static(filepath):
 @get('/index')
 @get('/cesium')
 def cesium():
+    with open('accesstoken.txt', "r") as tokenfile:
+        access_token = tokenfile.read().replace('\n', '')
     write_czml(*process_data(database_name, geofile))
     return template('cesium.tpl',
     {'access_token':access_token,
@@ -429,20 +428,23 @@ def rx_params():
     response.headers['Content-Type'] = 'application/json'
     return json.dumps(all_rx)
 
-@put('/rx_params/<uid>')
-def update_rx(uid):
+@put('/rx_params/<action>')
+def update_rx(action):
     data = json.load(request.body)
-    if uid == "new":
-        receivers.append(receiver(data['station_url'].replace('\n', '')))
-        print("Created new DF Station at " + data['station_url'])
-    elif uid == "del":
-        del receivers[int(data['uid'])]
+    if action == "new":
+        receiver_url = data['station_url'].replace('\n', '')
+        add_receiver(receiver_url)
+    elif action == "del":
+        index = int(data['uid'])
+        del_receiver(receivers[index].station_id)
+        del receivers[index]
     else:
-        uid = int(uid)
+        action = int(action)
         try:
-            receivers[uid].isMobile = data['mobile']
-            receivers[uid].station_url = data['station_url']
-            receivers[uid].update()
+            receivers[action].isMobile = data['mobile']
+            receivers[action].station_url = data['station_url']
+            receivers[action].update()
+            update_rx_table()
         except IndexError:
             print("I got some bad data. Doing nothing out of spite.")
     return redirect('/rx_params')
@@ -457,6 +459,7 @@ def run_receiver(receivers):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL, longitude REAL, num_parents INTEGER)")
+
 
     while ms.receiving:
         if not debugging:
@@ -508,11 +511,75 @@ def run_receiver(receivers):
 
     conn.close()
 
+def add_receiver(receiver_url):
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS receivers (
+        station_id TEXT UNIQUE,
+        station_url TEXT,
+        isAuto INTEGER,
+        isMobile INTEGER,
+        latitude REAL,
+        longitude REAL)
+    ''')
+    try:
+        if any(x.station_url == receiver_url for x in receivers):
+            print("Duplicate receiver, ignoring.")
+        else:
+            receivers.append(receiver(receiver_url))
+            new_rx = receivers[-1].receiver_dict()
+            to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
+                new_rx['mobile'], new_rx['latitude'], new_rx['longitude']]
+            c.execute("INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?)", to_table)
+            conn.commit()
+            mobile = c.execute("SELECT isMobile FROM receivers WHERE station_id = ?",
+                [new_rx['station_id']]).fetchone()[0]
+            receivers[-1].isMobile = bool(mobile)
+            print("Created new DF Station at " + receiver_url)
+    except IOError:
+        ms.receiving = False
+    conn.close()
+
+def read_rx_table():
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    try:
+        c.execute("SELECT station_url FROM receivers")
+        rx_list = c.fetchall()
+        for x in rx_list:
+            receiver_url = x[0].replace('\n', '')
+            add_receiver(receiver_url)
+    except sqlite3.OperationalError:
+        rx_list = []
+    conn.close()
+
+def update_rx_table():
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    for item in receivers:
+        rx = item.receiver_dict()
+        to_table = [rx['auto'], rx['mobile'], rx['latitude'], rx['longitude'], rx['station_id']]
+        c.execute('''UPDATE receivers SET
+            isAuto=?,
+            isMobile=?,
+            latitude=?,
+            longitude=?
+            WHERE station_id = ?''', to_table)
+        conn.commit()
+    conn.close()
+
+def del_receiver(del_rx):
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute("DELETE FROM receivers WHERE station_id=?", [del_rx])
+    conn.commit()
+    conn.close()
+
 if __name__ == '__main__':
-    usage = "usage: %prog -r FILE -d FILE [options]"
+    usage = "usage: %prog -d FILE [options]"
     parser = OptionParser(usage=usage)
-    parser.add_option("-r", "--receivers", dest="rx_file", help="REQUIRED List of receiver URLs", metavar="FILE")
     parser.add_option("-d", "--database", dest="database_name", help="REQUIRED Database File", metavar="FILE")
+    parser.add_option("-r", "--receivers", dest="rx_file", help="List of receiver URLs", metavar="FILE")
     parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
     parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default 0.2. 0 to disable clustering.",
     metavar="NUMBER", type="float", default=0.2)
@@ -534,7 +601,7 @@ if __name__ == '__main__':
     action="store_true")
     (options, args) = parser.parse_args()
 
-    mandatories = ['rx_file', 'database_name']
+    mandatories = ['database_name']
     for m in mandatories:
       if options.__dict__[m] is None:
         print("You forgot an arguement")
@@ -557,15 +624,14 @@ if __name__ == '__main__':
     web.start()
 
     try:
-
-        receivers = []
-        with open(rx_file, "r") as file2:
-            receiver_list = file2.readlines()
-            for x in receiver_list:
-                try:
-                    receivers.append(receiver(x.replace('\n', '')))
-                except IOError:
-                    ms.receiving = False
+        read_rx_table()
+        if rx_file:
+            print("I got a file!")
+            with open(rx_file, "r") as file2:
+                receiver_list = file2.readlines()
+                for x in receiver_list:
+                    receiver_url = x.replace('\n', '')
+                    add_receiver(receiver_url)
 
         while True:
             if ms.receiving:
