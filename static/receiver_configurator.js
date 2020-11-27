@@ -4,7 +4,10 @@
 function updateRx(callBack, id) {
     fetch("/rx_params")
         .then(data => { return data.json() })
-        .then(res => { callBack(res, id) })
+        .then(res => { callBack(res, id);
+        // console.log("updateRx Complete");
+        // console.log(res);
+      })
 }
 
 // ******************************************************
@@ -89,12 +92,10 @@ function editReceivers(rx_json, id) {
         };
         clearOld();
         fetch("/rx_params/" + id, otherParams)
-            .then(data => { return data.json() })
-            .then(res => { updateRx(showReceivers, id) })
-            .then(res => { loadCzml() })
-            //.catch(error=>{console.log(error)})
-            // updateRx(showReceivers, id);
-            // loadCzml();
+            .then(res => {
+              updateRx(showReceivers, id);
+              loadCzml();
+            })
     }
 }
 
@@ -113,12 +114,10 @@ function makeNewRx(url) {
     };
     clearOld();
     fetch("/rx_params/new", otherParams)
-        .then(data => { return data.json() })
-        .then(res => { updateRx(createReceivers, true) })
-        .then(res => { loadCzml() })
-        //.catch(error=>{console.log(error)})
-        //.then(updateRx(createReceivers, true));
-        // loadCzml();
+        .then(res => {
+          updateRx(createReceivers, true);
+          loadCzml();
+        })
 }
 
 // *****************************************
@@ -144,16 +143,14 @@ function deleteReceiver(uid) {
     };
     clearOld();
     fetch("/rx_params/del", otherParams)
-        .then(data => { return data.json() })
-        .then(res => { removerx(uid) })
-        .then(res => { loadCzml() })
-        //.catch(error=>{console.log(error)})
-        //.then(updateRx(createReceivers, true));
-        // loadCzml();
+        .then(res => {
+          removerx(uid);
+          loadCzml();
+        })
 }
 
 // *******************************************
-// * Fills in Rx UI cards with Rx info 
+// * Fills in Rx UI cards with Rx info
 // *******************************************
 function showReceivers(rx_json, id) {
     const receivers = rx_json['receivers'];
@@ -206,7 +203,7 @@ function createReceivers(rx_json, id) {
     } else {
         receivers = rx_json['receivers'];
     }
-    console.log(receivers);
+    // console.log(receivers);
     for (let i = 0; i < Object.keys(receivers).length; i++) {
 
         const rxcard = document.createElement('div');

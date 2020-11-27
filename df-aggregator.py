@@ -7,7 +7,7 @@ import time
 import sqlite3
 import threading
 import signal
-import hashlib
+# import hashlib
 from colorsys import hsv_to_rgb
 from optparse import OptionParser
 from os import system, name, kill, getpid

@@ -31,24 +31,27 @@
     viewer.zoomTo(loadCzml());
 
     function updateParams(parameter) {
-      var xmlHttp = new XMLHttpRequest();
-      xmlHttp.open( "GET", "/update?"+parameter, true ); // false for synchronous request
-      xmlHttp.send( null );
-      xmlHttp.onload = function() {
-        loadRx(refreshRx);
-        clearOld();
-        loadCzml();
-      }
+        fetch("/update?"+parameter)
+            .then(function(response) {
+              if (response.status == 200) {
+                loadRx(refreshRx);
+                clearOld();
+                loadCzml();
+                console.log(response);
+              }
+            })
     }
 
     function loadCzml() {
       var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
       viewer.dataSources.add(dataSourcePromise);
+      console.log("Loaded CZML");
       return dataSourcePromise;
     }
 
     function clearOld() {
       viewer.dataSources.removeAll(true);
+      console.log("Cleared old");
     }
 
     // Add Cesium OSM Buildings, a global 3D buildings layer.
