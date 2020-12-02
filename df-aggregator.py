@@ -46,17 +46,16 @@ class receiver:
         self.isAuto = True
         # hashed_url = hashlib.md5(station_url.encode('utf-8')).hexdigest()
         # self.uid = hashed_url[:5] + hashed_url[-5:]
-        try:
-            self.update()
-        except:
-            raise IOError
+        self.update(first_run=True)
+        self.isActive = True
 
     # Updates receiver from the remote URL
-    def update(self):
+    def update(self, first_run=False):
         try:
             xml_contents = etree.parse(self.station_url)
-            xml_station_id = xml_contents.find('STATION_ID')
-            self.station_id = xml_station_id.text
+            if first_run:
+                xml_station_id = xml_contents.find('STATION_ID')
+                self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
             self.doa_time = int(xml_doa_time.text)
             xml_freq = xml_contents.find('FREQUENCY')
@@ -81,7 +80,20 @@ class receiver:
         except KeyboardInterrupt:
             finish()
         except:
-            raise IOError
+            if first_run:
+                self.station_id = "Unknown"
+            self.latitude = 0.0
+            self.longitude = 0.0
+            self.heading = 0.0
+            self.raw_doa = 0.0
+            self.doa = 0.0
+            self.frequency = 0.0
+            self.power = 0.0
+            self.confidence = 0
+            self.doa_time = 0
+            self.isActive = False
+            print(f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
+            # raise IOError
 
     # Returns receivers properties as a dict,
     # useful for passing data to the WebUI
@@ -102,7 +114,6 @@ class receiver:
     confidence = 0
     doa_time = 0
     isMobile = False
-    isActive = True
 
 ###############################################
 # Converts Lat/Lon to polar coordinates
@@ -473,9 +484,11 @@ def update_cesium():
 ###############################################
 @get('/rx_params')
 def rx_params():
+    write_czml(*process_data(database_name, geofile))
     all_rx = {'receivers':{}}
     rx_properties = []
     for index, x in enumerate(receivers):
+        x.update()
         rx = x.receiver_dict()
         rx['uid'] = index
         rx_properties.append(rx)
@@ -497,6 +510,10 @@ def update_rx(action):
         index = int(data['uid'])
         del_receiver(receivers[index].station_id)
         del receivers[index]
+    elif action == "activate":
+        index = int(data['uid'])
+        receivers[index].isActive = data['state']
+        # print(f"RX {index} changed state to {data['state']}")
     else:
         action = int(action)
         try:
@@ -564,10 +581,10 @@ def run_receiver(receivers):
 
         for rx in receivers:
             try:
-                rx.update()
+                if rx.isActive: rx.update()
             except IOError:
                 print("Problem connecting to receiver.")
-                ms.receiving = False
+                # ms.receiving = False
 
         time.sleep(1)
         if dots > 5:
@@ -607,8 +624,9 @@ def add_receiver(receiver_url):
                 [new_rx['station_id']]).fetchone()[0]
             receivers[-1].isMobile = bool(mobile)
             print("Created new DF Station at " + receiver_url)
-    except IOError:
-        ms.receiving = False
+    except AttributeError:
+        pass
+
     conn.close()
 
 ###############################################
@@ -716,7 +734,6 @@ if __name__ == '__main__':
         ###############################################
         read_rx_table()
         if rx_file:
-            print("I got a file!")
             with open(rx_file, "r") as file2:
                 receiver_list = file2.readlines()
                 for x in receiver_list:

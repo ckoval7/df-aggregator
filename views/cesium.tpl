@@ -37,7 +37,7 @@
                 loadRx(refreshRx);
                 clearOld();
                 loadCzml();
-                console.log(response);
+                // console.log(response);
               }
             })
     }
@@ -45,13 +45,13 @@
     function loadCzml() {
       var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
       viewer.dataSources.add(dataSourcePromise);
-      console.log("Loaded CZML");
+      // console.log("Loaded CZML");
       return dataSourcePromise;
     }
 
     function clearOld() {
       viewer.dataSources.removeAll(true);
-      console.log("Cleared old");
+      // console.log("Cleared old");
     }
 
     // Add Cesium OSM Buildings, a global 3D buildings layer.
@@ -71,7 +71,7 @@
 
       <input id="add_station" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
       <span id="add_station_icon" class="material-icons add-icon no-select">add_circle_outline</span>
-      <div style="visibility: hidden; height: 0;" id="new_rx_div" style="padding: 0;" class="receiver">
+      <div style="visibility: hidden; height: 0;" id="new_rx_div" style="padding: 0;">
         <span id="new-url">Station URL:
         </span>
       </div>

@@ -15,14 +15,14 @@ function updateRx(callBack, id) {
 // ******************************************************
 function editReceivers(rx_json, id) {
     const receivers = rx_json['receivers'];
-    var stationUrlHtml =
-        "<input type=\"hidden\" id=\"url_" + id + "\"/>";
+    // var stationUrlHtml =
+    //     "<input type=\"hidden\" id=\"url_" + id + "\"/>";
 
     var stationIDhtml =
         "Station ID: <a href=\"" + receivers[id].station_url + "\" target=\"_blank\">" + receivers[id].station_id + "</a>";
 
-    var manualInfo =
-        "<input type=\"hidden\" id=\"manual_toggle_" + receivers[id].uid + "\"/>";
+    // var manualInfo =
+    //     "<input type=\"hidden\" id=\"manual_toggle_" + receivers[id].uid + "\"/>";
 
     var locationHtml =
         "Location: " + receivers[id].latitude + "&#176;, " + receivers[id].longitude + "&#176;";
@@ -33,14 +33,14 @@ function editReceivers(rx_json, id) {
     var freqHtml =
         "Tuned to " + receivers[id].frequency + " MHz";
 
-    var edit_stationUrlHtml =
-        "Station URL:<input style=\"width: 300px;\" type=\"text\" value=\"" + receivers[id].station_url + "\" name=\"station_url_" + id + "\" />";
+    // var edit_stationUrlHtml =
+    //     "Station URL:<input style=\"width: 300px;\" type=\"text\" value=\"" + receivers[id].station_url + "\" name=\"station_url_" + id + "\" />";
 
     var edit_stationIDhtml =
         "Station ID:<input style=\"width: 105px;\" type=\"text\" value=\"" + receivers[id].station_id + "\" name=\"station_id_" + id + "\" />";
 
-    var edit_manualInfo =
-        "Manually input receiver info: <input id=\"manual_toggle_" + id + "\" type=\"checkbox\" />";
+    // var edit_manualInfo =
+    //     "Manually input receiver info: <input id=\"manual_toggle_" + id + "\" type=\"checkbox\" />";
 
     var edit_locationHtml =
         "Latitude:<input style=\"width: 105px;\" type=\"text\" value=\"" + receivers[id].latitude + "\" name=\"station_lat_" + id + "\" />" +
@@ -61,21 +61,21 @@ function editReceivers(rx_json, id) {
         document.getElementById(id + "-editicon").innerHTML = "save";
         document.getElementById(mobile).innerHTML =
             "Mobile Receiver: <input " + isMobile + " id=\"mobilerx_toggle_" + id + "\" type=\"checkbox\" />";
-        document.getElementById(id + "-manual").innerHTML = edit_manualInfo;
-        document.getElementById(id + "-url").innerHTML = edit_stationUrlHtml;
-        document.getElementById("manual_toggle_" + id).onchange = function() {
-            if (document.getElementById("manual_toggle_" + id).checked) {
-                document.getElementById(id + "-id").innerHTML = edit_stationIDhtml;
-                document.getElementById(id + "-location").innerHTML = edit_locationHtml;
-                document.getElementById(id + "-heading").innerHTML = edit_heading;
-                document.getElementById(id + "-freq").innerHTML = edit_freqHtml;
-            } else {
-                document.getElementById(id + "-id").innerHTML = stationIDhtml;
-                document.getElementById(id + "-location").innerHTML = locationHtml;
-                document.getElementById(id + "-heading").innerHTML = heading;
-                document.getElementById(id + "-freq").innerHTML = freqHtml;
-            }
-        }
+        // document.getElementById(id + "-manual").innerHTML = edit_manualInfo;
+        // // document.getElementById(id + "-url").innerHTML = edit_stationUrlHtml;
+        // document.getElementById("manual_toggle_" + id).onchange = function() {
+        //     if (document.getElementById("manual_toggle_" + id).checked) {
+        //         document.getElementById(id + "-id").innerHTML = edit_stationIDhtml;
+        //         document.getElementById(id + "-location").innerHTML = edit_locationHtml;
+        //         document.getElementById(id + "-heading").innerHTML = edit_heading;
+        //         document.getElementById(id + "-freq").innerHTML = edit_freqHtml;
+        //     } else {
+        //         document.getElementById(id + "-id").innerHTML = stationIDhtml;
+        //         document.getElementById(id + "-location").innerHTML = locationHtml;
+        //         document.getElementById(id + "-heading").innerHTML = heading;
+        //         document.getElementById(id + "-freq").innerHTML = freqHtml;
+        //     }
+        // }
     } else {
         isMobileCheck = document.getElementById("mobilerx_toggle_" + id);
         if (isMobileCheck.checked) {
@@ -128,6 +128,13 @@ function removerx(uid) {
     rxcard.remove();
 }
 
+// *****************************************
+// * Removes ALL of the RX Cards
+// *****************************************
+function destroyRxCards() {
+  document.querySelectorAll('.receiver').forEach(e => e.remove());
+}
+
 // *******************************************
 // * Removes Rx from Backend and Reloads Map
 // *******************************************
@@ -144,7 +151,29 @@ function deleteReceiver(uid) {
     clearOld();
     fetch("/rx_params/del", otherParams)
         .then(res => {
-          removerx(uid);
+          // removerx(uid);
+          loadRx(createReceivers);
+          loadCzml();
+        })
+}
+
+// *******************************************************
+// * Updates Rx active state from Backend and Reloads Map
+// *******************************************************
+function activateReceiver(uid, state) {
+    const activate_rx = { "uid": uid, "state": state };
+    console.log("I'm sending " + state)
+    const otherParams = {
+        headers: {
+            "content-type": "application/json"
+        },
+        body: JSON.stringify(activate_rx),
+        method: "PUT"
+    };
+    clearOld();
+    fetch("/rx_params/activate", otherParams)
+        .then(res => {
+          loadRx(refreshRx);
           loadCzml();
         })
 }
@@ -155,14 +184,14 @@ function deleteReceiver(uid) {
 function showReceivers(rx_json, id) {
     const receivers = rx_json['receivers'];
 
-    var stationUrlHtml =
-        "<input type=\"hidden\" id=\"url_" + id + "\"/>";
+    // var stationUrlHtml =
+    //     "<input type=\"hidden\" id=\"url_" + id + "\"/>";
 
     var stationIDhtml =
         "Station ID: <a href=\"" + receivers[id].station_url + "\" target=\"_blank\">" + receivers[id].station_id + "</a>";
 
-    var manualInfo =
-        "<input type=\"hidden\" id=\"manual_toggle_" + receivers[id].uid + "\"/>";
+    // var manualInfo =
+    //     "<input type=\"hidden\" id=\"manual_toggle_" + receivers[id].uid + "\"/>";
 
     var locationHtml =
         "Location: " + receivers[id].latitude + "&#176;, " + receivers[id].longitude + "&#176;";
@@ -175,16 +204,28 @@ function showReceivers(rx_json, id) {
 
     const urlspan = document.getElementById(id + "-url");
     const mobilespan = document.getElementById(id + "-mobile");
-    const manualspan = document.getElementById(id + "-manual");
+    // const manualspan = document.getElementById(id + "-manual");
     const idspan = document.getElementById(id + "-id");
     const locationspan = document.getElementById(id + "-location");
     const headingspan = document.getElementById(id + "-heading");
     const freqspan = document.getElementById(id + "-freq");
+    document.getElementById(id + "-activate")
+      .setAttribute('onclick', "activateReceiver(" + receivers[id].uid + ", " + !receivers[id].active + ")");
+
+    if (receivers[id].active == true) {
+      document.getElementById(id + "-activate")
+        .setAttribute("title", "Click to disable this receiver.");
+      document.getElementById(id + "-activateicon").style.color = "black";
+    } else {
+      document.getElementById(id + "-activateicon").style.color = "red";
+      document.getElementById(id + "-activate")
+        .setAttribute("title", "Click to enable this receiver.");
+    }
 
     document.getElementById(id + "-mobile").innerHTML = "";
     document.getElementById(id + "-editicon").innerHTML = "edit";
-    document.getElementById(id + "-manual").innerHTML = manualInfo;
-    document.getElementById(id + "-url").innerHTML = stationUrlHtml;
+    // document.getElementById(id + "-manual").innerHTML = manualInfo;
+    // document.getElementById(id + "-url").innerHTML = stationUrlHtml;
     document.getElementById(id + "-id").innerHTML = stationIDhtml;
     document.getElementById(id + "-location").innerHTML = locationHtml;
     document.getElementById(id + "-heading").innerHTML = heading;
@@ -197,12 +238,8 @@ function showReceivers(rx_json, id) {
 // * Iterates through Rx objects on page load/Rx add.
 // ****************************************************
 function createReceivers(rx_json, id) {
-    var receivers
-    if (id == true) {
-        receivers = [rx_json['receivers'][Object.keys(rx_json['receivers']).length - 1]];
-    } else {
-        receivers = rx_json['receivers'];
-    }
+    destroyRxCards();
+    let receivers = rx_json['receivers'];
     // console.log(receivers);
     for (let i = 0; i < Object.keys(receivers).length; i++) {
 
@@ -210,9 +247,9 @@ function createReceivers(rx_json, id) {
         rxcard.className = "receiver";
         rxcard.id = "rx-" + receivers[i].uid;
 
-        const urlspan = document.createElement('span');
+        // const urlspan = document.createElement('span');
         const mobilespan = document.createElement('span');
-        const manualspan = document.createElement('span');
+        // const manualspan = document.createElement('span');
         const idspan = document.createElement('span');
         const locationspan = document.createElement('span');
         const headingspan = document.createElement('span');
@@ -221,6 +258,7 @@ function createReceivers(rx_json, id) {
         const editiconspan = document.createElement('span');
         editiconspan.classList.add("material-icons", "edit-icon", "no-select");
         editiconspan.innerHTML = "edit";
+        editiconspan.id = receivers[i].uid + "-editicon";
 
         const editcheck = document.createElement('input');
         editcheck.classList.add("edit-checkbox", "edit-icon");
@@ -238,28 +276,49 @@ function createReceivers(rx_json, id) {
         deletecheck.id = receivers[i].uid + "-delete";
         deletecheck.setAttribute('onclick', "deleteReceiver(" + receivers[i].uid + ")");
 
-        urlspan.id = receivers[i].uid + "-url";
+        const activateiconspan = document.createElement('span');
+        activateiconspan.classList.add("material-icons", "activate-icon", "no-select");
+        activateiconspan.innerHTML = "power_settings_new";
+        activateiconspan.id = receivers[i].uid + "-activateicon";
+
+        const activatecheck = document.createElement('input');
+        activatecheck.classList.add("edit-checkbox", "activate-icon");
+        activatecheck.type = 'checkbox';
+        activatecheck.id = receivers[i].uid + "-activate";
+
+        // const addnewiconspan = document.createElement('span');
+        // addnewiconspan.classList.add("material-icons", "add-icon", "no-select");
+        // addnewiconspan.innerHTML = "add_circle_outline"
+        // addnewiconspan.id="add_station_icon"
+        //
+        // const addnewcheck = document.createElement('input');
+        // addnewcheck.type = 'checkbox';
+        // addnewcheck.id="add_station";
+        // addnewcheck.classList.add("edit-checkbox", "add-icon")
+
+        // urlspan.id = receivers[i].uid + "-url";
         mobilespan.id = receivers[i].uid + "-mobile";
-        manualspan.id = receivers[i].uid + "-manual";
+        // manualspan.id = receivers[i].uid + "-manual";
         idspan.id = receivers[i].uid + "-id";
         locationspan.id = receivers[i].uid + "-location";
         headingspan.id = receivers[i].uid + "-heading";
         freqspan.id = receivers[i].uid + "-freq";
-        editiconspan.id = receivers[i].uid + "-editicon";
 
         document.getElementById("menu").insertBefore(rxcard, document.getElementById("add_station"));
 
-        rxcard.appendChild(urlspan);
+        // rxcard.appendChild(urlspan);
         rxcard.appendChild(mobilespan);
-        rxcard.appendChild(manualspan);
+        // rxcard.appendChild(manualspan);
         rxcard.appendChild(idspan);
         rxcard.appendChild(locationspan);
         rxcard.appendChild(headingspan);
         rxcard.appendChild(freqspan);
         rxcard.appendChild(editiconspan);
         rxcard.appendChild(deleteiconspan);
+        rxcard.appendChild(activateiconspan);
         rxcard.appendChild(editcheck);
         rxcard.appendChild(deletecheck);
+        rxcard.appendChild(activatecheck);
 
         showReceivers(rx_json, i);
     }

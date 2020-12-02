@@ -110,6 +110,21 @@ body {
   transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0);
 }
 
+#add_station {
+  width: 23px;
+  height: 23px;
+}
+
+#new_rx_div {
+  position: relative;
+  background: #d4d4d4;
+  color: #111;
+  font-weight: bold;
+  padding: 5px;
+  margin: 5px;
+  vertical-align: middle;
+}
+
 .receiver {
   position: relative;
   background: #d4d4d4;
@@ -138,19 +153,26 @@ body {
   font-size: 23pt;
 }
 
+.delete-icon {
+  display: block;
+  position: absolute;
+  top: 5px;
+  right: 30px;
+}
+
+.activate-icon {
+  display: block;
+  position: absolute;
+  top: 5px;
+  right: 60px;
+}
+
 .edit-checkbox {
   cursor: pointer;
   opacity: 0; /* hide this */
   z-index: 2; /* and place it on top */
   width: 20px;
   height: 20px;
-}
-
-.delete-icon {
-  display: block;
-  position: absolute;
-  top: 5px;
-  right: 30px;
 }
 
 .no-select {
