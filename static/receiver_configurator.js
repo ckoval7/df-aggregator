@@ -1,3 +1,7 @@
+// Update Map ever 5 seconds
+var refreshrate = 5000;
+var autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
+
 // *************************************************
 // * Gets Rx data from backend
 // *************************************************
@@ -56,6 +60,7 @@ function editReceivers(rx_json, id) {
     var editButton = document.getElementById(id + "-edit");
     var isMobileCheck = document.getElementById("mobilerx_toggle_" + id);
     if (editButton.checked) {
+        clearInterval(autoRefresh);
         let isMobile = "";
         if (receivers[id].mobile) isMobile = "checked";
         document.getElementById(id + "-editicon").innerHTML = "save";
@@ -77,6 +82,7 @@ function editReceivers(rx_json, id) {
         //     }
         // }
     } else {
+        autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
         isMobileCheck = document.getElementById("mobilerx_toggle_" + id);
         if (isMobileCheck.checked) {
             receivers[id].mobile = true;

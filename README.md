@@ -16,6 +16,7 @@ Click the power button to enable/disable.
     - Black is enabled, red is disabled.
 - If you lose connectivity to a receiver, that particular receiver will be disabled.
   Click the power button to try to reconnect.
+- Map refreshes every 5 seconds. Change `refreshrate` at the top of `static/receiver_configurator.js` to change the refresh rate.
 
 ## Dependencies:
 - Python >= 3.6
