@@ -1,6 +1,9 @@
 # DF Aggregator
 
-## New Features 1 December 2020:
+## New Features December 2020:
+- LOBs are drawn for each receiver. The orange lines extending from each receiver
+  show the direction the signal is coming from. Currently the line is fixed to 40km
+  draw distance.
 - Receivers can be added from the WebUI
     - Click the + at the bottom of the receiver cards, enter the URL, click save.
     Click the refresh button to update the cards and map.
@@ -16,7 +19,7 @@ Click the power button to enable/disable.
     - Black is enabled, red is disabled.
 - If you lose connectivity to a receiver, that particular receiver will be disabled.
   Click the power button to try to reconnect.
-- Map refreshes every 5 seconds. Change `refreshrate` at the top of `static/receiver_configurator.js` to change the refresh rate.
+- Map refreshes every ~~5~~ 10 seconds. Change `refreshrate` at the top of `static/receiver_configurator.js` to change the refresh rate.
 
 ## Dependencies:
 - Python >= 3.6
