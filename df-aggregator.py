@@ -16,6 +16,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import Point, MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
+from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
 import json
 
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
@@ -303,13 +304,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
             "rgba": [0, 255, 0, 255],
       }
     }
-    rx_properties = {
-        "verticalOrigin": "BOTTOM",
-        "scale": 0.75,
-        "heightReference":"RELATIVE_TO_GROUND",
-        "height": 48,
-        "width": 48
-        }
 
     ellipse_properties = {
         "granularity": 0.008722222,
@@ -325,7 +319,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
-    receiver_point_packets = []
     ellipse_packets = []
 
     if len(all_the_points) > 0 and (ms.plotintersects or ms.eps == 0):
@@ -366,7 +359,43 @@ def write_czml(best_point, all_the_points, ellipsedata):
             ellipse={**ellipse_properties, **ellipse_info},
             position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
 
+    with open("static/output.czml", "w") as file1:
+        file1.write(str(Document([top] + best_point_packets + all_point_packets + ellipse_packets)))
+
+def write_rx_czml():
+    height = 50
+    receiver_point_packets = []
+    lob_packets = []
+    top = Preamble(name="Receivers")
+
+    rx_properties = {
+        "verticalOrigin": "BOTTOM",
+        "scale": 0.75,
+        "heightReference":"RELATIVE_TO_GROUND",
+        "height": 48,
+        "width": 48
+    }
+
     for index, x in enumerate(receivers):
+        if x.isActive and ms.receiving:
+            lob_start_lat = x.latitude
+            lob_start_lon = x.longitude
+            lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, d)
+            lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
+            polyline=Polyline(
+                material= Material( polylineOutline =
+                    PolylineOutlineMaterial(
+                        color= Color(rgba=[255, 140, 0, 255]),
+                        outlineColor= Color(rgba=[0, 0, 0, 255]),
+                        outlineWidth= 2
+                )),
+                clampToGround=True,
+                width=5,
+                positions=Position(cartographicDegrees=[lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
+            )))
+        else:
+            lob_packets = []
+
         if x.isMobile == True:
             rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
             # if x.heading > 0 or x.heading < 180:
@@ -379,8 +408,9 @@ def write_czml(best_point, all_the_points, ellipsedata):
         billboard={**rx_properties, **rx_icon},
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
-    with open("static/output.czml", "w") as file1:
-        file1.write(str(Document([top] + best_point_packets + all_point_packets + receiver_point_packets + ellipse_packets)))
+    with open("static/receivers.czml", "w") as file1:
+        file1.write(str(Document([top] + receiver_point_packets + lob_packets)))
+
 
 ###############################################
 # Converts HSV color values to RGB.
@@ -431,6 +461,7 @@ def clear(debugging):
 ###############################################
 @route('/static/<filepath:path>', name='static')
 def server_static(filepath):
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
     return static_file(filepath, root='./static')
 
 ###############################################
@@ -441,9 +472,11 @@ def server_static(filepath):
 @get('/index')
 @get('/cesium')
 def cesium():
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
     with open('accesstoken.txt', "r") as tokenfile:
         access_token = tokenfile.read().replace('\n', '')
     write_czml(*process_data(database_name, geofile))
+    write_rx_czml()
     return template('cesium.tpl',
     {'access_token':access_token,
     'epsilon':ms.eps,
@@ -476,6 +509,7 @@ def update_cesium():
         ms.plotintersects = False
 
     write_czml(*process_data(database_name, geofile))
+    write_rx_czml()
     return "OK"
 
 ###############################################
@@ -485,6 +519,7 @@ def update_cesium():
 @get('/rx_params')
 def rx_params():
     write_czml(*process_data(database_name, geofile))
+    write_rx_czml()
     all_rx = {'receivers':{}}
     rx_properties = []
     for index, x in enumerate(receivers):

@@ -1,5 +1,5 @@
 // Update Map ever 5 seconds
-var refreshrate = 5000;
+var refreshrate = 10000;
 var autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
 
 // *************************************************
@@ -100,7 +100,7 @@ function editReceivers(rx_json, id) {
         fetch("/rx_params/" + id, otherParams)
             .then(res => {
               updateRx(showReceivers, id);
-              loadCzml();
+              loadAllCzml();
             })
     }
 }
@@ -122,7 +122,7 @@ function makeNewRx(url) {
     fetch("/rx_params/new", otherParams)
         .then(res => {
           updateRx(createReceivers, true);
-          loadCzml();
+          loadAllCzml();
         })
 }
 
@@ -159,7 +159,7 @@ function deleteReceiver(uid) {
         .then(res => {
           // removerx(uid);
           loadRx(createReceivers);
-          loadCzml();
+          loadAllCzml();
         })
 }
 
@@ -180,7 +180,7 @@ function activateReceiver(uid, state) {
     fetch("/rx_params/activate", otherParams)
         .then(res => {
           loadRx(refreshRx);
-          loadCzml();
+          loadAllCzml();
         })
 }
 

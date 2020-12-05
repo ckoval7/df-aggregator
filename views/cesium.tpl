@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
@@ -18,6 +21,7 @@
   <script>
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
+    // var hpr = new Cesium.HeadingPitchRange(0, 40, 0)
     var viewer = new Cesium.Viewer('cesiumContainer', {
       terrainProvider: Cesium.createWorldTerrain(),
       homeButton: false,
@@ -28,7 +32,7 @@
     });
 
     viewer.clock.shouldAnimate = true;
-    viewer.zoomTo(loadCzml());
+    viewer.zoomTo(loadAllCzml());
 
     function updateParams(parameter) {
         fetch("/update?"+parameter)
@@ -36,17 +40,30 @@
               if (response.status == 200) {
                 loadRx(refreshRx);
                 clearOld();
-                loadCzml();
+                loadAllCzml();
                 // console.log(response);
               }
             })
     }
 
-    function loadCzml() {
-      var dataSourcePromise = Cesium.CzmlDataSource.load('/static/output.czml');
-      viewer.dataSources.add(dataSourcePromise);
+    function loadTxCzml() {
+      var transmittersDataSource = Cesium.CzmlDataSource.load('/static/output.czml');
+      viewer.dataSources.add(transmittersDataSource);
       // console.log("Loaded CZML");
-      return dataSourcePromise;
+      return transmittersDataSource;
+    }
+
+    function loadRxCzml() {
+      var receiversDataSource = Cesium.CzmlDataSource.load('/static/receivers.czml');
+      viewer.dataSources.add(receiversDataSource);
+      // console.log("Loaded CZML");
+      return receiversDataSource;
+    }
+
+    function loadAllCzml() {
+      loadTxCzml();
+      let zoom = loadRxCzml();
+      return zoom;
     }
 
     function clearOld() {
