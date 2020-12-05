@@ -35,7 +35,7 @@ Click the power button to enable/disable.
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
     - This is available for both Qt4 (original version) and Qt5 (Ubuntu 20.04+). Just check out the appropriate branch.
 
-![Screenshot](https://github.com/ckoval7/df-aggregator/raw/master/screenshots/Screenshot%20from%202020-11-15%2009-31-22.png)
+![Screenshot](https://raw.githubusercontent.com/ckoval7/df-aggregator/master/screenshots/Screenshot%20from%202020-12-05%2009-14-40.png)
 
 ## Usage: df-aggregator.py [options]
 
