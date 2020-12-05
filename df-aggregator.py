@@ -7,6 +7,7 @@ import time
 import sqlite3
 import threading
 import signal
+import json
 # import hashlib
 from colorsys import hsv_to_rgb
 from optparse import OptionParser
@@ -17,8 +18,6 @@ from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import Point, MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
-import json
-
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 
 d = 40000 #meters
@@ -139,7 +138,7 @@ def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
 #####################################################
 # Find line of intersection between two great circles
 #####################################################
-def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 50000):
+def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 100000):
     # plot another point on the lob
     # v.direct(lat_a, lon_a, doa_a, d)
     # returns (lat_a2, lon_a2)
@@ -271,7 +270,7 @@ def process_data(database_name, outfile):
 # Writes a geojson file upon request.
 ###############################################
 def write_geojson(best_point, all_the_points):
-    all_pt_style = {"name": "Various Points", "marker-color": "#FF0000"}
+    all_pt_style = {"name": "Various Intersections", "marker-color": "#FF0000"}
     best_pt_style = {"name": "Most Likely TX Location", "marker-color": "#00FF00"}
     if all_the_points != None:
         all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(all_the_points)))
@@ -292,14 +291,16 @@ def write_geojson(best_point, all_the_points):
 def write_czml(best_point, all_the_points, ellipsedata):
     point_properties = {
         "pixelSize":5.0,
-        "heightReference":"RELATIVE_TO_GROUND",
+        "heightReference":"CLAMP_TO_GROUND",
+        # "heightReference":"RELATIVE_TO_GROUND",
       #   "color": {
       #       "rgba": [255, 0, 0, 255],
       # }
     }
     best_point_properties = {
         "pixelSize":12.0,
-        "heightReference":"RELATIVE_TO_GROUND",
+        # "heightReference":"RELATIVE_TO_GROUND",
+        "heightReference":"CLAMP_TO_GROUND",
         "color": {
             "rgba": [0, 255, 0, 255],
       }
@@ -359,9 +360,13 @@ def write_czml(best_point, all_the_points, ellipsedata):
             ellipse={**ellipse_properties, **ellipse_info},
             position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
 
-    with open("static/output.czml", "w") as file1:
-        file1.write(str(Document([top] + best_point_packets + all_point_packets + ellipse_packets)))
+    output = Document([top] + best_point_packets + all_point_packets + ellipse_packets)
 
+    return output
+
+###############################################
+# Writes receivers.czml used by the WebUI
+###############################################
 def write_rx_czml():
     height = 50
     receiver_point_packets = []
@@ -371,9 +376,9 @@ def write_rx_czml():
     rx_properties = {
         "verticalOrigin": "BOTTOM",
         "scale": 0.75,
-        "heightReference":"RELATIVE_TO_GROUND",
+        "heightReference":"CLAMP_TO_GROUND",
         "height": 48,
-        "width": 48
+        "width": 48,
     }
 
     for index, x in enumerate(receivers):
@@ -408,8 +413,9 @@ def write_rx_czml():
         billboard={**rx_properties, **rx_icon},
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
-    with open("static/receivers.czml", "w") as file1:
-        file1.write(str(Document([top] + receiver_point_packets + lob_packets)))
+    output = Document([top] + receiver_point_packets + lob_packets)
+
+    return output
 
 
 ###############################################
@@ -475,8 +481,6 @@ def cesium():
     response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
     with open('accesstoken.txt', "r") as tokenfile:
         access_token = tokenfile.read().replace('\n', '')
-    write_czml(*process_data(database_name, geofile))
-    write_rx_czml()
     return template('cesium.tpl',
     {'access_token':access_token,
     'epsilon':ms.eps,
@@ -508,8 +512,6 @@ def update_cesium():
     elif request.query.plotpts == "false":
         ms.plotintersects = False
 
-    write_czml(*process_data(database_name, geofile))
-    write_rx_czml()
     return "OK"
 
 ###############################################
@@ -518,8 +520,7 @@ def update_cesium():
 ###############################################
 @get('/rx_params')
 def rx_params():
-    write_czml(*process_data(database_name, geofile))
-    write_rx_czml()
+
     all_rx = {'receivers':{}}
     rx_properties = []
     for index, x in enumerate(receivers):
@@ -530,6 +531,16 @@ def rx_params():
     all_rx['receivers'] = rx_properties
     response.headers['Content-Type'] = 'application/json'
     return json.dumps(all_rx)
+
+@get('/output.czml')
+def tx_czml_out():
+    output = write_czml(*process_data(database_name, geofile))
+    return str(output)
+
+@get('/receivers.czml')
+def rx_czml_out():
+    output = write_rx_czml()
+    return str(output)
 
 ###############################################
 # PUT request to update receiver variables

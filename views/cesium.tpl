@@ -47,14 +47,14 @@
     }
 
     function loadTxCzml() {
-      var transmittersDataSource = Cesium.CzmlDataSource.load('/static/output.czml');
+      var transmittersDataSource = Cesium.CzmlDataSource.load('/output.czml');
       viewer.dataSources.add(transmittersDataSource);
       // console.log("Loaded CZML");
       return transmittersDataSource;
     }
 
     function loadRxCzml() {
-      var receiversDataSource = Cesium.CzmlDataSource.load('/static/receivers.czml');
+      var receiversDataSource = Cesium.CzmlDataSource.load('/receivers.czml');
       viewer.dataSources.add(receiversDataSource);
       // console.log("Loaded CZML");
       return receiversDataSource;
