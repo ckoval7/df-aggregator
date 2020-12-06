@@ -36,11 +36,12 @@ body {
   display: block;
   width: 40px;
   height: 5px;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
   position: relative;
 
   background: #eee;
   border-radius: 3px;
+  border: 1px solid black;
 
   z-index: 1;
 
@@ -71,6 +72,8 @@ body {
 #menuToggle #burgerbars:checked ~ .borger {
   opacity: 1;
   transform: rotate(45deg) translate(-3px, -2px);
+  border: none;
+  margin-bottom: 5px;
   /* background: #232323; */
 }
 
