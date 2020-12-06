@@ -1,6 +1,8 @@
 # DF Aggregator
 
 ## New Features December 2020:
+- Added option to invert (uninvert?) the DOA bearing. If you're using a KerberosSDR,
+  keep this option checked.
 - LOBs are drawn for each receiver. The orange lines extending from each receiver
   show the direction the signal is coming from. Currently the line is fixed to 40km
   draw distance.

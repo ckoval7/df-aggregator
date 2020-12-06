@@ -20,7 +20,7 @@ from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 
-d = 40000 #meters
+d = 40000 #draw distance of LOBs in meters
 receivers = []
 
 ###############################################
@@ -46,8 +46,10 @@ class receiver:
         self.isAuto = True
         # hashed_url = hashlib.md5(station_url.encode('utf-8')).hexdigest()
         # self.uid = hashed_url[:5] + hashed_url[-5:]
-        self.update(first_run=True)
         self.isActive = True
+        self.flipped = False
+        self.inverted = True
+        self.update(first_run=True)
 
     # Updates receiver from the remote URL
     def update(self, first_run=False):
@@ -68,7 +70,12 @@ class receiver:
             self.heading = float(xml_heading.text)
             xml_doa = xml_contents.find('DOA')
             self.raw_doa = float(xml_doa.text)
-            self.doa = self.heading + (360 - self.raw_doa)
+            if self.inverted:
+                self.doa = self.heading + (360 - self.raw_doa)
+            elif self.flipped:
+                self.doa = self.heading + (180 + self.raw_doa)
+            else:
+                self.doa = self.heading + self.raw_doa
             if self.doa < 0:
                 self.doa += 360
             elif self.doa > 359:
@@ -79,7 +86,7 @@ class receiver:
             self.confidence = int(xml_conf.text)
         except KeyboardInterrupt:
             finish()
-        except:
+        except Exception as ex:
             if first_run:
                 self.station_id = "Unknown"
             self.latitude = 0.0
@@ -92,6 +99,7 @@ class receiver:
             self.confidence = 0
             self.doa_time = 0
             self.isActive = False
+            print(ex)
             print(f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
             # raise IOError
 
@@ -102,7 +110,7 @@ class receiver:
         'latitude':self.latitude, 'longitude':self.longitude, 'heading':self.heading,
         'doa':self.doa, 'frequency':self.frequency, 'power':self.power,
         'confidence':self.confidence, 'doa_time':self.doa_time, 'mobile': self.isMobile,
-        'active':self.isActive, 'auto':self.isAuto})
+        'active':self.isActive, 'auto':self.isAuto, 'inverted':self.inverted})
 
     latitude = 0.0
     longitude = 0.0
@@ -532,11 +540,19 @@ def rx_params():
     response.headers['Content-Type'] = 'application/json'
     return json.dumps(all_rx)
 
+###############################################
+# Returns a CZML file that contains intersect
+# and ellipse information for Cesium.
+###############################################
 @get('/output.czml')
 def tx_czml_out():
     output = write_czml(*process_data(database_name, geofile))
     return str(output)
 
+###############################################
+# Returns a CZML file that contains receiver
+# and LOB information for Cesium.
+###############################################
 @get('/receivers.czml')
 def rx_czml_out():
     output = write_rx_czml()
@@ -564,7 +580,8 @@ def update_rx(action):
         action = int(action)
         try:
             receivers[action].isMobile = data['mobile']
-            receivers[action].station_url = data['station_url']
+            receivers[action].inverted = data['inverted']
+            # receivers[action].station_url = data['station_url']
             receivers[action].update()
             update_rx_table()
         except IndexError:
