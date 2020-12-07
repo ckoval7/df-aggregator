@@ -55,9 +55,8 @@ class receiver:
     def update(self, first_run=False):
         try:
             xml_contents = etree.parse(self.station_url)
-            if first_run:
-                xml_station_id = xml_contents.find('STATION_ID')
-                self.station_id = xml_station_id.text
+            xml_station_id = xml_contents.find('STATION_ID')
+            self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
             self.doa_time = int(xml_doa_time.text)
             xml_freq = xml_contents.find('FREQUENCY')
@@ -110,7 +109,8 @@ class receiver:
         'latitude':self.latitude, 'longitude':self.longitude, 'heading':self.heading,
         'doa':self.doa, 'frequency':self.frequency, 'power':self.power,
         'confidence':self.confidence, 'doa_time':self.doa_time, 'mobile': self.isMobile,
-        'active':self.isActive, 'auto':self.isAuto, 'inverted':self.inverted})
+        'active':self.isActive, 'auto':self.isAuto, 'inverted':self.inverted,
+        'single':self.isSingle})
 
     latitude = 0.0
     longitude = 0.0
@@ -122,6 +122,9 @@ class receiver:
     confidence = 0
     doa_time = 0
     isMobile = False
+    isSingle = False
+    previous_doa_time = 0
+    last_processed_at = 0
 
 ###############################################
 # Converts Lat/Lon to polar coordinates
@@ -425,7 +428,6 @@ def write_rx_czml():
 
     return output
 
-
 ###############################################
 # Converts HSV color values to RGB.
 ###############################################
@@ -581,6 +583,7 @@ def update_rx(action):
         try:
             receivers[action].isMobile = data['mobile']
             receivers[action].inverted = data['inverted']
+            receivers[action].isSingle = data['single']
             # receivers[action].station_url = data['station_url']
             receivers[action].update()
             update_rx_table()
@@ -643,6 +646,11 @@ def run_receiver(receivers):
             conn.commit()
 
         for rx in receivers:
+            if (rx.isSingle and rx.isMobile and rx.isActive and
+            rx.confidence >= ms.min_conf and
+            rx.power >= ms.min_power and
+            rx.doa_time >= rx.previous_doa_time + 5):
+                write_single_rx_table(rx.station_id, rx.doa_time, rx.latitude, rx.longitude, rx.doa)
             try:
                 if rx.isActive: rx.update()
             except IOError:
@@ -658,6 +666,22 @@ def run_receiver(receivers):
 
     conn.close()
 
+def scrub(table_name):
+    return ''.join( chr for chr in table_name if chr.isalnum() )
+
+#################################################
+# If a receiver is in Single RX Mode, the LOBs
+# get written to this table for later processing.
+#################################################
+def write_single_rx_table(station_id, time, lat, lon, lob):
+    tablename = scrub(station_id) + "_lobs"
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute(f"CREATE TABLE IF NOT EXISTS {tablename} (time INTEGER, latitude REAL, longitude REAL, lob INTEGER)")
+    to_table = [time, lat, lon, lob]
+    c.execute(f"INSERT INTO {tablename} VALUES (?,?,?,?)", to_table)
+    conn.commit()
+
 ###############################################
 # Adds a new receiver to the program, saves it
 # in the database.
@@ -670,6 +694,7 @@ def add_receiver(receiver_url):
         station_url TEXT,
         isAuto INTEGER,
         isMobile INTEGER,
+        isSingle INTEGER,
         latitude REAL,
         longitude REAL)
     ''')
@@ -680,12 +705,15 @@ def add_receiver(receiver_url):
             receivers.append(receiver(receiver_url))
             new_rx = receivers[-1].receiver_dict()
             to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
-                new_rx['mobile'], new_rx['latitude'], new_rx['longitude']]
-            c.execute("INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?)", to_table)
+                new_rx['mobile'],new_rx['single'], new_rx['latitude'], new_rx['longitude']]
+            c.execute("INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)", to_table)
             conn.commit()
             mobile = c.execute("SELECT isMobile FROM receivers WHERE station_id = ?",
                 [new_rx['station_id']]).fetchone()[0]
+            single = c.execute("SELECT isSingle FROM receivers WHERE station_id = ?",
+                [new_rx['station_id']]).fetchone()[0]
             receivers[-1].isMobile = bool(mobile)
+            receivers[-1].isSingle = bool(single)
             print("Created new DF Station at " + receiver_url)
     except AttributeError:
         pass
@@ -718,10 +746,11 @@ def update_rx_table():
     c = conn.cursor()
     for item in receivers:
         rx = item.receiver_dict()
-        to_table = [rx['auto'], rx['mobile'], rx['latitude'], rx['longitude'], rx['station_id']]
+        to_table = [rx['auto'], rx['mobile'], rx['single'], rx['latitude'], rx['longitude'], rx['station_id']]
         c.execute('''UPDATE receivers SET
             isAuto=?,
             isMobile=?,
+            isSingle=?,
             latitude=?,
             longitude=?
             WHERE station_id = ?''', to_table)

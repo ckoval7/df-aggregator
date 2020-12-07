@@ -19,14 +19,17 @@ function updateRx(callBack, id) {
 // ******************************************************
 function editReceivers(rx_json, id) {
     const receivers = rx_json['receivers'];
-    // var stationUrlHtml =
-    //     "<input type=\"hidden\" id=\"url_" + id + "\"/>";
+
+    let isSingle = "";
+    if (receivers[id].single) isSingle = "checked";
 
     var stationIDhtml =
         "Station ID: <a href=\"" + receivers[id].station_url + "\" target=\"_blank\">" + receivers[id].station_id + "</a>";
 
     // var manualInfo =
     //     "<input type=\"hidden\" id=\"manual_toggle_" + receivers[id].uid + "\"/>";
+
+    var singleModeHtml = "&emsp;Single Receiver Mode: <input " + isSingle + " id=\"singlerx_toggle_" + id + "\" type=\"checkbox\" />";
 
     var locationHtml =
         "Location: " + receivers[id].latitude + "&#176;, " + receivers[id].longitude + "&#176;";
@@ -36,9 +39,6 @@ function editReceivers(rx_json, id) {
 
     var freqHtml =
         "Tuned to " + receivers[id].frequency + " MHz";
-
-    // var edit_stationUrlHtml =
-    //     "Station URL:<input style=\"width: 300px;\" type=\"text\" value=\"" + receivers[id].station_url + "\" name=\"station_url_" + id + "\" />";
 
     var edit_stationIDhtml =
         "Station ID:<input style=\"width: 105px;\" type=\"text\" value=\"" + receivers[id].station_id + "\" name=\"station_id_" + id + "\" />";
@@ -56,9 +56,12 @@ function editReceivers(rx_json, id) {
     var edit_freqHtml =
         "Frequency:<input style=\"width: 105px;\" type=\"text\" value=\"" + receivers[id].frequency + "\" name=\"frequency_" + id + "\" />";
 
-    var mobile = id + "-mobile";
-    var isMobileCheck = document.getElementById("mobilerx_toggle_" + id);
+    const mobilespan = document.getElementById(id + "-mobile");
+    const singlespan = document.getElementById(id + "-single");
+    // var mobile = id + "-mobile";
+    var isMobileCheck;
     var isInvertedCheck;
+    var isSingleCheck;
     var editButton = document.getElementById(id + "-edit");
     if (editButton.checked) {
         clearInterval(autoRefresh);
@@ -67,12 +70,26 @@ function editReceivers(rx_json, id) {
         let isInverted = "";
         if (receivers[id].inverted) isInverted = "checked";
         document.getElementById(id + "-editicon").innerHTML = "save";
-        document.getElementById(mobile).innerHTML =
+        mobilespan.innerHTML =
             "Mobile Receiver: <input " + isMobile + " id=\"mobilerx_toggle_" + id + "\" type=\"checkbox\" />";
         document.getElementById(id + "-invert").innerHTML =
             "Inverted DOA: <input " + isInverted + " id=\"invert_toggle_" + id + "\" type=\"checkbox\" />";
         isInvertedCheck = document.getElementById("invert_toggle_" + id);
         isInvertedCheck.setAttribute("title", "KerberosSDR users keep this checked.");
+
+        isMobileCheck = document.getElementById("mobilerx_toggle_" + id);
+        if (isMobileCheck.checked) {
+            if (isMobileCheck.checked) {
+                singlespan.innerHTML = singleModeHtml;
+            }
+        }
+        isMobileCheck.onchange = function() {
+            if (isMobileCheck.checked) {
+                singlespan.innerHTML = singleModeHtml;
+            } else {
+                singlespan.innerHTML = "";
+            }
+        }
         // document.getElementById(id + "-manual").innerHTML = edit_manualInfo;
         // // document.getElementById(id + "-url").innerHTML = edit_stationUrlHtml;
         // document.getElementById("manual_toggle_" + id).onchange = function() {
@@ -103,6 +120,18 @@ function editReceivers(rx_json, id) {
         } else {
             receivers[id].inverted = false;
         }
+
+        try {
+          isSingleCheck = document.getElementById("singlerx_toggle_" + id);
+          if (isSingleCheck.checked) {
+              receivers[id].single = true;
+          } else {
+              receivers[id].single = false;
+          }
+        } catch {
+            receivers[id].single = false;
+        }
+
         const otherParams = {
             headers: {
                 "content-type": "application/json"
@@ -225,6 +254,7 @@ function showReceivers(rx_json, id) {
     const urlspan = document.getElementById(id + "-url");
     const mobilespan = document.getElementById(id + "-mobile");
     const invertspan = document.getElementById(id + "-invert");
+    const singlespan = document.getElementById(id + "-single");
     // const manualspan = document.getElementById(id + "-manual");
     const idspan = document.getElementById(id + "-id");
     const locationspan = document.getElementById(id + "-location");
@@ -246,6 +276,7 @@ function showReceivers(rx_json, id) {
     // document.getElementById(id + "-mobile").innerHTML = "";
     mobilespan.innerHTML = "";
     invertspan.innerHTML = "";
+    singlespan.innerHTML = "";
     document.getElementById(id + "-editicon").innerHTML = "edit";
     // document.getElementById(id + "-manual").innerHTML = manualInfo;
     // document.getElementById(id + "-url").innerHTML = stationUrlHtml;
@@ -273,6 +304,7 @@ function createReceivers(rx_json, id) {
         // const urlspan = document.createElement('span');
         const mobilespan = document.createElement('span');
         const invertspan = document.createElement('span');
+        const singlespan = document.createElement('span');
         // const manualspan = document.createElement('span');
         const idspan = document.createElement('span');
         const locationspan = document.createElement('span');
@@ -323,6 +355,7 @@ function createReceivers(rx_json, id) {
         // urlspan.id = receivers[i].uid + "-url";
         mobilespan.id = receivers[i].uid + "-mobile";
         invertspan.id = receivers[i].uid + "-invert";
+        singlespan.id = receivers[i].uid + "-single";
         // manualspan.id = receivers[i].uid + "-manual";
         idspan.id = receivers[i].uid + "-id";
         locationspan.id = receivers[i].uid + "-location";
@@ -333,6 +366,7 @@ function createReceivers(rx_json, id) {
 
         // rxcard.appendChild(urlspan);
         rxcard.appendChild(mobilespan);
+        rxcard.appendChild(singlespan);
         rxcard.appendChild(invertspan);
         // rxcard.appendChild(manualspan);
         rxcard.appendChild(idspan);
