@@ -608,8 +608,10 @@ def run_receiver(receivers):
 
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL, longitude REAL, num_parents INTEGER)")
-
+    c.execute('''CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL,
+     longitude REAL, num_parents INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS lobs (time INTEGER, station_id TEXT,
+     latitude REAL, longitude REAL, confidence INTEGER, lob REAL)''')
 
     while ms.receiving:
         if not debugging:
@@ -620,42 +622,68 @@ def run_receiver(receivers):
         for x in range(len(receivers)):
             for y in range(x):
                 if x != y:
-                    try:
-                        if (receivers[x].confidence >= ms.min_conf and
-                        receivers[y].confidence >= ms.min_conf and
-                        receivers[x].power >= ms.min_power and
-                        receivers[y].power >= ms.min_power and
-                        abs(receivers[x].doa_time - receivers[y].doa_time) <= max_age and
-                        receivers[x].frequency == receivers[y].frequency):
-                            intersection = list(plot_intersects(receivers[x].latitude, receivers[x].longitude,
-                            receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa))
-                            print(intersection)
+                    if (receivers[x].confidence >= ms.min_conf and
+                    receivers[y].confidence >= ms.min_conf and
+                    receivers[x].power >= ms.min_power and
+                    receivers[y].power >= ms.min_power and
+                    abs(receivers[x].doa_time - receivers[y].doa_time) <= max_age and
+                    receivers[x].frequency == receivers[y].frequency):
+                        intersection = plot_intersects(receivers[x].latitude, receivers[x].longitude,
+                        receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
+                        print(intersection)
+                        if intersection:
+                            intersection = list(intersection)
                             avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
                             intersection.append(avg_conf)
                             intersection = np.array([intersection])
                             if intersection.any() != None:
                                 intersect_list = np.concatenate((intersect_list, intersection), axis=0)
 
-                    except TypeError: # I can't figure out what's causing me to need this here
-                        pass
 
         if intersect_list.size != 0:
             avg_coord = np.average(intersect_list[:,0:2], weights=intersect_list[:,-1], axis = 0)
             to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list)]
             c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
-            conn.commit()
+            # conn.commit()
 
         for rx in receivers:
             if (rx.isSingle and rx.isMobile and rx.isActive and
             rx.confidence >= ms.min_conf and
             rx.power >= ms.min_power and
             rx.doa_time >= rx.previous_doa_time + 5):
-                write_single_rx_table(rx.station_id, rx.doa_time, rx.latitude, rx.longitude, rx.doa)
+                current_doa = [rx.doa_time, rx.station_id, rx.latitude,
+                    rx.longitude, rx.confidence, rx.doa]
+                min_time = rx.doa_time - 1800000 #half hour
+                c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
+                 WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
+                lob_array = c.fetchall()
+                current_time = current_doa[0]
+                lat_rxa = current_doa[2]
+                lon_rxa = current_doa[3]
+                conf_rxa = current_doa[4]
+                doa_rxa = current_doa[5]
+                if len(lob_array) > 1:
+                    for previous in lob_array:
+                        lat_rxb = previous[0]
+                        lon_rxb = previous[1]
+                        conf_rxb = previous[2]
+                        doa_rxb = previous[3]
+                        if abs(doa_rxa - doa_rxb) > 5:
+                            intersection = compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
+                            lat_rxb, lon_rxb, doa_rxb, conf_rxb)
+                            if intersection:
+                                print(intersection)
+                                to_table = [current_time, intersection[0], intersection[1], 1]
+                                c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
+
+                c.execute(f"INSERT INTO lobs VALUES (?,?,?,?,?,?)", current_doa)
+            conn.commit()
             try:
                 if rx.isActive: rx.update()
             except IOError:
                 print("Problem connecting to receiver.")
                 # ms.receiving = False
+
 
         time.sleep(1)
         if dots > 5:
@@ -666,21 +694,23 @@ def run_receiver(receivers):
 
     conn.close()
 
-def scrub(table_name):
-    return ''.join( chr for chr in table_name if chr.isalnum() )
 
 #################################################
-# If a receiver is in Single RX Mode, the LOBs
-# get written to this table for later processing.
+# Compute the intersection of two LOBS from
+# a single mobile receiver
 #################################################
-def write_single_rx_table(station_id, time, lat, lon, lob):
-    tablename = scrub(station_id) + "_lobs"
-    conn = sqlite3.connect(database_name)
-    c = conn.cursor()
-    c.execute(f"CREATE TABLE IF NOT EXISTS {tablename} (time INTEGER, latitude REAL, longitude REAL, lob INTEGER)")
-    to_table = [time, lat, lon, lob]
-    c.execute(f"INSERT INTO {tablename} VALUES (?,?,?,?)", to_table)
-    conn.commit()
+def compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
+    lat_rxb, lon_rxb, doa_rxb, conf_rxb):
+
+    intersection = plot_intersects(lat_rxa, lon_rxa,
+        doa_rxa, lat_rxb, lon_rxb, doa_rxb)
+    # print(type(intersection))
+    if intersection:
+        intersection = list(intersection)
+        avg_conf = np.mean([conf_rxa, conf_rxb])
+        intersection.append(avg_conf)
+    return intersection
+
 
 ###############################################
 # Adds a new receiver to the program, saves it
