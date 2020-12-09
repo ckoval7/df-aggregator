@@ -784,7 +784,7 @@ if __name__ == '__main__':
     ms.receiving = options.disable
     ms.plotintersects = options.plotintersects
 
-    max_age = 5
+    max_age = 5000
 
     web = threading.Thread(target=start_server,args=(options.ipaddr, options.port))
     web.daemon = True
