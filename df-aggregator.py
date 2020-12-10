@@ -21,6 +21,7 @@ from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color,
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 
 d = 40000 #draw distance of LOBs in meters
+max_age = 5000
 receivers = []
 
 ###############################################
@@ -618,6 +619,7 @@ def run_receiver(receivers):
             print("Receiving" + dots*'.')
             print("Press Control+C to process data and exit.")
 
+        # Main loop to compute intersections between multiple receivers
         intersect_list = np.array([]).reshape(0,3)
         for x in range(len(receivers)):
             for y in range(x):
@@ -646,14 +648,15 @@ def run_receiver(receivers):
             c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
             # conn.commit()
 
+        # Loop to compute intersections for a single receiver and update all receivers
         for rx in receivers:
             if (rx.isSingle and rx.isMobile and rx.isActive and
             rx.confidence >= ms.min_conf and
             rx.power >= ms.min_power and
-            rx.doa_time >= rx.previous_doa_time + 5):
+            rx.doa_time >= rx.previous_doa_time + 10000):
                 current_doa = [rx.doa_time, rx.station_id, rx.latitude,
                     rx.longitude, rx.confidence, rx.doa]
-                min_time = rx.doa_time - 1800000 #half hour
+                min_time = rx.doa_time - 900000 #15 Minutes
                 c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
                  WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
                 lob_array = c.fetchall()
@@ -668,7 +671,12 @@ def run_receiver(receivers):
                         lon_rxb = previous[1]
                         conf_rxb = previous[2]
                         doa_rxb = previous[3]
-                        if abs(doa_rxa - doa_rxb) > 5:
+                        # if abs(doa_rxa - doa_rxb) > 5:
+                        spacial_diversity, z = v.inverse((lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
+                        #print(f"Distance from other points: {spacial_diversity}")
+                        min_diversity = 500
+                        if (spacial_diversity > min_diversity and
+                             abs(doa_rxa - doa_rxb) > 5):
                             intersection = compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
                             lat_rxb, lon_rxb, doa_rxb, conf_rxb)
                             if intersection:
@@ -842,8 +850,6 @@ if __name__ == '__main__':
     debugging = False if not options.debugging else True
     ms.receiving = options.disable
     ms.plotintersects = options.plotintersects
-
-    max_age = 5
 
     web = threading.Thread(target=start_server,args=(options.ipaddr, options.port))
     web.daemon = True

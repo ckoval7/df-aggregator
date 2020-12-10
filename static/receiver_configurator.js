@@ -1,5 +1,5 @@
-// Update Map ever 5 seconds
-var refreshrate = 10000;
+// Update Map every n milliseconds
+var refreshrate = 600000;
 var autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
 
 // *************************************************
