@@ -152,7 +152,7 @@ body {
   display: block;
   position: absolute;
   bottom: 7px;
-  right: 30px;
+  right: 5px;
   font-size: 23pt;
 }
 
@@ -185,4 +185,11 @@ body {
   -ms-user-select: none; /* Internet Explorer/Edge */
   user-select: none; /* Non-prefixed version, currently
                                   supported by Chrome, Edge, Opera and Firefox */
+}
+
+.menusections {
+  position: relative;
+  padding-bottom: 35px;
+  /* border: 1px solid #CCC; */
+  margin-top: 26px;
 }

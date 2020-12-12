@@ -362,7 +362,7 @@ function createReceivers(rx_json, id) {
         headingspan.id = receivers[i].uid + "-heading";
         freqspan.id = receivers[i].uid + "-freq";
 
-        document.getElementById("menu").insertBefore(rxcard, document.getElementById("add_station"));
+        document.getElementById("rxcards").insertBefore(rxcard, document.getElementById("add_station"));
 
         // rxcard.appendChild(urlspan);
         rxcard.appendChild(mobilespan);

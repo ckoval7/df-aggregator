@@ -23,9 +23,11 @@
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     // var hpr = new Cesium.HeadingPitchRange(0, 40, 0)
     var viewer = new Cesium.Viewer('cesiumContainer', {
-      terrainProvider: Cesium.createWorldTerrain(),
+      // terrainProvider: Cesium.createWorldTerrain(),
       homeButton: false,
-      timeline: false
+      timeline: false,
+      selectionIndicator: false,
+      infoBox: false,
     });
     var clock = new Cesium.Clock({
        clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
@@ -33,6 +35,59 @@
 
     viewer.clock.shouldAnimate = true;
     viewer.zoomTo(loadAllCzml());
+
+    var scene = viewer.scene;
+    if (!scene.pickPositionSupported) {
+      window.alert("This browser does not support pickPosition.");
+    }
+
+    var handler;
+
+    function hovercoords() {
+      var entity = viewer.entities.add({
+        label: {
+          show: false,
+          showBackground: true,
+          font: "14px monospace",
+          horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(15, 0),
+        },
+      });
+
+      // Mouse over the globe to see the cartographic position
+      handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+      handler.setInputAction(function (movement) {
+        var cartesian = viewer.camera.pickEllipsoid(
+          movement.endPosition,
+          scene.globe.ellipsoid
+        );
+        if (cartesian) {
+          var cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+          var longitudeString = Cesium.Math.toDegrees(
+            cartographic.longitude
+          ).toFixed(5);
+          var latitudeString = Cesium.Math.toDegrees(
+            cartographic.latitude
+          ).toFixed(5);
+
+          entity.position = cartesian;
+          entity.label.show = true;
+          entity.label.text =
+            "Lon: " +
+            ("   " + longitudeString).slice(-10) +
+            "\nLat: " +
+            ("   " + latitudeString).slice(-10);
+        } else {
+          entity.label.show = false;
+        }
+      }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    }
+
+    function clearHover() {
+      viewer.entities.removeAll();
+      handler = handler && handler.destroy();
+    };
 
     function updateParams(parameter) {
         fetch("/update?"+parameter)
@@ -84,13 +139,34 @@
     <span class="borger"></span>
 
     <ul id="menu">
-      <h2 style="color: #eee; padding-left: 5px;">Receivers</h2>
+      <div id="rxcards" class="menusections">
+        <h2 style="color: #eee; padding-left: 5px;">Receivers</h2>
 
-      <input id="add_station" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
-      <span id="add_station_icon" class="material-icons add-icon no-select">add_circle_outline</span>
-      <div style="visibility: hidden; height: 0;" id="new_rx_div" style="padding: 0;">
-        <span id="new-url">Station URL:
-        </span>
+        <input id="add_station" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
+        <span id="add_station_icon" class="material-icons add-icon no-select">add_circle_outline</span>
+        <div style="visibility: hidden; height: 0;" id="new_rx_div" style="padding: 0;">
+          <span id="new-url">Station URL:</span>
+        </div>
+      </div>
+      <hr>
+      <div id="aoicards" class="menusections">
+        <h2 style="color: #eee; padding-left: 5px;">Areas of Interest</h2>
+        <p> This does nothing right now. </p>
+        <input id="add_aoi" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
+        <span id="add_aoi_icon" class="material-icons add-icon no-select">add_circle_outline</span>
+        <div style="visibility: hidden; height: 0;" id="new_aoi_div" style="padding: 0;">
+          <span id="new-aoi">Lat/Lon/Radius:</span>
+        </div>
+      </div>
+      <hr>
+      <div id="exclusioncards" class="menusections">
+        <h2 style="color: #eee; padding-left: 5px;">Exclusion Areas</h2>
+        <p> This does nothing right now. </p>
+        <input id="add_exclusion" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
+        <span id="add_exclusion_icon" class="material-icons add-icon no-select">add_circle_outline</span>
+        <div style="visibility: hidden; height: 0;" id="new_exclusion_div" style="padding: 0;">
+          <span id="new-exclusion">Lat/Lon/Radius:</span>
+        </div>
       </div>
       <script>
 
@@ -116,6 +192,28 @@
           document.getElementById("new_rx_div").style.visibility = "hidden";
           document.getElementById("add_station_icon").innerHTML = "add_circle_outline";
           document.getElementById("new_rx_div").style.padding = "0";
+        }
+      }
+
+      var add_aoi = document.getElementById("add_aoi"); //Button to add new RX
+      add_aoi.onchange = function() {
+        if (add_aoi.checked) {
+          document.getElementById("add_aoi_icon").innerHTML = "save";
+          hovercoords();
+        } else {
+          document.getElementById("add_aoi_icon").innerHTML = "add_circle_outline";
+          clearHover();
+        }
+      }
+
+      var add_exclusion = document.getElementById("add_exclusion"); //Button to add new RX
+      add_exclusion.onchange = function() {
+        if (add_exclusion.checked) {
+          document.getElementById("add_exclusion_icon").innerHTML = "save";
+          hovercoords();
+        } else {
+          document.getElementById("add_exclusion_icon").innerHTML = "add_circle_outline";
+          clearHover();
         }
       }
       </script>
