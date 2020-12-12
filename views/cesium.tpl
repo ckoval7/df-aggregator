@@ -23,9 +23,11 @@
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     // var hpr = new Cesium.HeadingPitchRange(0, 40, 0)
     var viewer = new Cesium.Viewer('cesiumContainer', {
-      terrainProvider: Cesium.createWorldTerrain(),
+      // terrainProvider: Cesium.createWorldTerrain(),
       homeButton: false,
-      timeline: false
+      timeline: false,
+      selectionIndicator: false,
+      infoBox: false,
     });
     var clock = new Cesium.Clock({
        clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
