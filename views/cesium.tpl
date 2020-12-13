@@ -42,8 +42,16 @@
     }
 
     var handler;
+    var cartesian;
+    var cartographic
+    // var center_cartesian;
+    var rad_cartesian;
+    var center_lat;
+    var center_lon;
+    var radius;
 
-    function hovercoords() {
+    // Pick the center point of a circle
+    function pickCenter(lat_element_id, radius_element_id, outlineColor) {
       var entity = viewer.entities.add({
         label: {
           show: false,
@@ -54,40 +62,122 @@
           pixelOffset: new Cesium.Cartesian2(15, 0),
         },
       });
-
-      // Mouse over the globe to see the cartographic position
       handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+      // Mouse over the globe to see the cartographic position
       handler.setInputAction(function (movement) {
-        var cartesian = viewer.camera.pickEllipsoid(
+        cartesian = viewer.camera.pickEllipsoid(
           movement.endPosition,
           scene.globe.ellipsoid
         );
+        cartographic = Cesium.Cartographic.fromCartesian(cartesian);
         if (cartesian) {
-          var cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-          var longitudeString = Cesium.Math.toDegrees(
+          var center_lon = Cesium.Math.toDegrees(
             cartographic.longitude
           ).toFixed(5);
-          var latitudeString = Cesium.Math.toDegrees(
+          var center_lat = Cesium.Math.toDegrees(
             cartographic.latitude
           ).toFixed(5);
 
+          lat_element_id.value = center_lat + ", " + center_lon;
+          // lon_element_id.value = center_lon;
           entity.position = cartesian;
           entity.label.show = true;
           entity.label.text =
             "Lon: " +
-            ("   " + longitudeString).slice(-10) +
+            ("   " + center_lon).slice(-10) +
             "\nLat: " +
-            ("   " + latitudeString).slice(-10);
+            ("   " + center_lat).slice(-10);
         } else {
           entity.label.show = false;
         }
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+      handler.setInputAction(function () {
+        clearHover();
+        pickRadius(radius_element_id, cartographic, outlineColor);
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     }
 
+    //Stop pickng things
     function clearHover() {
       viewer.entities.removeAll();
       handler = handler && handler.destroy();
     };
+
+    //Pick the outside edge, radius, of a circle.
+    function pickRadius(radius_element_id, center_carto, outlineColor) {
+      var area;
+      var entity = viewer.entities.add({
+        label: {
+          show: false,
+          showBackground: true,
+          font: "14px monospace",
+          horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(15, 0),
+        },
+      });
+      handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+      handler.setInputAction(function (movement) {
+        rad_cartesian = viewer.camera.pickEllipsoid(
+          movement.endPosition,
+          scene.globe.ellipsoid
+        );
+        var center_lon = Cesium.Math.toDegrees(
+          center_carto.longitude
+        ).toFixed(5);
+        var center_lat = Cesium.Math.toDegrees(
+          center_carto.latitude
+        ).toFixed(5);
+        cartographic = Cesium.Cartographic.fromCartesian(rad_cartesian);
+        if (rad_cartesian) {
+          var ellipsoidGeodesic = new Cesium.EllipsoidGeodesic(center_carto, cartographic);
+          var distance = ellipsoidGeodesic.surfaceDistance.toFixed(1);
+
+          radius_element_id.value = distance;
+          entity.position = rad_cartesian;
+          entity.label.show = true;
+          entity.label.text = distance + " m";
+          circleGeometry = new Cesium.CircleOutlineGeometry({
+            center: Cesium.Cartesian3.fromDegrees(center_lon, center_lat),
+            radius: distance,
+            height: 0,
+            // vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT,
+          });
+          // Create a geometry instance using the circle geometry
+          // created above. Set the color attribute to a solid blue.
+          var areaSelectorInstance = new Cesium.GeometryInstance({
+            geometry: circleGeometry,
+            attributes: {
+              color: Cesium.ColorGeometryInstanceAttribute.fromColor(
+                outlineColor
+              ),
+            },
+          });
+          // Add the geometry instance to primitives.
+          scene.primitives.remove(area);
+          area = scene.primitives.add(
+            new Cesium.Primitive({
+              geometryInstances: areaSelectorInstance,
+              appearance: new Cesium.PerInstanceColorAppearance({
+                closed: true,
+                translucent: false,
+                renderState: {
+                  lineWidth: Math.min(3.0, scene.maximumAliasedLineWidth),
+                },
+              }),
+            })
+          );
+        } else {
+          entity.label.show = false;
+        }
+      }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+      handler.setInputAction(function () {
+        clearHover();
+
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    }
 
     function updateParams(parameter) {
         fetch("/update?"+parameter)
@@ -155,7 +245,7 @@
         <input id="add_aoi" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
         <span id="add_aoi_icon" class="material-icons add-icon no-select">add_circle_outline</span>
         <div style="visibility: hidden; height: 0;" id="new_aoi_div" style="padding: 0;">
-          <span id="new-aoi">Lat/Lon/Radius:</span>
+          <span id="new-aoi"></span>
         </div>
       </div>
       <hr>
@@ -165,7 +255,7 @@
         <input id="add_exclusion" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
         <span id="add_exclusion_icon" class="material-icons add-icon no-select">add_circle_outline</span>
         <div style="visibility: hidden; height: 0;" id="new_exclusion_div" style="padding: 0;">
-          <span id="new-exclusion">Lat/Lon/Radius:</span>
+          <span id="new-exclusion"></span>
         </div>
       </div>
       <script>
@@ -181,8 +271,8 @@
           stationUrlHtml_new.value = "";
           document.getElementById("new_rx_div").style.height = 'auto';
           document.getElementById("new_rx_div").style.visibility = "visible";
-          document.getElementById("add_station_icon").innerHTML = "save";
           document.getElementById("new_rx_div").style.padding = "5px";
+          document.getElementById("add_station_icon").innerHTML = "save";
         } else {
           var newrxurl = stationUrlHtml_new.value
           if (newrxurl != "") {
@@ -190,32 +280,85 @@
           }
           document.getElementById("new_rx_div").style.height = 0;
           document.getElementById("new_rx_div").style.visibility = "hidden";
-          document.getElementById("add_station_icon").innerHTML = "add_circle_outline";
           document.getElementById("new_rx_div").style.padding = "0";
+          document.getElementById("add_station_icon").innerHTML = "add_circle_outline";
         }
       }
 
+      var aoi_br = document.createElement("br");
+      var aoi_latlon_label = document.createTextNode("Lat, Lon:");
+      var aoi_lat_lon = document.createElement('input');
+      aoi_lat_lon.type = 'text';
+      aoi_lat_lon.id = 'aoi-new-latlon';
+      aoi_lat_lon.style.width = '300px';
+      var new_aoi = document.getElementById("new-aoi");
+      new_aoi.appendChild(aoi_latlon_label);
+      new_aoi.appendChild(aoi_lat_lon);
+      var aoi_radius_label = document.createTextNode("Radius:");
+      var aoi_radius = document.createElement('input');
+      aoi_radius.type = 'text';
+      aoi_radius.id = 'aoi-new-radius';
+      aoi_radius.style.width = '300px';
+      new_aoi.appendChild(aoi_br);
+      new_aoi.appendChild(aoi_radius_label);
+      new_aoi.appendChild(aoi_radius);
       var add_aoi = document.getElementById("add_aoi"); //Button to add new RX
       add_aoi.onchange = function() {
         if (add_aoi.checked) {
+          clearHover();
           document.getElementById("add_aoi_icon").innerHTML = "save";
-          hovercoords();
+          pickCenter(aoi_lat_lon, aoi_radius, Cesium.Color.BLUE);
+          aoi_lat_lon.value = "";
+          aoi_radius.value = "";
+          document.getElementById("new_aoi_div").style.height = 'auto';
+          document.getElementById("new_aoi_div").style.visibility = "visible";
+          document.getElementById("new_aoi_div").style.padding = "5px";
         } else {
+          document.getElementById("new_aoi_div").style.height = 0;
+          document.getElementById("new_aoi_div").style.visibility = "hidden";
+          document.getElementById("new_aoi_div").style.padding = "0";
           document.getElementById("add_aoi_icon").innerHTML = "add_circle_outline";
           clearHover();
         }
       }
 
+      var exclusion_br = document.createElement("br");
+      var exclusion_latlon_label = document.createTextNode("Lat, Lon:");
+      var exclusion_lat_lon = document.createElement('input');
+      exclusion_lat_lon.type = 'text';
+      exclusion_lat_lon.id = 'exclusion-new-latlon';
+      exclusion_lat_lon.style.width = '300px';
+      var new_exclusion = document.getElementById("new-exclusion");
+      new_exclusion.appendChild(exclusion_latlon_label);
+      new_exclusion.appendChild(exclusion_lat_lon);
+      var exclusion_radius_label = document.createTextNode("Radius:");
+      var exclusion_radius = document.createElement('input');
+      exclusion_radius.type = 'text';
+      exclusion_radius.id = 'exclusion-new-radius';
+      exclusion_radius.style.width = '300px';
+      new_exclusion.appendChild(exclusion_br);
+      new_exclusion.appendChild(exclusion_radius_label);
+      new_exclusion.appendChild(exclusion_radius);
       var add_exclusion = document.getElementById("add_exclusion"); //Button to add new RX
       add_exclusion.onchange = function() {
         if (add_exclusion.checked) {
+          clearHover();
           document.getElementById("add_exclusion_icon").innerHTML = "save";
-          hovercoords();
+          pickCenter(exclusion_lat_lon, exclusion_radius, Cesium.Color.YELLOW);
+          exclusion_lat_lon.value = "";
+          exclusion_radius.value = "";
+          document.getElementById("new_exclusion_div").style.height = 'auto';
+          document.getElementById("new_exclusion_div").style.visibility = "visible";
+          document.getElementById("new_exclusion_div").style.padding = "5px";
         } else {
+          document.getElementById("new_exclusion_div").style.height = 0;
+          document.getElementById("new_exclusion_div").style.visibility = "hidden";
+          document.getElementById("new_exclusion_div").style.padding = "0";
           document.getElementById("add_exclusion_icon").innerHTML = "add_circle_outline";
           clearHover();
         }
       }
+
       </script>
     </ul>
   </div>
