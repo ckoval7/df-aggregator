@@ -9,12 +9,13 @@
   <!-- Include the CesiumJS JavaScript and CSS files -->
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.76/Build/Cesium/Cesium.js"></script>
   <script src="/static/receiver_configurator.js"></script>
+  <script src="/static/interest_areas.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.76/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="/static/style.css" rel="stylesheet">
   <link href="/static/menu.css" rel="stylesheet">
 </head>
-<body onload="loadRx(createReceivers)">
+<body onload="loadRx(createReceivers); loadAoi(createAois);">
   <div id="cesiumContainer">
 
   </div>
@@ -26,8 +27,6 @@
       // terrainProvider: Cesium.createWorldTerrain(),
       homeButton: false,
       timeline: false,
-      selectionIndicator: false,
-      infoBox: false,
     });
     var clock = new Cesium.Clock({
        clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
@@ -51,7 +50,9 @@
     var radius;
 
     // Pick the center point of a circle
-    function pickCenter(lat_element_id, radius_element_id, outlineColor) {
+    function pickCenter(lat_element_id, lon_element_id, radius_element_id, outlineColor) {
+      viewer.selectionIndicator = false;
+      viewer.infoBox = false;
       var entity = viewer.entities.add({
         label: {
           show: false,
@@ -78,15 +79,15 @@
             cartographic.latitude
           ).toFixed(5);
 
-          lat_element_id.value = center_lat + ", " + center_lon;
-          // lon_element_id.value = center_lon;
+          lat_element_id.value = center_lat;
+          lon_element_id.value = center_lon;
           entity.position = cartesian;
           entity.label.show = true;
           entity.label.text =
-            "Lon: " +
-            ("   " + center_lon).slice(-10) +
-            "\nLat: " +
-            ("   " + center_lat).slice(-10);
+            "Lat: " +
+            ("   " + center_lat).slice(-10) +
+            "\nLon: " +
+            ("   " + center_lon).slice(-10);
         } else {
           entity.label.show = false;
         }
@@ -98,15 +99,17 @@
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     }
 
+    var area;
     //Stop pickng things
     function clearHover() {
+      viewer.selectionIndicator = true;
+      viewer.infoBox = true;
       viewer.entities.removeAll();
       handler = handler && handler.destroy();
     };
 
     //Pick the outside edge, radius, of a circle.
     function pickRadius(radius_element_id, center_carto, outlineColor) {
-      var area;
       var entity = viewer.entities.add({
         label: {
           show: false,
@@ -221,6 +224,7 @@
     // const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
 
   </script>
+  <div id="cardsmenu">
   <div id="menuToggle">
 
     <input id="burgerbars" type="checkbox" />
@@ -260,6 +264,7 @@
         </div>
       </div>
     </ul>
+  </div>
   </div>
   <script src="/static/cardsmenu.js"></script>
 

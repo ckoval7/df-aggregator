@@ -100,6 +100,8 @@ body {
   /* to stop flickering of text in safari */
   transform: none;
   transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0);
+  max-height: 80%;
+  overflow-y: scroll;
 }
 
 #menu li {
@@ -128,7 +130,7 @@ body {
   vertical-align: middle;
 }
 
-.receiver {
+.receiver, .aoi {
   position: relative;
   background: #d4d4d4;
   color: #111;
@@ -137,7 +139,7 @@ body {
   margin: 5px;
   vertical-align: middle;
 }
-.receiver span {
+.receiver span, .aoi span {
   display: block;
 }
 

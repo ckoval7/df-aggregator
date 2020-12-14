@@ -328,11 +328,42 @@ def write_czml(best_point, all_the_points, ellipsedata):
                 }
             }
         }
+    area_of_interest_properties = {
+        "granularity": 0.008722222,
+        "height": 0,
+        "material": {
+            "solidColor": {
+                "color": {
+                    "rgba": [0, 255, 0, 25]
+                    }
+                }
+            },
+        "outline": True,
+        "outlineWidth": 2,
+        "outlineColor": {"rgba": [53, 184, 240, 255],},
+        },
+
+    exclusion_area_properties = {
+        "granularity": 0.008722222,
+        "height": 0,
+        "material": {
+            "solidColor": {
+                "color": {
+                    "rgba": [242, 10, 0, 25]
+                    }
+                }
+            },
+        "outline": True,
+        "outlineWidth": 2,
+        "outlineColor": {"rgba": [224, 142, 0, 255],},
+        },
 
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
     ellipse_packets = []
+    aoi_packets = []
+    # exclusion_packets = []
 
     if len(all_the_points) > 0 and (ms.plotintersects or ms.eps == 0):
         all_the_points = np.array(all_the_points)
@@ -370,9 +401,27 @@ def write_czml(best_point, all_the_points, ellipsedata):
             ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
             ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
             ellipse={**ellipse_properties, **ellipse_info},
-            position={"cartographicDegrees": [ x[3], x[4], 15 ]}))
+            position={"cartographicDegrees": [ x[3], x[4], 0 ]}))
 
-    output = Document([top] + best_point_packets + all_point_packets + ellipse_packets)
+    for x in fetch_aoi_data():
+        aoi = {
+            'uid': x[0],
+            'aoi_type': x[1],
+            'latitude': x[2],
+            'longitude': x[3],
+            'radius': x[4]
+        }
+        if aoi['aoi_type'] == "aoi":
+            aoi_properties = area_of_interest_properties[0]
+        elif aoi['aoi_type'] == "exclusion":
+            aoi_properties = exclusion_area_properties[0]
+        aoi_info = {"semiMajorAxis": aoi['radius'], "semiMinorAxis": aoi['radius'], "rotation": 0}
+        aoi_packets.append(Packet(id=aoi['aoi_type'] + str(aoi['uid']),
+        ellipse={**aoi_properties, **aoi_info},
+        position={"cartographicDegrees": [ aoi['longitude'], aoi['latitude'], 0 ]}))
+
+    output = Document([top] + best_point_packets + all_point_packets + ellipse_packets +
+        aoi_packets)
 
     return output
 
@@ -593,6 +642,46 @@ def update_rx(action):
     return redirect('/rx_params')
 
 ###############################################
+# Returns a JSON file to the WebUI with
+# information to fill in the AOI cards.
+###############################################
+@get('/interest_areas')
+def rx_params():
+    all_aoi = {'aois':{}}
+    aoi_properties = []
+    for x in fetch_aoi_data():
+        aoi = {
+            'uid': x[0],
+            'aoi_type': x[1],
+            'latitude': x[2],
+            'longitude': x[3],
+            'radius': x[4]
+        }
+        aoi_properties.append(aoi)
+    all_aoi['aois'] = aoi_properties
+    response.headers['Content-Type'] = 'application/json'
+    return json.dumps(all_aoi)
+
+##########################################
+# PUT request to add new AOI to DB
+##########################################
+@put('/interest_areas/<action>')
+def handle_interest_areas(action):
+    data = json.load(request.body)
+    if action == "new" and not "" in data.values():
+        aoi_type = data['aoi_type']
+        lat = data['latitude']
+        lon = data['longitude']
+        radius = data['radius']
+        add_aoi(aoi_type, lat, lon, radius)
+    elif action == "del":
+        conn = sqlite3.connect(database_name)
+        c = conn.cursor()
+        c.execute("DELETE FROM interest_areas WHERE uid=?", [data['uid']])
+        conn.commit()
+        conn.close()
+
+###############################################
 # Starts the Bottle webserver.
 ###############################################
 def start_server(ipaddr = "127.0.0.1", port=8080):
@@ -709,7 +798,6 @@ def run_receiver(receivers):
 #################################################
 def compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
     lat_rxb, lon_rxb, doa_rxb, conf_rxb):
-
     intersection = plot_intersects(lat_rxa, lon_rxa,
         doa_rxa, lat_rxb, lon_rxb, doa_rxb)
     # print(type(intersection))
@@ -805,6 +893,38 @@ def del_receiver(del_rx):
     c.execute("DELETE FROM receivers WHERE station_id=?", [del_rx])
     conn.commit()
     conn.close()
+
+###############################################
+# Updates the database with new interest areas.
+###############################################
+def add_aoi(aoi_type, lat, lon, radius):
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS interest_areas (
+        uid INTEGER,
+        aoi_type TEXT,
+        latitude REAL,
+        longitude REAL,
+        radius INTEGER)
+    ''')
+    prev_uid = c.execute('SELECT MAX(uid) from interest_areas').fetchone()[0]
+    print(prev_uid)
+    uid = (prev_uid + 1) if prev_uid != None else 0
+    to_table = [uid, aoi_type, lat, lon, radius]
+    c.execute('INSERT INTO interest_areas VALUES (?,?,?,?,?)', to_table)
+    conn.commit()
+    conn.close()
+
+#########################################
+# Read all the AOIs from the DB
+#########################################
+def fetch_aoi_data():
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute('SELECT * FROM interest_areas')
+    aoi_list = c.fetchall()
+    conn.close()
+    return aoi_list
 
 if __name__ == '__main__':
     ###############################################

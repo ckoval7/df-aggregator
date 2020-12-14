@@ -24,14 +24,25 @@ add_button.onchange = function() {
 }
 
 var aoi_br = document.createElement("br");
-var aoi_latlon_label = document.createTextNode("Lat, Lon:");
-var aoi_lat_lon = document.createElement('input');
-aoi_lat_lon.type = 'text';
-aoi_lat_lon.id = 'aoi-new-latlon';
-aoi_lat_lon.style.width = '300px';
+var aoi_latlabel = document.createTextNode("Lat:");
+var aoi_lat = document.createElement('input');
+aoi_lat.type = 'text';
+aoi_lat.id = 'aoi-new-lat';
+aoi_lat.style.width = '140px';
 var new_aoi = document.getElementById("new-aoi");
-new_aoi.appendChild(aoi_latlon_label);
-new_aoi.appendChild(aoi_lat_lon);
+new_aoi.appendChild(aoi_latlabel);
+new_aoi.appendChild(aoi_lat);
+
+var aoi_br = document.createElement("br");
+var aoi_lonlabel = document.createTextNode(" Lon:");
+var aoi_lon = document.createElement('input');
+aoi_lon.type = 'text';
+aoi_lon.id = 'aoi-new-lon';
+aoi_lon.style.width = '140px';
+var new_aoi = document.getElementById("new-aoi");
+new_aoi.appendChild(aoi_lonlabel);
+new_aoi.appendChild(aoi_lon);
+
 var aoi_radius_label = document.createTextNode("Radius:");
 var aoi_radius = document.createElement('input');
 aoi_radius.type = 'text';
@@ -45,8 +56,9 @@ add_aoi.onchange = function() {
   if (add_aoi.checked) {
     clearHover();
     document.getElementById("add_aoi_icon").innerHTML = "save";
-    pickCenter(aoi_lat_lon, aoi_radius, Cesium.Color.CORNFLOWERBLUE);
-    aoi_lat_lon.value = "";
+    pickCenter(aoi_lat, aoi_lon, aoi_radius, Cesium.Color.CORNFLOWERBLUE);
+    aoi_lat.value = "";
+    aoi_lon.value = "";
     aoi_radius.value = "";
     document.getElementById("new_aoi_div").style.height = 'auto';
     document.getElementById("new_aoi_div").style.visibility = "visible";
@@ -56,19 +68,32 @@ add_aoi.onchange = function() {
     document.getElementById("new_aoi_div").style.visibility = "hidden";
     document.getElementById("new_aoi_div").style.padding = "0";
     document.getElementById("add_aoi_icon").innerHTML = "add_circle_outline";
+    makeNewAoi("aoi", aoi_lat.value, aoi_lon.value, aoi_radius.value);
+    scene.primitives.remove(area);
     clearHover();
   }
 }
 
 var exclusion_br = document.createElement("br");
-var exclusion_latlon_label = document.createTextNode("Lat, Lon:");
-var exclusion_lat_lon = document.createElement('input');
-exclusion_lat_lon.type = 'text';
-exclusion_lat_lon.id = 'exclusion-new-latlon';
-exclusion_lat_lon.style.width = '300px';
+var exclusion_latlabel = document.createTextNode("Lat:");
+var exclusion_lat = document.createElement('input');
+exclusion_lat.type = 'text';
+exclusion_lat.id = 'exclusion-new-lat';
+exclusion_lat.style.width = '140px';
 var new_exclusion = document.getElementById("new-exclusion");
-new_exclusion.appendChild(exclusion_latlon_label);
-new_exclusion.appendChild(exclusion_lat_lon);
+new_exclusion.appendChild(exclusion_latlabel);
+new_exclusion.appendChild(exclusion_lat);
+
+var exclusion_br = document.createElement("br");
+var exclusion_lonlabel = document.createTextNode(" Lon:");
+var exclusion_lon = document.createElement('input');
+exclusion_lon.type = 'text';
+exclusion_lon.id = 'exclusion-new-lon';
+exclusion_lon.style.width = '140px';
+var new_exclusion = document.getElementById("new-exclusion");
+new_exclusion.appendChild(exclusion_lonlabel);
+new_exclusion.appendChild(exclusion_lon);
+
 var exclusion_radius_label = document.createTextNode("Radius:");
 var exclusion_radius = document.createElement('input');
 exclusion_radius.type = 'text';
@@ -82,8 +107,9 @@ add_exclusion.onchange = function() {
   if (add_exclusion.checked) {
     clearHover();
     document.getElementById("add_exclusion_icon").innerHTML = "save";
-    pickCenter(exclusion_lat_lon, exclusion_radius, Cesium.Color.ORANGE);
-    exclusion_lat_lon.value = "";
+    pickCenter(exclusion_lat, exclusion_lon, exclusion_radius, Cesium.Color.ORANGE);
+    exclusion_lat.value = "";
+    exclusion_lon.value = "";
     exclusion_radius.value = "";
     document.getElementById("new_exclusion_div").style.height = 'auto';
     document.getElementById("new_exclusion_div").style.visibility = "visible";
@@ -93,6 +119,8 @@ add_exclusion.onchange = function() {
     document.getElementById("new_exclusion_div").style.visibility = "hidden";
     document.getElementById("new_exclusion_div").style.padding = "0";
     document.getElementById("add_exclusion_icon").innerHTML = "add_circle_outline";
+    makeNewAoi("exclusion", exclusion_lat.value, exclusion_lon.value, exclusion_radius.value);
+    scene.primitives.remove(area);
     clearHover();
   }
 }
