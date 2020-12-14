@@ -29,7 +29,8 @@ Click the power button to enable/disable.
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
 - [czml3](https://github.com/poliastro/czml3)
-    - As of this writing, the version from pip does not support ellipses. Please use the version from GitHub.
+    - ~As of this writing, the version from pip does not support ellipses. Please use the version from GitHub.~
+    - pip3 now has the proper version of czml3! Version should be >= 0.5.4
 
 ## Other things you'll need:
 - ~[Cesium Ion Token](https://cesium.com/docs/tutorials/quick-start/)~
