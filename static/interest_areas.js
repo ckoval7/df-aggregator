@@ -37,7 +37,7 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
 }
 
 // *******************************************
-// * Removes Rx from Backend and Reloads Map
+// * Removes AOI from Backend and Reloads Map
 // *******************************************
 function deleteAoi(uid) {
     const del_aoi = { "uid": uid };
@@ -51,6 +51,28 @@ function deleteAoi(uid) {
     };
     clearOld();
     fetch("/interest_areas/del", otherParams)
+        .then(res => {
+          // removerx(uid);
+          loadAoi(createAois);
+          loadAllCzml();
+        })
+}
+
+// *******************************************
+// * Purges intersects from Backend and Reloads Map
+// *******************************************
+function purgeAoi(uid) {
+    const del_aoi = { "uid": uid };
+    // console.log(new_rx);
+    const otherParams = {
+        headers: {
+            "content-type": "application/json"
+        },
+        body: JSON.stringify(del_aoi),
+        method: "PUT"
+    };
+    clearOld();
+    fetch("/interest_areas/purge", otherParams)
         .then(res => {
           // removerx(uid);
           loadAoi(createAois);

@@ -279,6 +279,33 @@ def process_data(database_name, outfile):
     return likely_location, intersect_list, ellipsedata
 
 ###############################################
+# Checks interesections stored in the database
+# against a lat/lon/radius and removes items
+# that don't match the rules.
+###############################################
+def purge_database(type, lat, lon, radius):
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    try:
+        c.execute("SELECT latitude, longitude FROM intersects")
+        intersect_list = c.fetchall()
+    except sqlite3.OperationalError:
+        intersect_list = []
+
+    purge_count = 0
+    for x in intersect_list:
+        if type == "exclusion":
+            distance = v.inverse(x, (lat, lon))[0]
+            if distance < radius:
+                c.execute("DELETE FROM intersects WHERE latitude=? AND longitude=?", x)
+                purge_count += 1
+        elif type == "aoi":
+            pass
+    conn.commit()
+    conn.close()
+    print(f"I purged {purge_count} intersects.")
+
+###############################################
 # Writes a geojson file upon request.
 ###############################################
 def write_geojson(best_point, all_the_points):
@@ -334,7 +361,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
         "material": {
             "solidColor": {
                 "color": {
-                    "rgba": [0, 255, 0, 25]
+                    "rgba": [0, 0, 255, 25]
                     }
                 }
             },
@@ -680,6 +707,13 @@ def handle_interest_areas(action):
         c.execute("DELETE FROM interest_areas WHERE uid=?", [data['uid']])
         conn.commit()
         conn.close()
+    elif action == "purge":
+        conn = sqlite3.connect(database_name)
+        c = conn.cursor()
+        c.execute("SELECT aoi_type, latitude, longitude, radius FROM interest_areas WHERE uid=?", [data['uid']])
+        properties = c.fetchone()
+        conn.close()
+        purge_database(*properties)
 
 ###############################################
 # Starts the Bottle webserver.
@@ -723,12 +757,13 @@ def run_receiver(receivers):
                         receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
                         print(intersection)
                         if intersection:
-                            intersection = list(intersection)
-                            avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
-                            intersection.append(avg_conf)
-                            intersection = np.array([intersection])
-                            if intersection.any() != None:
-                                intersect_list = np.concatenate((intersect_list, intersection), axis=0)
+                            if check_aoi(*intersection):
+                                intersection = list(intersection)
+                                avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
+                                intersection.append(avg_conf)
+                                intersection = np.array([intersection])
+                                if intersection.any() != None:
+                                    intersect_list = np.concatenate((intersect_list, intersection), axis=0)
 
 
         if intersect_list.size != 0:
@@ -769,9 +804,10 @@ def run_receiver(receivers):
                             intersection = compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
                             lat_rxb, lon_rxb, doa_rxb, conf_rxb)
                             if intersection:
-                                print(intersection)
-                                to_table = [current_time, intersection[0], intersection[1], 1]
-                                c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
+                                if check_aoi(*intersection[0:2]):
+                                    print(intersection)
+                                    to_table = [current_time, intersection[0], intersection[1], 1]
+                                    c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
 
                 c.execute(f"INSERT INTO lobs VALUES (?,?,?,?,?,?)", current_doa)
             conn.commit()
@@ -791,6 +827,42 @@ def run_receiver(receivers):
 
     conn.close()
 
+###############################################
+# Checks if intersection should be kept or not
+###############################################
+def check_aoi(lat, lon):
+    keep_list = []
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    try:
+        c.execute('SELECT COUNT(*) FROM interest_areas WHERE aoi_type="aoi"')
+        n_aoi = c.fetchone()[0]
+    except sqlite3.OperationalError:
+        n_aoi = 0
+    conn.close()
+    if n_aoi == 0:
+        keep_list.append(True)
+    for x in fetch_aoi_data():
+        aoi = {
+            'uid': x[0],
+            'aoi_type': x[1],
+            'latitude': x[2],
+            'longitude': x[3],
+            'radius': x[4]
+        }
+        distance = v.inverse((aoi['latitude'], aoi['longitude']), (lat, lon))[0]
+        if aoi['aoi_type'] == "exclusion":
+            if distance < aoi['radius']:
+                keep = False
+                return keep
+        elif aoi['aoi_type'] == "aoi":
+            if distance < aoi['radius']:
+                keep_list.append(True)
+            else:
+                keep_list.append(False)
+
+    keep = any(keep_list)
+    return keep
 
 #################################################
 # Compute the intersection of two LOBS from
@@ -908,7 +980,6 @@ def add_aoi(aoi_type, lat, lon, radius):
         radius INTEGER)
     ''')
     prev_uid = c.execute('SELECT MAX(uid) from interest_areas').fetchone()[0]
-    print(prev_uid)
     uid = (prev_uid + 1) if prev_uid != None else 0
     to_table = [uid, aoi_type, lat, lon, radius]
     c.execute('INSERT INTO interest_areas VALUES (?,?,?,?,?)', to_table)
@@ -921,8 +992,11 @@ def add_aoi(aoi_type, lat, lon, radius):
 def fetch_aoi_data():
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute('SELECT * FROM interest_areas')
-    aoi_list = c.fetchall()
+    try:
+        c.execute('SELECT * FROM interest_areas')
+        aoi_list = c.fetchall()
+    except sqlite3.OperationalError:
+        aoi_list = []
     conn.close()
     return aoi_list
 

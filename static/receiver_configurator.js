@@ -211,7 +211,6 @@ function deleteReceiver(uid) {
 // *******************************************************
 function activateReceiver(uid, state) {
     const activate_rx = { "uid": uid, "state": state };
-    console.log("I'm sending " + state)
     const otherParams = {
         headers: {
             "content-type": "application/json"

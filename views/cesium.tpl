@@ -20,6 +20,12 @@
 
   </div>
   <script>
+    // // Update Map every n milliseconds
+    // var rxRefreshRate = 5000;
+    // var autoRxRefresh = setInterval(function () { reloadRX(); }, rxRefreshRate);
+
+    var transmittersDataSource;
+    var receiversDataSource;
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     // var hpr = new Cesium.HeadingPitchRange(0, 40, 0)
@@ -196,14 +202,14 @@
     }
 
     function loadTxCzml() {
-      var transmittersDataSource = Cesium.CzmlDataSource.load('/output.czml');
+      transmittersDataSource = Cesium.CzmlDataSource.load('/output.czml');
       viewer.dataSources.add(transmittersDataSource);
       // console.log("Loaded CZML");
       return transmittersDataSource;
     }
 
     function loadRxCzml() {
-      var receiversDataSource = Cesium.CzmlDataSource.load('/receivers.czml');
+      receiversDataSource = Cesium.CzmlDataSource.load('/receivers.czml');
       viewer.dataSources.add(receiversDataSource);
       // console.log("Loaded CZML");
       return receiversDataSource;
