@@ -1,6 +1,6 @@
 // Update Map every n milliseconds
 var refreshrate = 600000;
-var autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
+// var autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
 
 // *************************************************
 // * Gets Rx data from backend
@@ -64,7 +64,7 @@ function editReceivers(rx_json, id) {
     var isSingleCheck;
     var editButton = document.getElementById(id + "-edit");
     if (editButton.checked) {
-        clearInterval(autoRefresh);
+        // clearInterval(autoRefresh);
         let isMobile = "";
         if (receivers[id].mobile) isMobile = "checked";
         let isInverted = "";
@@ -106,7 +106,7 @@ function editReceivers(rx_json, id) {
         //     }
         // }
     } else {
-        autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
+        // autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
         isMobileCheck = document.getElementById("mobilerx_toggle_" + id);
         if (isMobileCheck.checked) {
             receivers[id].mobile = true;

@@ -13,12 +13,14 @@ from colorsys import hsv_to_rgb
 from optparse import OptionParser
 from os import system, name, kill, getpid
 from lxml import etree
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import DBSCAN, OPTICS
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import Point, MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
+
+import sys
 
 d = 40000 #draw distance of LOBs in meters
 max_age = 5000
@@ -201,7 +203,12 @@ def process_data(database_name, outfile):
     try:
         # c.execute("SELECT COUNT(*) FROM intersects")
         # n_intersects = int(c.fetchone()[0])
-        c.execute("SELECT longitude, latitude, time FROM intersects")
+        # 200000 eats 22GB of RAM
+        # 187500 eats 13GB of RAM
+        # 175000 eats 1661 MB of RAM
+        # 150000 eats 976 MB of RAM
+        # 140000 eats 920 MB of RAM
+        c.execute("SELECT longitude, latitude, time FROM intersects LIMIT 120000")
         intersect_array = np.array(c.fetchall())
     except sqlite3.OperationalError:
         n_intersects = 0
@@ -214,12 +221,24 @@ def process_data(database_name, outfile):
 
     if intersect_array.size != 0:
         if ms.eps > 0:
-            X = StandardScaler().fit_transform(intersect_array[:,0:2])
+            X = StandardScaler().fit_transform(intersect_array[:,0:2:])
+            # X = np.radians(intersect_array[:,0:2])
 
+            n_points = len(X)
+            size_x = sys.getsizeof(X)/1024
+            print(f"The dataset is {size_x} kilobytes")
+            print(f"Computing Clusters from {n_points} intersections.")
             # Compute DBSCAN
+            # starttime = time.time()
+            # db = OPTICS(max_eps=ms.eps, min_samples=int(ms.min_samp), cluster_method="dbscan").fit(X)
+            # stoptime = time.time()
+            # print(f"OPTICS took {stoptime - starttime} seconds to compute the clusters.")
+
+            starttime = time.time()
+            # , algorithm='ball_tree', metric='haversine'
             db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
-            core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-            core_samples_mask[db.core_sample_indices_] = True
+            stoptime = time.time()
+            print(f"DBSCAN took {stoptime - starttime} seconds to compute the clusters.")
             labels = db.labels_
 
             intersect_array = np.column_stack((intersect_array, labels))
@@ -250,6 +269,8 @@ def process_data(database_name, outfile):
                 ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
                 axis_x = v.inverse(Reverse(clustermean.tolist()), (ell_radius_x + clustermean[1], clustermean[0]))[0]
                 axis_y = v.inverse(Reverse(clustermean.tolist()), (clustermean[1], ell_radius_y + clustermean[0]))[0]
+                # axis_x = v.inverse(clustermean.tolist(), (ell_radius_x + clustermean[1], clustermean[0]))[0]
+                # axis_y = v.inverse(clustermean.tolist(), (clustermean[1], ell_radius_y + clustermean[0]))[0]
 
                 if b == 0 and a >= c:
                     rotation = 0
@@ -355,41 +376,12 @@ def write_czml(best_point, all_the_points, ellipsedata):
                 }
             }
         }
-    area_of_interest_properties = {
-        "granularity": 0.008722222,
-        "height": 0,
-        "material": {
-            "solidColor": {
-                "color": {
-                    "rgba": [0, 0, 255, 25]
-                    }
-                }
-            },
-        "outline": True,
-        "outlineWidth": 2,
-        "outlineColor": {"rgba": [53, 184, 240, 255],},
-        },
-
-    exclusion_area_properties = {
-        "granularity": 0.008722222,
-        "height": 0,
-        "material": {
-            "solidColor": {
-                "color": {
-                    "rgba": [242, 10, 0, 25]
-                    }
-                }
-            },
-        "outline": True,
-        "outlineWidth": 2,
-        "outlineColor": {"rgba": [224, 142, 0, 255],},
-        },
 
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
     best_point_packets = []
     ellipse_packets = []
-    aoi_packets = []
+
     # exclusion_packets = []
 
     if len(all_the_points) > 0 and (ms.plotintersects or ms.eps == 0):
@@ -430,25 +422,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
             ellipse={**ellipse_properties, **ellipse_info},
             position={"cartographicDegrees": [ x[3], x[4], 0 ]}))
 
-    for x in fetch_aoi_data():
-        aoi = {
-            'uid': x[0],
-            'aoi_type': x[1],
-            'latitude': x[2],
-            'longitude': x[3],
-            'radius': x[4]
-        }
-        if aoi['aoi_type'] == "aoi":
-            aoi_properties = area_of_interest_properties[0]
-        elif aoi['aoi_type'] == "exclusion":
-            aoi_properties = exclusion_area_properties[0]
-        aoi_info = {"semiMajorAxis": aoi['radius'], "semiMinorAxis": aoi['radius'], "rotation": 0}
-        aoi_packets.append(Packet(id=aoi['aoi_type'] + str(aoi['uid']),
-        ellipse={**aoi_properties, **aoi_info},
-        position={"cartographicDegrees": [ aoi['longitude'], aoi['latitude'], 0 ]}))
-
-    output = Document([top] + best_point_packets + all_point_packets + ellipse_packets +
-        aoi_packets)
+    output = Document([top] + best_point_packets + all_point_packets + ellipse_packets)
 
     return output
 
@@ -459,6 +433,7 @@ def write_rx_czml():
     height = 50
     receiver_point_packets = []
     lob_packets = []
+    aoi_packets = []
     top = Preamble(name="Receivers")
 
     rx_properties = {
@@ -468,6 +443,36 @@ def write_rx_czml():
         "height": 48,
         "width": 48,
     }
+
+    area_of_interest_properties = {
+        "granularity": 0.008722222,
+        "height": 0,
+        "material": {
+            "solidColor": {
+                "color": {
+                    "rgba": [0, 0, 255, 25]
+                    }
+                }
+            },
+        "outline": True,
+        "outlineWidth": 2,
+        "outlineColor": {"rgba": [53, 184, 240, 255],},
+        },
+
+    exclusion_area_properties = {
+        "granularity": 0.008722222,
+        "height": 0,
+        "material": {
+            "solidColor": {
+                "color": {
+                    "rgba": [242, 10, 0, 25]
+                    }
+                }
+            },
+        "outline": True,
+        "outlineWidth": 2,
+        "outlineColor": {"rgba": [224, 142, 0, 255],},
+        },
 
     for index, x in enumerate(receivers):
         if x.isActive and ms.receiving:
@@ -501,7 +506,24 @@ def write_rx_czml():
         billboard={**rx_properties, **rx_icon},
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
-    output = Document([top] + receiver_point_packets + lob_packets)
+    for x in fetch_aoi_data():
+        aoi = {
+            'uid': x[0],
+            'aoi_type': x[1],
+            'latitude': x[2],
+            'longitude': x[3],
+            'radius': x[4]
+        }
+        if aoi['aoi_type'] == "aoi":
+            aoi_properties = area_of_interest_properties[0]
+        elif aoi['aoi_type'] == "exclusion":
+            aoi_properties = exclusion_area_properties[0]
+        aoi_info = {"semiMajorAxis": aoi['radius'], "semiMinorAxis": aoi['radius'], "rotation": 0}
+        aoi_packets.append(Packet(id=aoi['aoi_type'] + str(aoi['uid']),
+        ellipse={**aoi_properties, **aoi_info},
+        position={"cartographicDegrees": [ aoi['longitude'], aoi['latitude'], 0 ]}))
+
+    output = Document([top] + receiver_point_packets + lob_packets + aoi_packets)
 
     return output
 
@@ -795,9 +817,7 @@ def run_receiver(receivers):
                         lon_rxb = previous[1]
                         conf_rxb = previous[2]
                         doa_rxb = previous[3]
-                        # if abs(doa_rxa - doa_rxb) > 5:
                         spacial_diversity, z = v.inverse((lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
-                        #print(f"Distance from other points: {spacial_diversity}")
                         min_diversity = 500
                         if (spacial_diversity > min_diversity and
                              abs(doa_rxa - doa_rxb) > 5):
@@ -816,7 +836,6 @@ def run_receiver(receivers):
             except IOError:
                 print("Problem connecting to receiver.")
                 # ms.receiving = False
-
 
         time.sleep(1)
         if dots > 5:

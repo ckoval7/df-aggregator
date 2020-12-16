@@ -7,3 +7,4 @@ test*
 *.db
 *.txt
 *.czml
+fil-result/

@@ -27,7 +27,7 @@
     var transmittersDataSource;
     var receiversDataSource;
     // Your access token can be found at: https://cesium.com/ion/tokens.
-    Cesium.Ion.defaultAccessToken = '{{access_token}}';
+    // Cesium.Ion.defaultAccessToken = '{{access_token}}';
     // var hpr = new Cesium.HeadingPitchRange(0, 40, 0)
     var viewer = new Cesium.Viewer('cesiumContainer', {
       // terrainProvider: Cesium.createWorldTerrain(),
