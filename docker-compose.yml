@@ -3,7 +3,7 @@ services:
   df-aggregator:
     build: .
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
     # The db folder/file will be saved on the host machine
     # wherever the docker-compose is brought up from.
     # volumes:
