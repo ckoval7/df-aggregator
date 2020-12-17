@@ -916,7 +916,7 @@ def add_receiver(receiver_url):
             print("Duplicate receiver, ignoring.")
         else:
             receivers.append(receiver(receiver_url))
-            print(f"Receivers list is now {len(receivers)} long.")
+            # print(f"Receivers list is now {len(receivers)} long.")
             new_rx = receivers[-1].receiver_dict()
             to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
                 new_rx['mobile'],new_rx['single'], new_rx['latitude'], new_rx['longitude']]
@@ -980,7 +980,10 @@ def update_rx_table():
             longitude=?
             WHERE station_id = ?'''
         DATABASE_EDIT_Q.put((command, to_table))
-        DATABASE_RETURN.get(timeout=1)
+        try:
+            DATABASE_RETURN.get(timeout=1)
+        except:
+            pass
     DATABASE_EDIT_Q.put(("done", None))
         # conn.commit()
     # conn.close()
