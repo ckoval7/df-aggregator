@@ -206,6 +206,7 @@ def do_dbscan(X):
     # print("Starting process")
     db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
     DBSCAN_Q.put(db.labels_)
+    DBSCAN_Q.task_done()
     # print("Finished Process")
 
 ###############################################
@@ -1079,6 +1080,7 @@ def database_writer():
             command, items = DATABASE_EDIT_Q.get()
             if command == "done":
                 conn.commit()
+                # DATABASE_EDIT_Q.task_done()
             else:
                 c.execute(command, items)
                 DATABASE_RETURN.put(True)
@@ -1177,4 +1179,5 @@ if __name__ == '__main__':
             time.sleep(1)
 
     except KeyboardInterrupt:
+        dbwriter.join()
         finish()
