@@ -152,6 +152,7 @@ span {
 }
 
 .slidespan {
+  max-width: 40vw;
   width: 550px; /* Width of the outside container */
 /*  padding-top: 10px;
   padding-bottom: 10px;*/
@@ -272,6 +273,7 @@ input:checked + .switchslider:before {
   display: block;
   z-index: 1;
   opacity: 0.5;
+  max-width: fit-content;
 }
 
 .tooltip:hover {

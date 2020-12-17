@@ -8,7 +8,6 @@ import sqlite3
 import threading
 import signal
 import json
-# import hashlib
 from colorsys import hsv_to_rgb
 from optparse import OptionParser
 from os import system, name, kill, getpid
@@ -18,7 +17,19 @@ from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import Point, MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
-from bottle import route, run, request, get, post, put, response, redirect, template, static_file
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    from bottle import route, run, request, get, post, put, response, redirect, template, static_file
+
+#
+# warnings.filterwarnings(action="ignore", message="unclosed", category=ResourceWarning)
+
+from multiprocessing import Process, Queue
+
+DBSCAN_Q = Queue()
+DATABASE_EDIT_Q = Queue()
+DATABASE_RETURN = Queue()
 
 import sys
 
@@ -191,28 +202,28 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 100
         else:
             return None
 
+def do_dbscan(X):
+    # print("Starting process")
+    db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
+    DBSCAN_Q.put(db.labels_)
+    # print("Finished Process")
+
 ###############################################
 # Computes DBSCAN Alorithm is applicable,
 # finds the mean of a cluster of intersections.
 ###############################################
-def process_data(database_name, outfile):
+def process_data(database_name):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
 
     intersect_list = []
     try:
-        # c.execute("SELECT COUNT(*) FROM intersects")
-        # n_intersects = int(c.fetchone()[0])
-        # 200000 eats 22GB of RAM
-        # 187500 eats 13GB of RAM
-        # 175000 eats 1661 MB of RAM
-        # 150000 eats 976 MB of RAM
-        # 140000 eats 920 MB of RAM
-        c.execute("SELECT longitude, latitude, time FROM intersects LIMIT 120000")
+        c.execute("SELECT longitude, latitude, time FROM intersects ORDER BY confidence LIMIT 50000")
         intersect_array = np.array(c.fetchall())
     except sqlite3.OperationalError:
         n_intersects = 0
         intersect_array = np.array([])
+    conn.close()
     likely_location = []
     # weighted_location = []
     ellipsedata = []
@@ -221,7 +232,7 @@ def process_data(database_name, outfile):
 
     if intersect_array.size != 0:
         if ms.eps > 0:
-            X = StandardScaler().fit_transform(intersect_array[:,0:2:])
+            X = StandardScaler().fit_transform(intersect_array[:,0:2])
             # X = np.radians(intersect_array[:,0:2])
 
             n_points = len(X)
@@ -236,11 +247,15 @@ def process_data(database_name, outfile):
 
             starttime = time.time()
             # , algorithm='ball_tree', metric='haversine'
-            db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
+            db = Process(target=do_dbscan,args=(X,))
+            db.start()
+            labels = DBSCAN_Q.get()
+            db.join()
+            # db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
             stoptime = time.time()
             print(f"DBSCAN took {stoptime - starttime} seconds to compute the clusters.")
-            labels = db.labels_
-
+            # labels = db.labels_
+            # del db
             intersect_array = np.column_stack((intersect_array, labels))
 
             # Number of clusters in labels, ignoring noise if present.
@@ -267,10 +282,8 @@ def process_data(database_name, outfile):
                 pearson = b/np.sqrt(a * c)
                 ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(a) * n_std
                 ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
-                axis_x = v.inverse(Reverse(clustermean.tolist()), (ell_radius_x + clustermean[1], clustermean[0]))[0]
-                axis_y = v.inverse(Reverse(clustermean.tolist()), (clustermean[1], ell_radius_y + clustermean[0]))[0]
-                # axis_x = v.inverse(clustermean.tolist(), (ell_radius_x + clustermean[1], clustermean[0]))[0]
-                # axis_y = v.inverse(clustermean.tolist(), (clustermean[1], ell_radius_y + clustermean[0]))[0]
+                axis_x = v.inverse(clustermean.tolist()[::-1], (ell_radius_x + clustermean[1], clustermean[0]))[0]
+                axis_y = v.inverse(clustermean.tolist()[::-1], (clustermean[1], ell_radius_y + clustermean[0]))[0]
 
                 if b == 0 and a >= c:
                     rotation = 0
@@ -282,17 +295,17 @@ def process_data(database_name, outfile):
                 ellipsedata.append([axis_x, axis_y, rotation, *clustermean.tolist()])
 
             for x in likely_location:
-                print(Reverse(x))
-        # else:
-        #     likely_location = None
+                print(x[::-1])
 
+        ##########################
+        # OPTOMIZE ME
+        ##########################
         for x in intersect_array:
             try:
                 if x[-1] >= 0:
                     intersect_list.append(x[0:3].tolist())
             except IndexError:
                 intersect_list.append(x.tolist())
-
 
     else:
         print("No Intersections.")
@@ -312,18 +325,22 @@ def purge_database(type, lat, lon, radius):
         intersect_list = c.fetchall()
     except sqlite3.OperationalError:
         intersect_list = []
+    conn.close()
 
     purge_count = 0
     for x in intersect_list:
         if type == "exclusion":
             distance = v.inverse(x, (lat, lon))[0]
             if distance < radius:
-                c.execute("DELETE FROM intersects WHERE latitude=? AND longitude=?", x)
+                # c.execute("DELETE FROM intersects WHERE latitude=? AND longitude=?", x)
+                command = "DELETE FROM intersects WHERE latitude=? AND longitude=?"
+                DATABASE_EDIT_Q.put((command, x))
+                DATABASE_RETURN.get(timeout=1)
                 purge_count += 1
         elif type == "aoi":
             pass
-    conn.commit()
-    conn.close()
+    # conn.commit()
+    DATABASE_EDIT_Q.put(("done", None))
     print(f"I purged {purge_count} intersects.")
 
 ###############################################
@@ -338,7 +355,7 @@ def write_geojson(best_point, all_the_points):
             if best_point != None:
                 reversed_best_point = []
                 for x in best_point:
-                    reversed_best_point.append(Reverse(x))
+                    reversed_best_point.append(x[::-1])
                 best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(reversed_best_point)))
                 file1.write(str(FeatureCollection([best_point, all_the_points])))
             else:
@@ -389,7 +406,8 @@ def write_czml(best_point, all_the_points, ellipsedata):
         scaled_time = minmax_scale(all_the_points[:,-1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
         for x in all_the_points:
-            rgb = hsvtorgb(x[-1]/3, 0.9, 0.9)
+            # rgb = hsvtorgb(x[-1]/3, 0.9, 0.9)
+            rgb = map(lambda x : int(x*255), hsv_to_rgb(x[-1]/3, 0.9, 0.9))
             color_property = {"color":{"rgba": [*rgb, 255]}}
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
             point={**point_properties, **color_property},
@@ -400,7 +418,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
         for x in best_point:
             best_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
             point=best_point_properties,
-            position={"cartographicDegrees": [ x[1], x[0], 15 ]}))
+            position={"cartographicDegrees": [ x[0], x[1], 15 ]}))
 
     if len(ellipsedata) > 0:
         for x in ellipsedata:
@@ -528,36 +546,6 @@ def write_rx_czml():
     return output
 
 ###############################################
-# Converts HSV color values to RGB.
-###############################################
-def hsvtorgb(h, s, v):
-    rgb_out = []
-    rgb = hsv_to_rgb(h, s, v)
-    for x in rgb:
-        rgb_out.append(int(x * 255))
-    return rgb_out
-
-###############################################
-# Thangs to do before closing the program.
-###############################################
-def finish():
-    clear(debugging)
-    print("Processing, please wait.")
-    ms.receiving = False
-    update_rx_table()
-    if geofile != None:
-        write_geojson(*process_data(database_name, geofile)[:2])
-    kill(getpid(), signal.SIGTERM)
-
-###############################################
-# Returns a reverse ordered list.
-# This should probably be replaced.
-###############################################
-def Reverse(lst):
-    lst.reverse()
-    return lst
-
-###############################################
 # CLears the screen if debugging is off.
 ###############################################
 def clear(debugging):
@@ -568,7 +556,6 @@ def clear(debugging):
         # for mac and linux(here, os.name is 'posix')
         else:
             _ = system('clear')
-
 
 ###############################################
 # Serves static files such as CSS and JS to the
@@ -647,7 +634,7 @@ def rx_params():
 ###############################################
 @get('/output.czml')
 def tx_czml_out():
-    output = write_czml(*process_data(database_name, geofile))
+    output = write_czml(*process_data(database_name))
     return str(output)
 
 ###############################################
@@ -724,11 +711,16 @@ def handle_interest_areas(action):
         radius = data['radius']
         add_aoi(aoi_type, lat, lon, radius)
     elif action == "del":
-        conn = sqlite3.connect(database_name)
-        c = conn.cursor()
-        c.execute("DELETE FROM interest_areas WHERE uid=?", [data['uid']])
-        conn.commit()
-        conn.close()
+        # conn = sqlite3.connect(database_name)
+        # c = conn.cursor()
+        # c.execute("DELETE FROM interest_areas WHERE uid=?", [data['uid']])
+        to_table = data['uid']
+        command = "DELETE FROM interest_areas WHERE uid=?"
+        DATABASE_EDIT_Q.put((command, to_table))
+        DATABASE_RETURN.get(timeout=1)
+        DATABASE_EDIT_Q.put(("done", None))
+        # conn.commit()
+        # conn.close()
     elif action == "purge":
         conn = sqlite3.connect(database_name)
         c = conn.cursor()
@@ -754,10 +746,10 @@ def run_receiver(receivers):
 
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL,
-     longitude REAL, num_parents INTEGER)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS lobs (time INTEGER, station_id TEXT,
-     latitude REAL, longitude REAL, confidence INTEGER, lob REAL)''')
+    # c.execute('''CREATE TABLE IF NOT EXISTS intersects (time INTEGER, latitude REAL,
+    #  longitude REAL, num_parents INTEGER, confidence INTEGER, aoi_id INTEGER)''')
+    # c.execute('''CREATE TABLE IF NOT EXISTS lobs (time INTEGER, station_id TEXT,
+    #  latitude REAL, longitude REAL, confidence INTEGER, lob REAL)''')
 
     while ms.receiving:
         if not debugging:
@@ -765,7 +757,7 @@ def run_receiver(receivers):
             print("Press Control+C to process data and exit.")
 
         # Main loop to compute intersections between multiple receivers
-        intersect_list = np.array([]).reshape(0,3)
+        intersect_list = np.array([]).reshape(0,4)
         for x in range(len(receivers)):
             for y in range(x):
                 if x != y:
@@ -779,20 +771,24 @@ def run_receiver(receivers):
                         receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
                         print(intersection)
                         if intersection:
-                            if check_aoi(*intersection):
+                            keep, in_aoi = check_aoi(*intersection)
+                            if keep:
                                 intersection = list(intersection)
                                 avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
                                 intersection.append(avg_conf)
+                                intersection.append(in_aoi)
                                 intersection = np.array([intersection])
                                 if intersection.any() != None:
                                     intersect_list = np.concatenate((intersect_list, intersection), axis=0)
 
 
         if intersect_list.size != 0:
-            avg_coord = np.average(intersect_list[:,0:2], weights=intersect_list[:,-1], axis = 0)
-            to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list)]
-            c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
-            # conn.commit()
+            avg_coord = np.average(intersect_list[:,0:3], weights=intersect_list[:,2], axis = 0)
+            to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list), avg_coord[2], intersect_list[:,3]]
+            # c.execute("INSERT INTO intersects VALUES (?,?,?,?,?,?)", to_table)
+            command = "INSERT INTO intersects VALUES (?,?,?,?,?,?)"
+            DATABASE_EDIT_Q.put((command, to_table))
+            DATABASE_RETURN.get(timeout=1)
 
         # Loop to compute intersections for a single receiver and update all receivers
         for rx in receivers:
@@ -821,16 +817,29 @@ def run_receiver(receivers):
                         min_diversity = 500
                         if (spacial_diversity > min_diversity and
                              abs(doa_rxa - doa_rxb) > 5):
-                            intersection = compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
-                            lat_rxb, lon_rxb, doa_rxb, conf_rxb)
+                            intersection = plot_intersects(lat_rxa, lon_rxa,
+                                doa_rxa, lat_rxb, lon_rxb, doa_rxb)
                             if intersection:
-                                if check_aoi(*intersection[0:2]):
+                                intersection = list(intersection)
+                                avg_conf = np.mean([conf_rxa, conf_rxb])
+                                intersection.append(avg_conf)
+                            # if intersection:
+                                keep, in_aoi = check_aoi(*intersection[0:2])
+                                if keep:
                                     print(intersection)
-                                    to_table = [current_time, intersection[0], intersection[1], 1]
-                                    c.execute("INSERT INTO intersects VALUES (?,?,?,?)", to_table)
+                                    to_table = [current_time, intersection[0], intersection[1], 1, intersection[2], in_aoi]
+                                    # c.execute("INSERT INTO intersects VALUES (?,?,?,?,?,?)", to_table)
+                                    command = "INSERT INTO intersects VALUES (?,?,?,?,?,?)"
+                                    DATABASE_EDIT_Q.put((command, to_table))
+                                    DATABASE_RETURN.get(timeout=1)
 
-                c.execute(f"INSERT INTO lobs VALUES (?,?,?,?,?,?)", current_doa)
-            conn.commit()
+                # c.execute(f"INSERT INTO lobs VALUES (?,?,?,?,?,?)", current_doa)
+                command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
+                DATABASE_EDIT_Q.put((command, current_doa))
+                DATABASE_RETURN.get(timeout=1)
+
+            # conn.commit()
+            DATABASE_EDIT_Q.put(("done", None))
             try:
                 if rx.isActive: rx.update()
             except IOError:
@@ -851,6 +860,7 @@ def run_receiver(receivers):
 ###############################################
 def check_aoi(lat, lon):
     keep_list = []
+    in_aoi = None
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
     try:
@@ -861,6 +871,7 @@ def check_aoi(lat, lon):
     conn.close()
     if n_aoi == 0:
         keep_list.append(True)
+        in_aoi = -1
     for x in fetch_aoi_data():
         aoi = {
             'uid': x[0],
@@ -877,27 +888,12 @@ def check_aoi(lat, lon):
         elif aoi['aoi_type'] == "aoi":
             if distance < aoi['radius']:
                 keep_list.append(True)
+                in_aoi = aoi['uid']
             else:
                 keep_list.append(False)
 
     keep = any(keep_list)
-    return keep
-
-#################################################
-# Compute the intersection of two LOBS from
-# a single mobile receiver
-#################################################
-def compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
-    lat_rxb, lon_rxb, doa_rxb, conf_rxb):
-    intersection = plot_intersects(lat_rxa, lon_rxa,
-        doa_rxa, lat_rxb, lon_rxb, doa_rxb)
-    # print(type(intersection))
-    if intersection:
-        intersection = list(intersection)
-        avg_conf = np.mean([conf_rxa, conf_rxb])
-        intersection.append(avg_conf)
-    return intersection
-
+    return keep, in_aoi
 
 ###############################################
 # Adds a new receiver to the program, saves it
@@ -906,25 +902,30 @@ def compute_single_intersections(lat_rxa, lon_rxa, doa_rxa, conf_rxa,
 def add_receiver(receiver_url):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS receivers (
-        station_id TEXT UNIQUE,
-        station_url TEXT,
-        isAuto INTEGER,
-        isMobile INTEGER,
-        isSingle INTEGER,
-        latitude REAL,
-        longitude REAL)
-    ''')
+    # c.execute('''CREATE TABLE IF NOT EXISTS receivers (
+    #     station_id TEXT UNIQUE,
+    #     station_url TEXT,
+    #     isAuto INTEGER,
+    #     isMobile INTEGER,
+    #     isSingle INTEGER,
+    #     latitude REAL,
+    #     longitude REAL)
+    # ''')
     try:
         if any(x.station_url == receiver_url for x in receivers):
             print("Duplicate receiver, ignoring.")
         else:
             receivers.append(receiver(receiver_url))
+            print(f"Receivers list is now {len(receivers)} long.")
             new_rx = receivers[-1].receiver_dict()
             to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
                 new_rx['mobile'],new_rx['single'], new_rx['latitude'], new_rx['longitude']]
-            c.execute("INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)", to_table)
-            conn.commit()
+            # c.execute("INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)", to_table)
+            # conn.commit()
+            command = "INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)"
+            DATABASE_EDIT_Q.put((command, to_table))
+            DATABASE_RETURN.get(timeout=1)
+            DATABASE_EDIT_Q.put(("done", None))
             mobile = c.execute("SELECT isMobile FROM receivers WHERE station_id = ?",
                 [new_rx['station_id']]).fetchone()[0]
             single = c.execute("SELECT isSingle FROM receivers WHERE station_id = ?",
@@ -959,31 +960,45 @@ def read_rx_table():
 # the receivers.
 ###############################################
 def update_rx_table():
-    conn = sqlite3.connect(database_name)
-    c = conn.cursor()
+    # conn = sqlite3.connect(database_name)
+    # c = conn.cursor()
     for item in receivers:
         rx = item.receiver_dict()
         to_table = [rx['auto'], rx['mobile'], rx['single'], rx['latitude'], rx['longitude'], rx['station_id']]
-        c.execute('''UPDATE receivers SET
+        # c.execute('''UPDATE receivers SET
+        #     isAuto=?,
+        #     isMobile=?,
+        #     isSingle=?,
+        #     latitude=?,
+        #     longitude=?
+        #     WHERE station_id = ?''', to_table)
+        command = '''UPDATE receivers SET
             isAuto=?,
             isMobile=?,
             isSingle=?,
             latitude=?,
             longitude=?
-            WHERE station_id = ?''', to_table)
-        conn.commit()
-    conn.close()
+            WHERE station_id = ?'''
+        DATABASE_EDIT_Q.put((command, to_table))
+        DATABASE_RETURN.get(timeout=1)
+    DATABASE_EDIT_Q.put(("done", None))
+        # conn.commit()
+    # conn.close()
 
 ###############################################
 # Removes a receiver from the program and
 # database upon request.
 ###############################################
 def del_receiver(del_rx):
-    conn = sqlite3.connect(database_name)
-    c = conn.cursor()
-    c.execute("DELETE FROM receivers WHERE station_id=?", [del_rx])
-    conn.commit()
-    conn.close()
+    # conn = sqlite3.connect(database_name)
+    # c = conn.cursor()
+    # c.execute("DELETE FROM receivers WHERE station_id=?", [del_rx])
+    command = "DELETE FROM receivers WHERE station_id=?"
+    DATABASE_EDIT_Q.put((command, [del_rx]))
+    DATABASE_RETURN.get(timeout=1)
+    DATABASE_EDIT_Q.put(("done", None))
+    # conn.commit()
+    # conn.close()
 
 ###############################################
 # Updates the database with new interest areas.
@@ -991,19 +1006,23 @@ def del_receiver(del_rx):
 def add_aoi(aoi_type, lat, lon, radius):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS interest_areas (
-        uid INTEGER,
-        aoi_type TEXT,
-        latitude REAL,
-        longitude REAL,
-        radius INTEGER)
-    ''')
+    # c.execute('''CREATE TABLE IF NOT EXISTS interest_areas (
+    #     uid INTEGER,
+    #     aoi_type TEXT,
+    #     latitude REAL,
+    #     longitude REAL,
+    #     radius INTEGER)
+    # ''')
     prev_uid = c.execute('SELECT MAX(uid) from interest_areas').fetchone()[0]
+    conn.close()
     uid = (prev_uid + 1) if prev_uid != None else 0
     to_table = [uid, aoi_type, lat, lon, radius]
-    c.execute('INSERT INTO interest_areas VALUES (?,?,?,?,?)', to_table)
-    conn.commit()
-    conn.close()
+    # c.execute('INSERT INTO interest_areas VALUES (?,?,?,?,?)', to_table)
+    command = 'INSERT INTO interest_areas VALUES (?,?,?,?,?)'
+    DATABASE_EDIT_Q.put((command, to_table))
+    DATABASE_RETURN.get(timeout=1)
+    DATABASE_EDIT_Q.put(("done", None))
+    # conn.commit()
 
 #########################################
 # Read all the AOIs from the DB
@@ -1018,6 +1037,64 @@ def fetch_aoi_data():
         aoi_list = []
     conn.close()
     return aoi_list
+
+def database_writer():
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS receivers (
+        station_id TEXT UNIQUE,
+        station_url TEXT,
+        isAuto INTEGER,
+        isMobile INTEGER,
+        isSingle INTEGER,
+        latitude REAL,
+        longitude REAL)
+    ''')
+    c.execute('''CREATE TABLE IF NOT EXISTS interest_areas (
+        uid INTEGER,
+        aoi_type TEXT,
+        latitude REAL,
+        longitude REAL,
+        radius INTEGER)
+    ''')
+    c.execute('''CREATE TABLE IF NOT EXISTS intersects (
+        time INTEGER,
+        latitude REAL,
+        longitude REAL,
+        num_parents INTEGER,
+        confidence INTEGER,
+        aoi_id INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS lobs (time INTEGER,
+        station_id TEXT,
+        latitude REAL,
+        longitude REAL,
+        confidence INTEGER,
+        lob REAL)''')
+    conn.commit()
+    try:
+        while True:
+            command, items = DATABASE_EDIT_Q.get()
+            if command == "done":
+                conn.commit()
+            else:
+                c.execute(command, items)
+                DATABASE_RETURN.put(True)
+    except KeyboardInterrupt:
+        DATABASE_RETURN.put(True)
+        conn.commit()
+        conn.close()
+
+###############################################
+# Thangs to do before closing the program.
+###############################################
+def finish():
+    clear(debugging)
+    print("Processing, please wait.")
+    ms.receiving = False
+    update_rx_table()
+    if geofile != None:
+        write_geojson(*process_data(database_name)[:2])
+    kill(getpid(), signal.SIGTERM)
 
 if __name__ == '__main__':
     ###############################################
@@ -1067,6 +1144,10 @@ if __name__ == '__main__':
     web = threading.Thread(target=start_server,args=(options.ipaddr, options.port))
     web.daemon = True
     web.start()
+
+    dbwriter = Process(target=database_writer)
+    dbwriter.daemon = True
+    dbwriter.start()
 
     try:
         ###############################################
