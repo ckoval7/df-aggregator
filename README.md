@@ -32,8 +32,10 @@ Click the power button to enable/disable.
     - As of this writing, the version from pip does not support ellipses. Please use the version from GitHub.
 
 ## Other things you'll need:
-- [Cesium Ion Token](https://cesium.com/docs/tutorials/quick-start/)
-    - Create a single line file named ```accesstoken.txt```
+- ~[Cesium Ion Token](https://cesium.com/docs/tutorials/quick-start/)~
+    - ~Create a single line file named ```accesstoken.txt```~
+    - Turns out you can use a public token, you just can't use Cesium Assets.
+      Most people don't need to use assets.
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
     - This is available for both Qt4 (original version) and Qt5 (Ubuntu 20.04+). Just check out the appropriate branch.
 
