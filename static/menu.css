@@ -158,6 +158,14 @@ body {
   font-size: 23pt;
 }
 
+.aoi-rule-icon {
+  display: block;
+  position: absolute;
+  top: 0px;
+  right: 7px;
+  font-size: 23pt;
+}
+
 .delete-icon {
   display: block;
   position: absolute;

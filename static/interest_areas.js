@@ -80,6 +80,19 @@ function purgeAoi(uid) {
         })
 }
 
+// *******************************************
+// * Runs all AOI rules on the backend and Reloads Map
+// *******************************************
+function runAoi(uid) {
+    clearOld();
+    fetch("/run_all_aoi_rules")
+        .then(res => {
+          // removerx(uid);
+          loadAoi(createAois);
+          loadAllCzml();
+        })
+}
+
 // *****************************************
 // * Removes ALL of the RX Cards
 // *****************************************

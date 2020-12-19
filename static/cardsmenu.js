@@ -73,6 +73,16 @@ add_aoi.onchange = function() {
     clearHover();
   }
 }
+var run_aoi_rules = document.getElementById("run_aoi_rules"); //Button to add new RX
+run_aoi_rules.onchange = function() {
+  if (run_aoi_rules.checked) {
+    var user_conf = confirm("Did you define every AOI first?\n\
+    You are about to delete every intersection outside of the currently defined AOIs.\
+    This cannot be undone! When in doubt, backup your database.");
+    if (user_conf) {runAoi()};
+    run_aoi_rules.checked = false;
+  }
+}
 
 var exclusion_br = document.createElement("br");
 var exclusion_latlabel = document.createTextNode("Lat:");

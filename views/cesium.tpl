@@ -252,9 +252,12 @@
       <hr>
       <div id="aoicards" class="menusections">
         <h2 style="color: #eee; padding-left: 5px;">Areas of Interest</h2>
-        <p> This does nothing right now. </p>
         <input id="add_aoi" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
         <span id="add_aoi_icon" class="material-icons add-icon no-select">add_circle_outline</span>
+        <input id="run_aoi_rules" class="edit-checkbox aoi-rule-icon" type="checkbox"
+        title="Apply All AOI Rules. Do not click this before defining all off your AOIs.
+        It will permanently delete intersections!" style="width: 23px; height: 23px;"/>
+        <span id="run_aoi_icon" class="material-icons aoi-rule-icon no-select">rule</span>
         <div style="visibility: hidden; height: 0;" id="new_aoi_div" style="padding: 0;">
           <span id="new-aoi"></span>
         </div>
@@ -262,7 +265,6 @@
       <hr>
       <div id="exclusioncards" class="menusections">
         <h2 style="color: #eee; padding-left: 5px;">Exclusion Areas</h2>
-        <p> This does nothing right now. </p>
         <input id="add_exclusion" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
         <span id="add_exclusion_icon" class="material-icons add-icon no-select">add_circle_outline</span>
         <div style="visibility: hidden; height: 0;" id="new_exclusion_div" style="padding: 0;">
@@ -307,7 +309,7 @@
         Maximum distance between neighboring points in a cluster. Set to 0 to disable clustering.<br>
         Disabling clustering will plot all intersections and may cause longer load times.</span>
       <span class="slidespan">
-        <input name="epsilonValue" type="range" min="0" max="1" step="0.01" value="{{epsilon}}" class="slider" id="epsilonRange">
+        <input name="epsilonValue" type="range" min="0" max="2" step="0.01" value="{{epsilon}}" class="slider" id="epsilonRange">
       </span>
       <span class="slidevalue" id="epsilon"></span>
     </div>
