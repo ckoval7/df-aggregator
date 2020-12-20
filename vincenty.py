@@ -15,7 +15,7 @@ from math import atan2
 from math import cos
 from math import radians
 from math import degrees
-from math import sin
+from math import sin, asin
 from math import sqrt
 from math import tan
 from math import pow
@@ -23,6 +23,16 @@ from math import pow
 a=6378137.0                             # radius at equator in meters (WGS-84)
 f=1/298.257223563                       # flattening of the ellipsoid (WGS-84)
 b=(1-f)*a
+
+def haversine(lat1, lon1, lat2, lon2):
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    c = 2 * asin(sqrt(sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2))
+    return c * a
 
 def get_heading(coord1, coord2):
      lat1 = radians(coord1[0])
