@@ -24,8 +24,9 @@
     // var rxRefreshRate = 5000;
     // var autoRxRefresh = setInterval(function () { reloadRX(); }, rxRefreshRate);
 
-    var transmittersDataSource;
-    var receiversDataSource;
+    var transmittersDataSource = new Cesium.CzmlDataSource;
+    var receiversDataSource = new Cesium.CzmlDataSource;
+
     // Your access token can be found at: https://cesium.com/ion/tokens.
     // Cesium.Ion.defaultAccessToken = '{{access_token}}';
     // var hpr = new Cesium.HeadingPitchRange(0, 40, 0)
@@ -190,26 +191,23 @@
     }
 
     function updateParams(parameter) {
+        clearOld();
         fetch("/update?"+parameter)
             .then(function(response) {
-              if (response.status == 200) {
                 loadRx(refreshRx);
-                clearOld();
                 loadAllCzml();
-                // console.log(response);
-              }
             })
     }
 
     function loadTxCzml() {
-      transmittersDataSource = Cesium.CzmlDataSource.load('/output.czml');
+      transmittersDataSource.load('/output.czml');
       viewer.dataSources.add(transmittersDataSource);
       // console.log("Loaded CZML");
       return transmittersDataSource;
     }
 
     function loadRxCzml() {
-      receiversDataSource = Cesium.CzmlDataSource.load('/receivers.czml');
+      receiversDataSource.load('/receivers.czml');
       viewer.dataSources.add(receiversDataSource);
       // console.log("Loaded CZML");
       return receiversDataSource;
@@ -226,8 +224,10 @@
       // console.log("Cleared old");
     }
 
-    // Add Cesium OSM Buildings, a global 3D buildings layer.
-    // const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+    function reloadRX() {
+      viewer.dataSources.remove(receiversDataSource, true);
+      loadRxCzml();
+    }
 
   </script>
   <div id="cardsmenu">

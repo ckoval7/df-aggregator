@@ -5,8 +5,6 @@ function updateAoi(callBack, id) {
     fetch("/interest_areas")
         .then(data => { return data.json() })
         .then(res => { callBack(res, id);
-        // console.log("updateRx Complete");
-        console.log(res);
       })
 }
 
@@ -28,11 +26,11 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
         body: JSON.stringify(new_aoi),
         method: "PUT"
     };
-    clearOld();
+    // clearOld();
     fetch("/interest_areas/new", otherParams)
         .then(res => {
           updateAoi(createAois, true);
-          loadAllCzml();
+          reloadRX();
         })
 }
 
@@ -49,12 +47,12 @@ function deleteAoi(uid) {
         body: JSON.stringify(del_aoi),
         method: "PUT"
     };
-    clearOld();
+    // clearOld();
     fetch("/interest_areas/del", otherParams)
         .then(res => {
           // removerx(uid);
           loadAoi(createAois);
-          loadAllCzml();
+          reloadRX();
         })
 }
 
@@ -71,12 +69,12 @@ function purgeAoi(uid) {
         body: JSON.stringify(del_aoi),
         method: "PUT"
     };
-    clearOld();
+    // clearOld();
     fetch("/interest_areas/purge", otherParams)
         .then(res => {
           // removerx(uid);
           loadAoi(createAois);
-          loadAllCzml();
+          reloadRX();
         })
 }
 
@@ -84,12 +82,12 @@ function purgeAoi(uid) {
 // * Runs all AOI rules on the backend and Reloads Map
 // *******************************************
 function runAoi(uid) {
-    clearOld();
+    // clearOld();
     fetch("/run_all_aoi_rules")
         .then(res => {
           // removerx(uid);
           loadAoi(createAois);
-          loadAllCzml();
+          reloadRX();
         })
 }
 

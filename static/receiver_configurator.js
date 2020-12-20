@@ -1,6 +1,6 @@
 // Update Map every n milliseconds
-var refreshrate = 600000;
-// var autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
+var refreshrate = 5000;
+var autoRefresh = setInterval(function () { reloadRX(); }, refreshrate);
 
 // *************************************************
 // * Gets Rx data from backend
@@ -64,7 +64,7 @@ function editReceivers(rx_json, id) {
     var isSingleCheck;
     var editButton = document.getElementById(id + "-edit");
     if (editButton.checked) {
-        // clearInterval(autoRefresh);
+        clearInterval(autoRefresh);
         let isMobile = "";
         if (receivers[id].mobile) isMobile = "checked";
         let isInverted = "";
@@ -106,7 +106,7 @@ function editReceivers(rx_json, id) {
         //     }
         // }
     } else {
-        // autoRefresh = setInterval(function () { updateParams(); }, refreshrate);
+        autoRefresh = setInterval(function () { reloadRX(); }, refreshrate);
         isMobileCheck = document.getElementById("mobilerx_toggle_" + id);
         if (isMobileCheck.checked) {
             receivers[id].mobile = true;
@@ -139,11 +139,11 @@ function editReceivers(rx_json, id) {
             body: JSON.stringify(receivers[id]),
             method: "PUT"
         };
-        clearOld();
+        // clearOld();
         fetch("/rx_params/" + id, otherParams)
             .then(res => {
               updateRx(showReceivers, id);
-              loadAllCzml();
+              reloadRX();
             })
     }
 }
@@ -161,11 +161,11 @@ function makeNewRx(url) {
         body: JSON.stringify(new_rx),
         method: "PUT"
     };
-    clearOld();
+    // clearOld();
     fetch("/rx_params/new", otherParams)
         .then(res => {
           updateRx(createReceivers, true);
-          loadAllCzml();
+          reloadRX();
         })
 }
 
@@ -197,12 +197,12 @@ function deleteReceiver(uid) {
         body: JSON.stringify(del_rx),
         method: "PUT"
     };
-    clearOld();
+    // clearOld();
     fetch("/rx_params/del", otherParams)
         .then(res => {
           // removerx(uid);
           loadRx(createReceivers);
-          loadAllCzml();
+          reloadRX();
         })
 }
 
@@ -218,11 +218,11 @@ function activateReceiver(uid, state) {
         body: JSON.stringify(activate_rx),
         method: "PUT"
     };
-    clearOld();
+    // clearOld();
     fetch("/rx_params/activate", otherParams)
         .then(res => {
           loadRx(refreshRx);
-          loadAllCzml();
+          reloadRX();
         })
 }
 
