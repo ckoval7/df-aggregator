@@ -278,12 +278,13 @@ def process_data(database_name):
                     c = cov[1,1]
                     lam1 = a+c/2 + np.sqrt((a-c/2)**2 + b**2)
                     lam2 = a+c/2 - np.sqrt((a-c/2)**2 + b**2)
+                    # print([lam1, lam2, a, c])
                     pearson = b/np.sqrt(a * c)
                     ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(a) * n_std
                     ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
                     axis_x = v.inverse(clustermean.tolist()[::-1], (ell_radius_x + clustermean[1], clustermean[0]))[0]
                     axis_y = v.inverse(clustermean.tolist()[::-1], (clustermean[1], ell_radius_y + clustermean[0]))[0]
-
+                    print(math.atan(2*((2*b)/(a-c)))/2)
                     if b == 0 and a >= c:
                         rotation = 0
                     elif b == 0 and a < c:
@@ -311,22 +312,22 @@ def process_data(database_name):
 ###############################################
 # Checks interesections stored in the database
 # against a lat/lon/radius and removes items
-# that don't match the rules.
+# inside exclusion areas.
 ###############################################
 def purge_database(type, lat, lon, radius):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute("SELECT latitude, longitude FROM intersects")
+    c.execute("SELECT latitude, longitude, id FROM intersects")
     intersect_list = c.fetchall()
     conn.close()
 
     purge_count = 0
     for x in intersect_list:
         if type == "exclusion":
-            distance = v.inverse(x, (lat, lon))[0]
+            distance = v.inverse(x[0:2], (lat, lon))[0]
             if distance < radius:
-                command = "DELETE FROM intersects WHERE latitude=? AND longitude=?"
-                DATABASE_EDIT_Q.put((command, x, False))
+                command = "DELETE FROM intersects WHERE id=?"
+                DATABASE_EDIT_Q.put((command, (x[2],), False))
                 # DATABASE_RETURN.get(timeout=1)
                 purge_count += 1
         elif type == "aoi":
@@ -334,6 +335,11 @@ def purge_database(type, lat, lon, radius):
     DATABASE_EDIT_Q.put(("done", None, False))
     print(f"I purged {purge_count} intersects.")
 
+###############################################
+# Checks interesections stored in the database
+# against a lat/lon/radius and removes items
+# that don't match the rules.
+###############################################
 @get("/run_all_aoi_rules")
 def run_aoi_rules():
     purged = 0
@@ -342,11 +348,14 @@ def run_aoi_rules():
     aoi_list = fetch_aoi_data()
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute('SELECT DISTINCT latitude, longitude FROM intersects')
+    c.execute('SELECT id, latitude, longitude FROM intersects')
     intersect_list = c.fetchall()
     c.execute('SELECT COUNT(*) FROM interest_areas WHERE aoi_type="aoi"')
     n_aoi = c.fetchone()[0]
     conn.close()
+    starttime = time.time()
+    del_list = []
+    keep_list = []
     if n_aoi == 0:
         command = "UPDATE intersects SET aoi_id=?"
         DATABASE_EDIT_Q.put((command, (-1,), True))
@@ -354,8 +363,8 @@ def run_aoi_rules():
         DATABASE_RETURN.get(timeout=1)
     else:
         for point in intersect_list:
-            keep_list = []
-            lat, lon = point
+            keep_me = []
+            id, lat, lon = point
             for x in aoi_list:
                 # aoi = {
                 # 'uid': x[0],
@@ -367,27 +376,35 @@ def run_aoi_rules():
                 distance = v.haversine(x[2], x[3], lat, lon)
                 if x[1] == "exclusion":
                     if distance < x[4]:
-                        keep_list = [False]
+                        keep_me = [False]
                         break
                 elif x[1] == "aoi":
                     if distance < x[4]:
-                        command = "UPDATE intersects SET aoi_id=? WHERE latitude=? AND longitude=?"
-                        params = (x[0], lat, lon)
-                        DATABASE_EDIT_Q.put((command, params, True))
-                        DATABASE_RETURN.get(timeout=1)
                         sorted += 1
-                        keep_list.append(True)
+                        keep_me.append(True)
+                        in_aoi = x[0]
                     else:
-                        keep_list.append(False)
+                        keep_me.append(False)
+                        # del_list.append(id)
 
-            if not any(keep_list):
-                command = "DELETE from intersects WHERE latitude=? AND longitude=?"
-                DATABASE_EDIT_Q.put((command, point, True))
-                DATABASE_RETURN.get(timeout=1)
+            if not any(keep_me):
+                del_list.append((id,))
                 purged += 1
+            else:
+                keep_list.append((in_aoi, id))
 
+    command = ("DELETE from intersects WHERE id=?", del_list)
+    DATABASE_EDIT_Q.put(("bulk", command, True))
+    DATABASE_RETURN.get()
     DATABASE_EDIT_Q.put(("done", None, False))
-    print(f"Purged {purged} intersections and sorted {sorted} intersections into {n_aoi} AOIs.")
+
+    command = ("UPDATE intersects SET aoi_id=? WHERE id=?", keep_list)
+    DATABASE_EDIT_Q.put(("bulk", command, True))
+    DATABASE_RETURN.get()
+    DATABASE_EDIT_Q.put(("done", None, False))
+
+    stoptime = time.time()
+    print(f"Purged {purged} intersections and sorted {sorted} intersections into {n_aoi} AOIs in {stoptime - starttime} seconds.")
     return "OK"
 
 ###############################################
@@ -416,10 +433,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
     point_properties = {
         "pixelSize":5.0,
         "heightReference":"CLAMP_TO_GROUND",
-        # "heightReference":"RELATIVE_TO_GROUND",
-      #   "color": {
-      #       "rgba": [255, 0, 0, 255],
-      # }
     }
     best_point_properties = {
         "pixelSize":12.0,
@@ -471,17 +484,21 @@ def write_czml(best_point, all_the_points, ellipsedata):
         for x in ellipsedata:
             # rotation = 2 * np.pi - x[2]
             if x[0] >= x[1]:
-                # rotation = x[2]
+                rotation = x[2]
 
                 semiMajorAxis = x[0]
                 semiMinorAxis = x[1]
-                rotation = 2 * np.pi - x[2]
-                rotation += np.pi/2
+                # rotation = 2 * np.pi - x[2]
+                # rotation += np.pi/2
+                print(f"{x[2]} Inverted to: {rotation}")
+                print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
                 # print(f"{x[4], x[3]} is inveted")
             else:
                 rotation = x[2]
                 semiMajorAxis = x[1]
                 semiMinorAxis = x[0]
+                print(f"Not inverted: {rotation}")
+                print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
                 # print(f"{x[4], x[3]} is NOT inveted")
 
             ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
@@ -683,6 +700,7 @@ def rx_params():
 ###############################################
 @get('/output.czml')
 def tx_czml_out():
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
     output = write_czml(*process_data(database_name))
     return str(output)
 
@@ -692,6 +710,7 @@ def tx_czml_out():
 ###############################################
 @get('/receivers.czml')
 def rx_czml_out():
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
     output = write_rx_czml()
     return str(output)
 
@@ -830,8 +849,11 @@ def run_receiver(receivers):
             avg_coord = np.average(intersect_list[:,0:3], weights=intersect_list[:,2], axis = 0)
             keep, in_aoi = check_aoi(*avg_coord[0:2])
             if keep:
-                to_table = [receivers[x].doa_time, avg_coord[0], avg_coord[1], len(intersect_list), avg_coord[2], in_aoi]
-                command = "INSERT INTO intersects VALUES (?,?,?,?,?,?)"
+                to_table = [receivers[x].doa_time, round(avg_coord[0], 6), round(avg_coord[1], 6),
+                    len(intersect_list), avg_coord[2], in_aoi]
+                command = '''INSERT INTO intersects
+                (time, latitude, longitude, num_parents, confidence, aoi_id)
+                VALUES (?,?,?,?,?,?)'''
                 DATABASE_EDIT_Q.put((command, to_table, True))
                 DATABASE_RETURN.get(timeout=1)
 
@@ -874,8 +896,11 @@ def run_receiver(receivers):
                                 if keep:
                                     # print(intersection)
                                     keep_count += 1
-                                    to_table = [current_time, intersection[0], intersection[1], 1, intersection[2], in_aoi]
-                                    command = "INSERT INTO intersects VALUES (?,?,?,?,?,?)"
+                                    to_table = [current_time, round(intersection[0], 5), round(intersection[1], 5),
+                                        1, intersection[2], in_aoi]
+                                    command = '''INSERT INTO intersects
+                                    (time, latitude, longitude, num_parents, confidence, aoi_id)
+                                    VALUES (?,?,?,?,?,?)'''
                                     DATABASE_EDIT_Q.put((command, to_table, True))
                                     DATABASE_RETURN.get(timeout=1)
                 print(f"Computed and kept {keep_count} intersections.")
@@ -1059,6 +1084,7 @@ def database_writer():
         radius INTEGER)
     ''')
     c.execute('''CREATE TABLE IF NOT EXISTS intersects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         time INTEGER,
         latitude REAL,
         longitude REAL,
@@ -1082,6 +1108,10 @@ def database_writer():
             if reply:
                 DATABASE_RETURN.put(True)
             break
+        elif command == "bulk":
+            c.executemany(items[0], items[1])
+            if reply:
+                DATABASE_RETURN.put(True)
         else:
             c.execute(command, items)
             if reply:
