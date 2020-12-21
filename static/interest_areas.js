@@ -30,7 +30,7 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
     fetch("/interest_areas/new", otherParams)
         .then(res => {
           updateAoi(createAois, true);
-          reloadRX();
+          reloadAoi();
         })
 }
 
@@ -52,7 +52,7 @@ function deleteAoi(uid) {
         .then(res => {
           // removerx(uid);
           loadAoi(createAois);
-          reloadRX();
+          reloadAoi();
         })
 }
 
@@ -74,7 +74,7 @@ function purgeAoi(uid) {
         .then(res => {
           // removerx(uid);
           loadAoi(createAois);
-          reloadRX();
+          reloadAoi();
         })
 }
 
@@ -87,7 +87,7 @@ function runAoi(uid) {
         .then(res => {
           // removerx(uid);
           loadAoi(createAois);
-          reloadRX();
+          reloadAoi();
         })
 }
 

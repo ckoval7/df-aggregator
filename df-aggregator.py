@@ -284,7 +284,6 @@ def process_data(database_name):
                     ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
                     axis_x = v.inverse(clustermean.tolist()[::-1], (ell_radius_x + clustermean[1], clustermean[0]))[0]
                     axis_y = v.inverse(clustermean.tolist()[::-1], (clustermean[1], ell_radius_y + clustermean[0]))[0]
-                    print(math.atan(2*((2*b)/(a-c)))/2)
                     if b == 0 and a >= c:
                         rotation = 0
                     elif b == 0 and a < c:
@@ -459,8 +458,6 @@ def write_czml(best_point, all_the_points, ellipsedata):
     best_point_packets = []
     ellipse_packets = []
 
-    # exclusion_packets = []
-
     if len(all_the_points) > 0 and (ms.plotintersects or ms.eps == 0):
         all_the_points = np.array(all_the_points)
         scaled_time = minmax_scale(all_the_points[:,-1])
@@ -484,21 +481,20 @@ def write_czml(best_point, all_the_points, ellipsedata):
         for x in ellipsedata:
             # rotation = 2 * np.pi - x[2]
             if x[0] >= x[1]:
-                rotation = x[2]
-
+                # rotation = x[2]
                 semiMajorAxis = x[0]
                 semiMinorAxis = x[1]
-                # rotation = 2 * np.pi - x[2]
-                # rotation += np.pi/2
-                print(f"{x[2]} Inverted to: {rotation}")
-                print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
+                rotation = 2 * np.pi - x[2]
+                rotation += np.pi/2
+                # print(f"{x[2]} Inverted to: {rotation}")
+                # print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
                 # print(f"{x[4], x[3]} is inveted")
             else:
                 rotation = x[2]
                 semiMajorAxis = x[1]
                 semiMinorAxis = x[0]
-                print(f"Not inverted: {rotation}")
-                print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
+                # print(f"Not inverted: {rotation}")
+                # print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
                 # print(f"{x[4], x[3]} is NOT inveted")
 
             ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
@@ -513,11 +509,12 @@ def write_czml(best_point, all_the_points, ellipsedata):
 ###############################################
 # Writes receivers.czml used by the WebUI
 ###############################################
+@get('/receivers.czml')
 def write_rx_czml():
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
     height = 50
     receiver_point_packets = []
     lob_packets = []
-    aoi_packets = []
     top = Preamble(name="Receivers")
 
     rx_properties = {
@@ -527,36 +524,6 @@ def write_rx_czml():
         "height": 48,
         "width": 48,
     }
-
-    area_of_interest_properties = {
-        "granularity": 0.008722222,
-        "height": 0,
-        "material": {
-            "solidColor": {
-                "color": {
-                    "rgba": [0, 0, 255, 25]
-                    }
-                }
-            },
-        "outline": True,
-        "outlineWidth": 2,
-        "outlineColor": {"rgba": [53, 184, 240, 255],},
-        },
-
-    exclusion_area_properties = {
-        "granularity": 0.008722222,
-        "height": 0,
-        "material": {
-            "solidColor": {
-                "color": {
-                    "rgba": [242, 10, 0, 25]
-                    }
-                }
-            },
-        "outline": True,
-        "outlineWidth": 2,
-        "outlineColor": {"rgba": [224, 142, 0, 255],},
-        },
 
     for index, x in enumerate(receivers):
         if x.isActive and ms.receiving:
@@ -590,6 +557,46 @@ def write_rx_czml():
         billboard={**rx_properties, **rx_icon},
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
+    output = Document([top] + receiver_point_packets + lob_packets)
+    return str(output)
+
+###############################################
+# Writes aoi.czml used by the WebUI
+###############################################
+@get("/aoi.czml")
+def wr_aoi_czml():
+    aoi_packets = []
+    top = Preamble(name="Receivers")
+    area_of_interest_properties = {
+        "granularity": 0.008722222,
+        "height": 0,
+        "material": {
+            "solidColor": {
+                "color": {
+                    "rgba": [0, 0, 255, 25]
+                    }
+                }
+            },
+        "outline": True,
+        "outlineWidth": 2,
+        "outlineColor": {"rgba": [53, 184, 240, 255],},
+        },
+
+    exclusion_area_properties = {
+        "granularity": 0.008722222,
+        "height": 0,
+        "material": {
+            "solidColor": {
+                "color": {
+                    "rgba": [242, 10, 0, 25]
+                    }
+                }
+            },
+        "outline": True,
+        "outlineWidth": 2,
+        "outlineColor": {"rgba": [224, 142, 0, 255],},
+        },
+
     for x in fetch_aoi_data():
         aoi = {
             'uid': x[0],
@@ -607,9 +614,8 @@ def write_rx_czml():
         ellipse={**aoi_properties, **aoi_info},
         position={"cartographicDegrees": [ aoi['longitude'], aoi['latitude'], 0 ]}))
 
-    output = Document([top] + receiver_point_packets + lob_packets + aoi_packets)
-
-    return output
+    output = Document([top] + aoi_packets)
+    return str(output)
 
 ###############################################
 # CLears the screen if debugging is off.
@@ -702,16 +708,6 @@ def rx_params():
 def tx_czml_out():
     response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
     output = write_czml(*process_data(database_name))
-    return str(output)
-
-###############################################
-# Returns a CZML file that contains receiver
-# and LOB information for Cesium.
-###############################################
-@get('/receivers.czml')
-def rx_czml_out():
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-    output = write_rx_czml()
     return str(output)
 
 ###############################################

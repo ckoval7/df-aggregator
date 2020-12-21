@@ -26,6 +26,7 @@
 
     var transmittersDataSource = new Cesium.CzmlDataSource;
     var receiversDataSource = new Cesium.CzmlDataSource;
+    var aoiDataSource = new Cesium.CzmlDataSource;
 
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
@@ -213,8 +214,17 @@
       return receiversDataSource;
     }
 
+    function loadAoiCzml() {
+      aoiDataSource.load('/aoi.czml');
+      viewer.dataSources.add(aoiDataSource);
+      // console.log("Loaded CZML");
+      return aoiDataSource;
+    }
+
+
     function loadAllCzml() {
       loadTxCzml();
+      loadAoiCzml();
       let zoom = loadRxCzml();
       return zoom;
     }
@@ -227,6 +237,11 @@
     function reloadRX() {
       viewer.dataSources.remove(receiversDataSource, true);
       loadRxCzml();
+    }
+
+    function reloadAoi() {
+      viewer.dataSources.remove(aoiDataSource, true);
+      loadAoiCzml();
     }
 
   </script>
