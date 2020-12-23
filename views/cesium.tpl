@@ -20,17 +20,12 @@
 
   </div>
   <script>
-    // // Update Map every n milliseconds
-    // var rxRefreshRate = 5000;
-    // var autoRxRefresh = setInterval(function () { reloadRX(); }, rxRefreshRate);
-
     var transmittersDataSource = new Cesium.CzmlDataSource;
     var receiversDataSource = new Cesium.CzmlDataSource;
     var aoiDataSource = new Cesium.CzmlDataSource;
 
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
-    // var hpr = new Cesium.HeadingPitchRange(0, 40, 0)
     var viewer = new Cesium.Viewer('cesiumContainer', {
       // terrainProvider: Cesium.createWorldTerrain(),
       homeButton: false,
@@ -39,8 +34,8 @@
     var clock = new Cesium.Clock({
        clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
     });
-
     viewer.clock.shouldAnimate = true;
+    // var hpr = new Cesium.HeadingPitchRange(0.0, 1.57, 5000.0);
     viewer.zoomTo(loadAllCzml());
 
     var scene = viewer.scene;
@@ -51,7 +46,6 @@
     var handler;
     var cartesian;
     var cartographic
-    // var center_cartesian;
     var rad_cartesian;
     var center_lat;
     var center_lon;
@@ -202,9 +196,10 @@
 
     function loadTxCzml() {
       transmittersDataSource.load('/output.czml');
-      viewer.dataSources.add(transmittersDataSource);
-      // console.log("Loaded CZML");
-      return transmittersDataSource;
+      Cesium.when(transmittersDataSource, function(dataSource1){
+        viewer.dataSources.add(dataSource1);
+        return dataSource1;
+      });
     }
 
     function loadRxCzml() {
@@ -221,12 +216,11 @@
       return aoiDataSource;
     }
 
-
     function loadAllCzml() {
-      loadTxCzml();
-      loadAoiCzml();
-      let zoom = loadRxCzml();
-      return zoom;
+      let rx = loadRxCzml();
+      let aoi = loadAoiCzml();
+      let tx = loadTxCzml();
+      return rx;
     }
 
     function clearOld() {
@@ -376,25 +370,25 @@
     epsslider.oninput = function() {
       epsoutput.innerHTML = this.value;
     }
-    epsslider.onmouseup = function() {
+    epsslider.onpointerup = function() {
       updateParams("eps="+this.value);
     }
     powerslider.oninput = function() {
       poweroutput.innerHTML = this.value;
     }
-    powerslider.onmouseup = function() {
+    powerslider.onpointerup = function() {
       updateParams("minpower="+this.value);
     }
     confslider.oninput = function() {
       confoutput.innerHTML = this.value;
     }
-    confslider.onmouseup = function() {
+    confslider.onpointerup = function() {
       updateParams("minconf="+this.value);
     }
     minpointslider.oninput = function() {
       minpointoutput.innerHTML = this.value;
     }
-    minpointslider.onmouseup = function() {
+    minpointslider.onpointerup = function() {
       updateParams("minpts="+this.value);
     }
 

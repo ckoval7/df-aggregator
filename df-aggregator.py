@@ -20,6 +20,8 @@ from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color,
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 
+response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+
 DBSCAN_Q = Queue()
 DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
@@ -502,7 +504,8 @@ def write_czml(best_point, all_the_points, ellipsedata):
             ellipse={**ellipse_properties, **ellipse_info},
             position={"cartographicDegrees": [ x[3], x[4], 0 ]}))
 
-    output = Document([top] + best_point_packets + all_point_packets + ellipse_packets)
+    output = json.dumps(json.loads(str(Document([top] + best_point_packets + all_point_packets + ellipse_packets))),
+                separators=(',', ':'))
 
     return output
 
@@ -511,7 +514,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
 ###############################################
 @get('/receivers.czml')
 def write_rx_czml():
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     height = 50
     receiver_point_packets = []
     lob_packets = []
@@ -635,7 +638,7 @@ def clear(debugging):
 ###############################################
 @route('/static/<filepath:path>', name='static')
 def server_static(filepath):
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     return static_file(filepath, root='./static')
 
 ###############################################
@@ -646,7 +649,7 @@ def server_static(filepath):
 @get('/index')
 @get('/cesium')
 def cesium():
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     with open('accesstoken.txt', "r") as tokenfile:
         access_token = tokenfile.read().replace('\n', '')
     return template('cesium.tpl',
@@ -706,7 +709,7 @@ def rx_params():
 ###############################################
 @get('/output.czml')
 def tx_czml_out():
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     output = write_czml(*process_data(database_name))
     return str(output)
 
