@@ -51,10 +51,25 @@
     var center_lon;
     var radius;
 
+    // ***********************************************
+    // Disable/enable object selection as needed.
+    //************************************************
+    var noSelect = false;
+    var defaultClickHandler = viewer.screenSpaceEventHandler.getInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    var myClickFunction = function(event) {
+      if (!noSelect) {
+        defaultClickHandler(event);
+      } else {
+        viewer.selectedEntity = undefined;
+        viewer.trackedEntity = undefined;
+      }
+    };
+    viewer.screenSpaceEventHandler.setInputAction(myClickFunction, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+
     // Pick the center point of a circle
     function pickCenter(lat_element_id, lon_element_id, radius_element_id, outlineColor) {
-      viewer.selectionIndicator = false;
-      viewer.infoBox = false;
+      noSelect = true;
       var entity = viewer.entities.add({
         label: {
           show: false,
@@ -104,8 +119,7 @@
     var area;
     //Stop pickng things
     function clearHover() {
-      viewer.selectionIndicator = true;
-      viewer.infoBox = true;
+      noSelect = false;
       viewer.entities.removeAll();
       handler = handler && handler.destroy();
     };
