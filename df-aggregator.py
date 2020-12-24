@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 
+# df-aggregator, networked radio direction finding software.
+#     Copyright (C) 2020 Corey Koval
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import vincenty as v
 import numpy as np
 import math
@@ -19,8 +35,6 @@ from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
-
-response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
 
 DBSCAN_Q = Queue()
 DBSCAN_WAIT_Q = Queue()
@@ -310,29 +324,28 @@ def process_data(database_name):
     conn.close()
     return likely_location, intersect_list, ellipsedata
 
-###############################################
-# Checks interesections stored in the database
-# against a lat/lon/radius and removes items
-# inside exclusion areas.
-###############################################
+#######################################################################
+# Checks interesections stored in the database against a lat/lon/radius
+# and removes items inside exclusion areas.
+#######################################################################
 def purge_database(type, lat, lon, radius):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
     c.execute("SELECT latitude, longitude, id FROM intersects")
     intersect_list = c.fetchall()
     conn.close()
-
+    delete_these = []
     purge_count = 0
     for x in intersect_list:
         if type == "exclusion":
             distance = v.inverse(x[0:2], (lat, lon))[0]
             if distance < radius:
-                command = "DELETE FROM intersects WHERE id=?"
-                DATABASE_EDIT_Q.put((command, (x[2],), False))
-                # DATABASE_RETURN.get(timeout=1)
+                delete_these.append((x[2],))
                 purge_count += 1
-        elif type == "aoi":
-            pass
+
+    command = "DELETE FROM intersects WHERE id=?"
+    DATABASE_EDIT_Q.put((command, delete_these, False))
+    # DATABASE_RETURN.get(timeout=1)
     DATABASE_EDIT_Q.put(("done", None, False))
     print(f"I purged {purge_count} intersects.")
 
@@ -394,13 +407,13 @@ def run_aoi_rules():
             else:
                 keep_list.append((in_aoi, id))
 
-    command = ("DELETE from intersects WHERE id=?", del_list)
-    DATABASE_EDIT_Q.put(("bulk", command, True))
+    command = "DELETE from intersects WHERE id=?"
+    DATABASE_EDIT_Q.put((command, del_list, True))
     DATABASE_RETURN.get()
     DATABASE_EDIT_Q.put(("done", None, False))
 
-    command = ("UPDATE intersects SET aoi_id=? WHERE id=?", keep_list)
-    DATABASE_EDIT_Q.put(("bulk", command, True))
+    command = "UPDATE intersects SET aoi_id=? WHERE id=?"
+    DATABASE_EDIT_Q.put((command, keep_list, True))
     DATABASE_RETURN.get()
     DATABASE_EDIT_Q.put(("done", None, False))
 
@@ -470,7 +483,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
             color_property = {"color":{"rgba": [*rgb, 255]}}
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
             point={**point_properties, **color_property},
-            position={"cartographicDegrees": [ x[0], x[1], 20 ]},
+            position={"cartographicDegrees": [ x[0], x[1], 0 ]},
             ))
 
     if len(best_point) > 0:
@@ -560,16 +573,18 @@ def write_rx_czml():
         billboard={**rx_properties, **rx_icon},
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
-    output = Document([top] + receiver_point_packets + lob_packets)
-    return str(output)
+    output = json.dumps(json.loads(str(Document([top] + receiver_point_packets + lob_packets))),separators=(',', ':'))
+    # output = str(Document([top] + receiver_point_packets + lob_packets))
+    return output
 
 ###############################################
 # Writes aoi.czml used by the WebUI
 ###############################################
 @get("/aoi.czml")
 def wr_aoi_czml():
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     aoi_packets = []
-    top = Preamble(name="Receivers")
+    top = Preamble(name="AOIs")
     area_of_interest_properties = {
         "granularity": 0.008722222,
         "height": 0,
@@ -617,8 +632,9 @@ def wr_aoi_czml():
         ellipse={**aoi_properties, **aoi_info},
         position={"cartographicDegrees": [ aoi['longitude'], aoi['latitude'], 0 ]}))
 
-    output = Document([top] + aoi_packets)
-    return str(output)
+    output = json.dumps(json.loads(str(Document([top] + aoi_packets))),separators=(',', ':'))
+    # output = str(Document([top] + aoi_packets))
+    return output
 
 ###############################################
 # CLears the screen if debugging is off.
@@ -638,8 +654,9 @@ def clear(debugging):
 ###############################################
 @route('/static/<filepath:path>', name='static')
 def server_static(filepath):
+    response = static_file(filepath, root='./static')
     response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
-    return static_file(filepath, root='./static')
+    return response
 
 ###############################################
 # Loads the main page of the WebUI
@@ -726,7 +743,7 @@ def update_rx(action):
     elif action == "del":
         index = int(data['uid'])
         command = "DELETE FROM receivers WHERE station_id=?"
-        DATABASE_EDIT_Q.put((command, [int(data['uid'])], True))
+        DATABASE_EDIT_Q.put((command, [(index,),], True))
         DATABASE_RETURN.get(timeout=1)
         DATABASE_EDIT_Q.put(("done", None, False))
         # del_receiver(receivers[index].station_id)
@@ -782,11 +799,11 @@ def handle_interest_areas(action):
         add_aoi(aoi_type, lat, lon, radius)
     elif action == "del":
         command = "UPDATE intersects SET aoi_id=? WHERE aoi_id=?"
-        DATABASE_EDIT_Q.put((command, (-1, data['uid']), True))
+        DATABASE_EDIT_Q.put((command, [(-1, data['uid']),], True))
         DATABASE_RETURN.get(timeout=1)
-        to_table = str(data['uid'])
+        to_table = (str(data['uid']),)
         command = "DELETE FROM interest_areas WHERE uid=?"
-        DATABASE_EDIT_Q.put((command, to_table, True))
+        DATABASE_EDIT_Q.put((command, [to_table,], True))
         DATABASE_RETURN.get(timeout=1)
         DATABASE_EDIT_Q.put(("done", None, False))
     elif action == "purge":
@@ -838,7 +855,6 @@ def run_receiver(receivers):
                             intersection = list(intersection)
                             avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
                             intersection.append(avg_conf)
-                            # intersection.append(in_aoi)
                             intersection = np.array([intersection])
                             if intersection.any() != None:
                                 intersect_list = np.concatenate((intersect_list, intersection), axis=0)
@@ -853,7 +869,7 @@ def run_receiver(receivers):
                 command = '''INSERT INTO intersects
                 (time, latitude, longitude, num_parents, confidence, aoi_id)
                 VALUES (?,?,?,?,?,?)'''
-                DATABASE_EDIT_Q.put((command, to_table, True))
+                DATABASE_EDIT_Q.put((command, (to_table,), True))
                 DATABASE_RETURN.get(timeout=1)
 
         # Loop to compute intersections for a single receiver and update all receivers
@@ -890,22 +906,20 @@ def run_receiver(receivers):
                                 intersection = list(intersection)
                                 avg_conf = np.mean([conf_rxa, conf_rxb])
                                 intersection.append(avg_conf)
-                            # if intersection:
                                 keep, in_aoi = check_aoi(*intersection[0:2])
                                 if keep:
-                                    # print(intersection)
                                     keep_count += 1
                                     to_table = [current_time, round(intersection[0], 5), round(intersection[1], 5),
                                         1, intersection[2], in_aoi]
                                     command = '''INSERT INTO intersects
                                     (time, latitude, longitude, num_parents, confidence, aoi_id)
                                     VALUES (?,?,?,?,?,?)'''
-                                    DATABASE_EDIT_Q.put((command, to_table, True))
+                                    DATABASE_EDIT_Q.put((command, (to_table,), True))
                                     DATABASE_RETURN.get(timeout=1)
                 print(f"Computed and kept {keep_count} intersections.")
 
                 command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
-                DATABASE_EDIT_Q.put((command, current_doa, True))
+                DATABASE_EDIT_Q.put((command, [current_doa,], True))
                 DATABASE_RETURN.get(timeout=1)
 
             DATABASE_EDIT_Q.put(("done", None, False))
@@ -913,7 +927,6 @@ def run_receiver(receivers):
                 if rx.isActive: rx.update()
             except IOError:
                 print("Problem connecting to receiver.")
-                # ms.receiving = False
 
         time.sleep(1)
         if dots > 5:
@@ -978,7 +991,7 @@ def add_receiver(receiver_url):
                 new_rx['mobile'],new_rx['single'], new_rx['latitude'], new_rx['longitude']]
 
             command = "INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)"
-            DATABASE_EDIT_Q.put((command, to_table, True))
+            DATABASE_EDIT_Q.put((command, [to_table,], True))
             DATABASE_RETURN.get(timeout=1)
             DATABASE_EDIT_Q.put(("done", None, False))
             mobile = c.execute("SELECT isMobile FROM receivers WHERE station_id = ?",
@@ -1025,7 +1038,7 @@ def update_rx_table():
             latitude=?,
             longitude=?
             WHERE station_id = ?'''
-        DATABASE_EDIT_Q.put((command, to_table, True))
+        DATABASE_EDIT_Q.put((command, [to_table,], True))
         # try:
         DATABASE_RETURN.get(timeout=1)
         # except:
@@ -1044,7 +1057,7 @@ def add_aoi(aoi_type, lat, lon, radius):
     uid = (prev_uid + 1) if prev_uid != None else 0
     to_table = [uid, aoi_type, lat, lon, radius]
     command = 'INSERT INTO interest_areas VALUES (?,?,?,?,?)'
-    DATABASE_EDIT_Q.put((command, to_table, True))
+    DATABASE_EDIT_Q.put((command, [to_table,], True))
     DATABASE_RETURN.get(timeout=1)
     DATABASE_EDIT_Q.put(("done", None, False))
 
@@ -1098,6 +1111,7 @@ def database_writer():
         lob REAL)''')
     conn.commit()
     while True:
+        # items should be list of lists
         command, items, reply = DATABASE_EDIT_Q.get()
         if command == "done":
             conn.commit()
@@ -1107,12 +1121,8 @@ def database_writer():
             if reply:
                 DATABASE_RETURN.put(True)
             break
-        elif command == "bulk":
-            c.executemany(items[0], items[1])
-            if reply:
-                DATABASE_RETURN.put(True)
         else:
-            c.execute(command, items)
+            c.executemany(command, items)
             if reply:
                 DATABASE_RETURN.put(True)
 

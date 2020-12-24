@@ -1,4 +1,21 @@
 <!DOCTYPE html>
+
+<!-- df-aggregator, networked radio direction finding software. =
+    Copyright (C) 2020 Corey Koval
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>. -->
+
 <html lang="en">
 <head>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -20,14 +37,13 @@
 
   </div>
   <script>
-    var transmittersDataSource = new Cesium.CzmlDataSource;
-    var receiversDataSource = new Cesium.CzmlDataSource;
-    var aoiDataSource = new Cesium.CzmlDataSource;
+    var transmittersDataSource = new Cesium.CzmlDataSource();
+    var receiversDataSource = new Cesium.CzmlDataSource();
+    var aoiDataSource = new Cesium.CzmlDataSource();
 
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     var viewer = new Cesium.Viewer('cesiumContainer', {
-      // terrainProvider: Cesium.createWorldTerrain(),
       homeButton: false,
       timeline: false,
     });
@@ -35,8 +51,10 @@
        clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
     });
     viewer.clock.shouldAnimate = true;
-    // var hpr = new Cesium.HeadingPitchRange(0.0, 1.57, 5000.0);
-    viewer.zoomTo(loadAllCzml());
+
+    var hpr = new Cesium.HeadingPitchRange(0.0, -1.57, 0.0);
+    // viewer.zoomTo(loadAllCzml(), hpr);
+    viewer.flyTo(loadAllCzml(), {'offset':hpr});
 
     var scene = viewer.scene;
     if (!scene.pickPositionSupported) {
@@ -210,31 +228,41 @@
 
     function loadTxCzml() {
       transmittersDataSource.load('/output.czml');
-      Cesium.when(transmittersDataSource, function(dataSource1){
-        viewer.dataSources.add(dataSource1);
-        return dataSource1;
-      });
+      viewer.dataSources.add(transmittersDataSource);
+      return transmittersDataSource;
+      // let promise1 = Cesium.CzmlDataSource.load('/output.czml');
+      // Cesium.when(promise1, function(dataSource1){
+      //   viewer.dataSources.add(dataSource1);
+      //   return dataSource1;
+      // });
     }
 
     function loadRxCzml() {
       receiversDataSource.load('/receivers.czml');
       viewer.dataSources.add(receiversDataSource);
-      // console.log("Loaded CZML");
       return receiversDataSource;
+      // let promise1 = Cesium.CzmlDataSource.load('/receivers.czml');
+      // Cesium.when(promise1, function(dataSource1){
+      //   viewer.dataSources.add(dataSource1);
+      //   return dataSource1;
+      // });
     }
 
     function loadAoiCzml() {
       aoiDataSource.load('/aoi.czml');
       viewer.dataSources.add(aoiDataSource);
-      // console.log("Loaded CZML");
       return aoiDataSource;
+      // let promise1 = Cesium.CzmlDataSource.load('/aoi.czml');
+      // Cesium.when(promise1, function(dataSource1){
+      //   viewer.dataSources.add(dataSource1);
+      //   return dataSource1;
+      // });
     }
 
     function loadAllCzml() {
-      let rx = loadRxCzml();
-      let aoi = loadAoiCzml();
-      let tx = loadTxCzml();
-      return rx;
+      loadAoiCzml();
+      loadTxCzml();
+      return loadRxCzml();
     }
 
     function clearOld() {
