@@ -6,6 +6,7 @@
 - Now introducing Single Receiver Mode! This will give you functionality similar to, but better than
   the Kerberos SDR Android App. You can define multiple search areas, or even just define areas you
   know where the transmitter isn't located.
+- The access token is now optional.
 - Be on the lookout for documention and tutorials between Christmas and New Years.
 - Behind the scenes, there have been several optimizations.
 
