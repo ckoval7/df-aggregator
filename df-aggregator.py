@@ -743,7 +743,7 @@ def update_rx(action):
     elif action == "del":
         index = int(data['uid'])
         command = "DELETE FROM receivers WHERE station_id=?"
-        DATABASE_EDIT_Q.put((command, [(index,),], True))
+        DATABASE_EDIT_Q.put((command, [(receivers[index].station_id,),], True))
         DATABASE_RETURN.get(timeout=1)
         DATABASE_EDIT_Q.put(("done", None, False))
         # del_receiver(receivers[index].station_id)
