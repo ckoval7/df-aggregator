@@ -42,8 +42,10 @@
     var receiversDataSource = new Cesium.CzmlDataSource();
     var aoiDataSource = new Cesium.CzmlDataSource();
 
+    % if access_token:
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
+    % end
     var viewer = new Cesium.Viewer('cesiumContainer', {
       homeButton: false,
       timeline: false,

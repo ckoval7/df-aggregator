@@ -46,6 +46,7 @@ Click the power button to enable/disable.
     - ~Create a single line file named ```accesstoken.txt```~
     - Turns out you can use a public token, you just can't use Cesium Assets.
       Most people don't need to use assets.
+    - The token is optional with --access_token=accesstoken.txt
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
     - This is available for both Qt4 (original version) and Qt5 (Ubuntu 20.04+). Just check out the appropriate branch.
 

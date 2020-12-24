@@ -667,8 +667,6 @@ def server_static(filepath):
 @get('/cesium')
 def cesium():
     response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
-    with open('accesstoken.txt', "r") as tokenfile:
-        access_token = tokenfile.read().replace('\n', '')
     return template('cesium.tpl',
     {'access_token':access_token,
     'epsilon':ms.eps,
@@ -1161,6 +1159,7 @@ if __name__ == '__main__':
      Only applies when clustering is turned on. This creates larger CZML files.""",action="store_true")
     parser.add_option("-o", "--offline", dest="disable", help="Starts program with receiver turned off.",
     action="store_false", default=True)
+    parser.add_option("--access_token", dest="token_file", help="Cesium Access Token File", metavar="FILE")
     parser.add_option("--ip", dest="ipaddr", help="IP Address to serve from. Default 127.0.0.1",
     metavar="IP ADDRESS", type="str", default="127.0.0.1")
     parser.add_option("--port", dest="port", help="Port number to serve from. Default 8080",
@@ -1185,6 +1184,14 @@ if __name__ == '__main__':
     ms.receiving = options.disable
     ms.plotintersects = options.plotintersects
 
+    if options.token_file:
+        tokenfile = options.token_file
+        with open(tokenfile, "r") as token:
+            access_token = token.read().replace('\n', '')
+        print(access_token)
+    else:
+        access_token = None
+
     web = threading.Thread(target=start_server,args=(options.ipaddr, options.port))
     web.daemon = True
     web.start()
@@ -1192,6 +1199,7 @@ if __name__ == '__main__':
     dbwriter = threading.Thread(target=database_writer)
     dbwriter.daemon = True
     dbwriter.start()
+
 
     try:
         ###############################################
