@@ -1,6 +1,15 @@
 # DF Aggregator
 
-## New Features December 2020:
+## Christmas Update:
+- Your old database files will not work directly with this latest commit. Several changes have been made
+  to the database structure to accomodate new features.
+- Now introducing Single Receiver Mode! This will give you functionality similar to, but better than
+  the Kerberos SDR Android App. You can define multiple search areas, or even just define areas you
+  know where the transmitter isn't located.
+- Be on the lookout for documention and tutorials between Christmas and New Years.
+- Behind the scenes, there have been several optimizations.
+
+## Previous Changes:
 - Added option to invert (uninvert?) the DOA bearing. If you're using a KerberosSDR,
   keep this option checked.
 - LOBs are drawn for each receiver. The orange lines extending from each receiver
