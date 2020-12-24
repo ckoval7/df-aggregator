@@ -33,6 +33,7 @@
   <link href="/static/menu.css" rel="stylesheet">
 </head>
 <body onload="loadRx(createReceivers); loadAoi(createAois);">
+  <div id="loader" class="loader"></div>
   <div id="cesiumContainer">
 
   </div>
@@ -227,14 +228,19 @@
     }
 
     function loadTxCzml() {
-      transmittersDataSource.load('/output.czml');
-      viewer.dataSources.add(transmittersDataSource);
-      return transmittersDataSource;
-      // let promise1 = Cesium.CzmlDataSource.load('/output.czml');
-      // Cesium.when(promise1, function(dataSource1){
-      //   viewer.dataSources.add(dataSource1);
-      //   return dataSource1;
-      // });
+      let spinner = document.getElementById("loader");
+      spinner.style.visibility = "visible";
+      spinner.style.zIndex = "10";
+      // transmittersDataSource.load('/output.czml');
+      // viewer.dataSources.add(transmittersDataSource);
+      // return transmittersDataSource;
+      let promise1 = Cesium.CzmlDataSource.load('/output.czml');
+      Cesium.when(promise1, function(dataSource1){
+        viewer.dataSources.add(dataSource1);
+        spinner.style.visibility = "hidden";
+        spinner.style.zIndex = "0";
+        return dataSource1;
+      });
     }
 
     function loadRxCzml() {
