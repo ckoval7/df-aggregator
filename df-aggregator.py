@@ -878,7 +878,7 @@ def run_receiver(receivers):
             rx.doa_time >= rx.previous_doa_time + 10000):
                 current_doa = [rx.doa_time, rx.station_id, rx.latitude,
                     rx.longitude, rx.confidence, rx.doa]
-                min_time = rx.doa_time - 900000 #15 Minutes
+                min_time = rx.doa_time - 1200000 #15 Minutes
                 c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
                  WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
                 lob_array = c.fetchall()
