@@ -816,7 +816,13 @@ def handle_interest_areas(action):
 # Starts the Bottle webserver.
 ###############################################
 def start_server(ipaddr = "127.0.0.1", port=8080):
-    run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
+    try:
+        run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
+    except OSError:
+        print(f"Port {port} seems to be in use. Please select another port or " +
+        "check if another instance of DFA is already running.")
+        debugging = True
+        finish()
 
 ###############################################
 # Captures DOA data and computes intersections
@@ -1188,7 +1194,7 @@ if __name__ == '__main__':
         tokenfile = options.token_file
         with open(tokenfile, "r") as token:
             access_token = token.read().replace('\n', '')
-        print(access_token)
+        # print(access_token)
     else:
         access_token = None
 
