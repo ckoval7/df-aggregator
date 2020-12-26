@@ -233,16 +233,13 @@
       let spinner = document.getElementById("loader");
       spinner.style.visibility = "visible";
       spinner.style.zIndex = "10";
-      // transmittersDataSource.load('/output.czml');
-      // viewer.dataSources.add(transmittersDataSource);
-      // return transmittersDataSource;
-      let promise1 = Cesium.CzmlDataSource.load('/output.czml');
+      let promise1 = transmittersDataSource.load('/output.czml');
       Cesium.when(promise1, function(dataSource1){
-        viewer.dataSources.add(dataSource1);
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
-        return dataSource1;
       });
+      viewer.dataSources.add(transmittersDataSource);
+      return transmittersDataSource;
     }
 
     function loadRxCzml() {
@@ -269,8 +266,8 @@
 
     function loadAllCzml() {
       loadAoiCzml();
-      loadTxCzml();
-      return loadRxCzml();
+      loadRxCzml();
+      return loadTxCzml();
     }
 
     function clearOld() {
