@@ -5,7 +5,7 @@
   for high confidence LOBs.
 - Receivers on map update every 2.5 Seocnds.
     - To customize this change `refreshrate` at the top of `static/receiver_configurator.js`.
-- For previous changes see the [Change Log](CHANGLELOG.md).
+- For previous changes see the [Change Log](CHANGELOG.md).
 
 ## Installing:
 - Please see the [Quickstart Guide](https://github.com/ckoval7/df-aggregator/wiki/GettingStarted)
