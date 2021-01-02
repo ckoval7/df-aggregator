@@ -15,7 +15,7 @@
 //     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // Update Map every n milliseconds
-var refreshrate = 5000;
+var refreshrate = 2500;
 var autoRefresh = setInterval(function () { reloadRX(); }, refreshrate);
 
 // *************************************************

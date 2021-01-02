@@ -1,6 +1,12 @@
 # DF Aggregator
 
-## Christmas Update:
+## Recent Changes:
+- The LOB for each receiver on the map is now red for low confidence LOBs and green
+  for high confidence LOBs.
+- Receivers on map update every 2.5 Seocnds.
+    - To customize this change `refreshrate` at the top of `static/receiver_configurator.js`.
+
+## Previous Changes
 - Your old database files will not work directly with this latest commit. Several changes have been made
   to the database structure to accomodate new features.
 - Now introducing Single Receiver Mode! This will give you functionality similar to, but better than
@@ -9,8 +15,6 @@
 - The access token is now optional.
 - Be on the lookout for documention and tutorials between Christmas and New Years.
 - Behind the scenes, there have been several optimizations.
-
-## Previous Changes:
 - Added option to invert (uninvert?) the DOA bearing. If you're using a KerberosSDR,
   keep this option checked.
 - LOBs are drawn for each receiver. The orange lines extending from each receiver
@@ -31,7 +35,7 @@ Click the power button to enable/disable.
     - Black is enabled, red is disabled.
 - If you lose connectivity to a receiver, that particular receiver will be disabled.
   Click the power button to try to reconnect.
-- Map refreshes every ~~5~~ 10 seconds. Change `refreshrate` at the top of `static/receiver_configurator.js` to change the refresh rate.
+- ~~Map refreshes every 5 seconds. Change `refreshrate` at the top of `static/receiver_configurator.js` to change the refresh rate.~~
 
 ## Dependencies:
 - Python >= 3.6
