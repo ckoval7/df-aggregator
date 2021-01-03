@@ -488,7 +488,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
 
     if len(best_point) > 0:
         for x in best_point:
-            best_point_packets.append(Packet(id=str(x[0]) + ", " + str(x[1]),
+            best_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
             point=best_point_properties,
             position={"cartographicDegrees": [ x[0], x[1], 15 ]}))
 
