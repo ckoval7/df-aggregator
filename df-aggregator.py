@@ -530,6 +530,7 @@ def write_rx_czml():
     response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     height = 50
     min_conf = ms.min_conf
+    min_power = ms.min_power
     green = [0,255,0,255]
     red = [255,0,0,255]
     receiver_point_packets = []
@@ -546,7 +547,7 @@ def write_rx_czml():
 
     for index, x in enumerate(receivers):
         if x.isActive and ms.receiving:
-            lob_color = green if x.confidence > min_conf else red
+            lob_color = green if x.confidence > min_conf and x.power > min_power else red
             lob_start_lat = x.latitude
             lob_start_lon = x.longitude
             lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, d)

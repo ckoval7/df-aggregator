@@ -1,8 +1,8 @@
 # DF Aggregator
 
 ## Recent Changes:
-- The LOB for each receiver on the map is now red for low confidence LOBs and green
-  for high confidence LOBs.
+- The LOB for each receiver on the map is now red for low confidence/power LOBs and green
+  for high confidence/power LOBs.
 - Receivers on map update every 2.5 Seocnds.
     - To customize this change `refreshrate` at the top of `static/receiver_configurator.js`.
 - For previous changes see the [Change Log](CHANGELOG.md).
