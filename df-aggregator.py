@@ -532,6 +532,7 @@ def write_rx_czml():
     min_conf = ms.min_conf
     min_power = ms.min_power
     green = [0,255,0,255]
+    orange = [255, 140, 0, 255]
     red = [255,0,0,255]
     receiver_point_packets = []
     lob_packets = []
@@ -547,7 +548,12 @@ def write_rx_czml():
 
     for index, x in enumerate(receivers):
         if x.isActive and ms.receiving:
-            lob_color = green if x.confidence > min_conf and x.power > min_power else red
+            if (x.confidence > min_conf and x.power > min_power):
+                lob_color = green
+            elif (x.confidence <= min_conf and x.power > min_power):
+                lob_color = orange
+            else:
+                lob_color = red
             lob_start_lat = x.latitude
             lob_start_lon = x.longitude
             lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, d)
