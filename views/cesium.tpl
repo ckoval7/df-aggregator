@@ -50,6 +50,9 @@
       homeButton: false,
       timeline: false,
     });
+    console.log(Cesium.InfoBox.container);
+    var iframe = document.getElementsByClassName('cesium-infoBox-iframe')[0];
+    iframe.sandbox.add('allow-popups-to-escape-sandbox');
     var clock = new Cesium.Clock({
        clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
     });

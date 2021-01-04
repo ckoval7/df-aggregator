@@ -447,10 +447,11 @@ def write_czml(best_point, all_the_points, ellipsedata):
     point_properties = {
         "pixelSize":5.0,
         "heightReference":"CLAMP_TO_GROUND",
+        "zIndex": 3
     }
     best_point_properties = {
         "pixelSize":12.0,
-        # "heightReference":"RELATIVE_TO_GROUND",
+        "zIndex": 10,
         "heightReference":"CLAMP_TO_GROUND",
         "color": {
             "rgba": [0, 255, 0, 255],
@@ -459,6 +460,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
 
     ellipse_properties = {
         "granularity": 0.008722222,
+        "zIndex": 5,
         "material": {
             "solidColor": {
                 "color": {
@@ -488,9 +490,12 @@ def write_czml(best_point, all_the_points, ellipsedata):
 
     if len(best_point) > 0:
         for x in best_point:
+            gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={x[1]},+{x[0]}&travelmode=driving"
             best_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
             point=best_point_properties,
-            position={"cartographicDegrees": [ x[0], x[1], 15 ]}))
+            description =
+            f"<a href='{gmaps_url}' target='_blank'>Google Maps Directions</a>",
+            position={"cartographicDegrees": [x[0], x[1], 0]}))
 
     if len(ellipsedata) > 0:
         for x in ellipsedata:
@@ -540,6 +545,7 @@ def write_rx_czml():
 
     rx_properties = {
         "verticalOrigin": "BOTTOM",
+        "zIndex": 9,
         "scale": 0.75,
         "heightReference":"CLAMP_TO_GROUND",
         "height": 48,
@@ -599,6 +605,7 @@ def wr_aoi_czml():
     area_of_interest_properties = {
         "granularity": 0.008722222,
         "height": 0,
+        # "zIndex": 1,
         "material": {
             "solidColor": {
                 "color": {
@@ -614,6 +621,7 @@ def wr_aoi_czml():
     exclusion_area_properties = {
         "granularity": 0.008722222,
         "height": 0,
+        # "zIndex": 0,
         "material": {
             "solidColor": {
                 "color": {
