@@ -591,7 +591,25 @@ def write_rx_czml():
         position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
     output = json.dumps(json.loads(str(Document([top] + receiver_point_packets + lob_packets))),separators=(',', ':'))
-    # output = str(Document([top] + receiver_point_packets + lob_packets))
+    return output
+
+@get("/lob_history.czml")
+def lob_history():
+    min_time = (time.time() - 3600) * 1000 # 1 hour
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+    c.execute('''SELECT station_id, time, latitude, longitude, confidence, power, lob FROM lobs
+    WHERE time < ?''', [min_time])
+    lob_array = c.fetchall()
+    conn.close()
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    green = [0,255,0,255]
+    orange = [255, 140, 0, 255]
+    red = [255,0,0,255]
+    lob_packets = []
+    top = Preamble(name="LOB History")
+
+    output = json.dumps(json.loads(str(Document([top] + lob_packets))),separators=(',', ':'))
     return output
 
 ###############################################
@@ -902,7 +920,7 @@ def run_receiver(receivers):
             rx.power >= ms.min_power and
             rx.doa_time >= rx.previous_doa_time + 10000):
                 current_doa = [rx.doa_time, rx.station_id, rx.latitude,
-                    rx.longitude, rx.confidence, rx.doa]
+                    rx.longitude, rx.confidence, rx.power, rx.doa]
                 min_time = rx.doa_time - 1200000 #15 Minutes
                 c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
                  WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
@@ -911,7 +929,8 @@ def run_receiver(receivers):
                 lat_rxa = current_doa[2]
                 lon_rxa = current_doa[3]
                 conf_rxa = current_doa[4]
-                doa_rxa = current_doa[5]
+                pwr_rxa = current_doa[5]
+                doa_rxa = current_doa[6]
                 keep_count = 0
                 if len(lob_array) > 1:
                     for previous in lob_array:
@@ -941,7 +960,7 @@ def run_receiver(receivers):
                                     DATABASE_RETURN.get(timeout=1)
                 print(f"Computed and kept {keep_count} intersections.")
 
-                command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
+                command = "INSERT INTO lobs VALUES (?,?,?,?,?,?,?)"
                 DATABASE_EDIT_Q.put((command, [current_doa,], True))
                 DATABASE_RETURN.get(timeout=1)
 
@@ -1131,6 +1150,7 @@ def database_writer():
         latitude REAL,
         longitude REAL,
         confidence INTEGER,
+        power REAL,
         lob REAL)''')
     conn.commit()
     while True:
