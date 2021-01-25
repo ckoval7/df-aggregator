@@ -8,3 +8,5 @@ test*
 *.txt
 *.czml
 fil-result/
+static/node_modules
+package-lock.json

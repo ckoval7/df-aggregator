@@ -24,10 +24,10 @@
   <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.76/Build/Cesium/Cesium.js"></script>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.77/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.77/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.76/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <!-- <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> -->
   <link href="/static/style.css" rel="stylesheet">
   <link href="/static/menu.css" rel="stylesheet">
@@ -47,6 +47,10 @@
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     % end
     var viewer = new Cesium.Viewer('cesiumContainer', {
+      // imageryProvider : new Cesium.TileMapServiceImageryProvider({
+      //   url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+      // }),
+      sceneModePicker: false,
       homeButton: false,
       timeline: false,
     });
