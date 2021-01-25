@@ -433,7 +433,7 @@ def write_geojson(best_point, all_the_points):
             if best_point != None:
                 reversed_best_point = []
                 for x in best_point:
-                    reversed_best_point.append(x[::-1])
+                    reversed_best_point.append(x)
                 best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(reversed_best_point)))
                 file1.write(str(FeatureCollection([best_point, all_the_points])))
             else:
