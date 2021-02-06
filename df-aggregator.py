@@ -881,6 +881,22 @@ def run_receiver(receivers):
         # Main loop to compute intersections between multiple receivers
         intersect_list = np.array([]).reshape(0,3)
         for x in range(len(receivers)):
+            rx = receivers[x]
+            to_lob_history = [
+                rx.doa_time,
+                rx.station_id,
+                rx.latitude,
+                rx.longitude,
+                rx.confidence,
+                rx.power,
+                rx.frequency,
+                rx.doa
+            ]
+            command = '''INSERT INTO lob_history
+            (time, station_id, latitude, longitude, confidence, power, frequency, lob)
+            VALUES (?,?,?,?,?,?,?,?)'''
+            DATABASE_EDIT_Q.put((command, (to_lob_history,), True))
+            DATABASE_RETURN.get(timeout=1)
             for y in range(x):
                 if x != y:
                     if (receivers[x].confidence >= ms.min_conf and
@@ -1144,13 +1160,26 @@ def database_writer():
         longitude REAL,
         num_parents INTEGER,
         confidence INTEGER,
+        frequency REAL,
         aoi_id INTEGER)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS lobs (time INTEGER,
+    #Stores useful LOBs for single reciever mode
+    c.execute('''CREATE TABLE IF NOT EXISTS lobs (
+        time INTEGER,
+        station_id TEXT,
+        latitude REAL,
+        longitude REAL,
+        confidence INTEGER,
+        lob REAL)''')
+    #Store a complete LOB history for display in WebUI
+    c.execute('''CREATE TABLE IF NOT EXISTS lob_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        time INTEGER,
         station_id TEXT,
         latitude REAL,
         longitude REAL,
         confidence INTEGER,
         power REAL,
+        frequency REAL,
         lob REAL)''')
     conn.commit()
     while True:
