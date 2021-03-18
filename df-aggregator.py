@@ -124,8 +124,7 @@ class receiver:
             print(f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
             # raise IOError
 
-    # Returns receivers properties as a dict,
-    # useful for passing data to the WebUI
+    # Returns receivers properties as a dict, useful for passing data to the WebUI
     def receiver_dict(self):
         return ({'station_id': self.station_id, 'station_url': self.station_url,
         'latitude':self.latitude, 'longitude':self.longitude, 'heading':self.heading,
