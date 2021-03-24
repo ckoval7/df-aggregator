@@ -214,9 +214,9 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 100
 # We start this in it's own process do it doesn't eat all of your RAM.
 # This becomes noticable at over 10k intersections.
 #######################################################################
-def do_dbscan(X):
+def do_dbscan(X, epsilon, minsamp):
     DBSCAN_WAIT_Q.put(True)
-    db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
+    db = DBSCAN(eps=epsilon, min_samples=minsamp).fit(X)
     DBSCAN_Q.put(db.labels_)
     if not DBSCAN_WAIT_Q.empty():
         DBSCAN_WAIT_Q.get()
@@ -225,7 +225,7 @@ def do_dbscan(X):
 # Computes DBSCAN Alorithm is applicable,
 # finds the mean of a cluster of intersections.
 ###############################################
-def process_data(database_name):
+def process_data(database_name, epsilon, min_samp):
     n_std=3.0
     intersect_list = []
     likely_location = []
@@ -245,7 +245,7 @@ def process_data(database_name):
             WHERE aoi_id=? ORDER BY confidence LIMIT 25000''', [aoi])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
-            if ms.eps > 0:
+            if epsilon > 0:
                 X = StandardScaler().fit_transform(intersect_array[:,0:2])
                 n_points = len(X)
                 size_x = sys.getsizeof(X)/1024
@@ -255,7 +255,7 @@ def process_data(database_name):
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan,args=(X,))
+                db = Process(target=do_dbscan,args=(X,epsilon,min_samp))
                 db.daemon = True
                 db.start()
                 try:
@@ -443,7 +443,7 @@ def write_geojson(best_point, all_the_points):
 ###############################################
 # Writes output.czml used by the WebUI
 ###############################################
-def write_czml(best_point, all_the_points, ellipsedata):
+def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
     point_properties = {
         "pixelSize":5.0,
         "heightReference":"CLAMP_TO_GROUND",
@@ -475,7 +475,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
     best_point_packets = []
     ellipse_packets = []
 
-    if len(all_the_points) > 0 and (ms.plotintersects or ms.eps == 0):
+    if len(all_the_points) > 0 and (plotallintersects or eps == 0):
         all_the_points = np.array(all_the_points)
         scaled_time = minmax_scale(all_the_points[:,-1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
@@ -695,20 +695,20 @@ def cesium():
 ###############################################
 @get('/update')
 def update_cesium():
-    ms.eps = float(request.query.eps) if request.query.eps else ms.eps
+    # eps = float(request.query.eps) if request.query.eps else ms.eps
+    # min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
     ms.min_conf = float(request.query.minconf) if request.query.minconf else ms.min_conf
     ms.min_power = float(request.query.minpower) if request.query.minpower else ms.min_power
-    ms.min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
 
     if request.query.rx == "true":
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
 
-    if request.query.plotpts == "true":
-        ms.plotintersects = True
-    elif request.query.plotpts == "false":
-        ms.plotintersects = False
+    # if request.query.plotpts == "true":
+    #     ms.plotintersects = True
+    # elif request.query.plotpts == "false":
+    #     ms.plotintersects = False
 
     return "OK"
 
@@ -736,8 +736,16 @@ def rx_params():
 ###############################################
 @get('/output.czml')
 def tx_czml_out():
+    eps = float(request.query.eps) if request.query.eps else ms.eps
+    min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
+    if request.query.plotpts == "true":
+        plotallintersects = True
+    elif request.query.plotpts == "false":
+        plotallintersects = False
+    else:
+        plotallintersects = ms.plotintersects
     response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
-    output = write_czml(*process_data(database_name))
+    output = write_czml(*process_data(database_name, eps, min_samp), plotallintersects, eps)
     return str(output)
 
 ###############################################

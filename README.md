@@ -1,13 +1,8 @@
 # DF Aggregator
 
 ## Recent Changes:
-- The LOB for each receiver on the map changes color based on the power and
-  confidence thresholds.
-    - Green when both power and confidence are above their thresholds
-    - Orange when just power is above it's threshold.
-    - Red when power is below it's minimum threshold.
-- Receivers on map update every 2.5 Seocnds.
-    - To customize this change `refreshrate` at the top of `static/receiver_configurator.js`.
+- Changed the way ellipse and clustering parameters are handled. This allows for
+multi-user map interaction.
 - For previous changes see the [Change Log](CHANGELOG.md).
 
 ## Installing:

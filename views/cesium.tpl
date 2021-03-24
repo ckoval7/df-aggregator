@@ -238,10 +238,31 @@
     }
 
     function loadTxCzml() {
+      let parameter = "";
+
       let spinner = document.getElementById("loader");
       spinner.style.visibility = "visible";
       spinner.style.zIndex = "10";
-      let promise1 = transmittersDataSource.load('/output.czml');
+
+      const epsslider = document.getElementById("epsilonRange");
+      const minpointslider = document.getElementById("minpointRange");
+      const intersect_en = document.getElementById("intersect_en");
+
+      if(minpointslider !== null) {
+        parameter += "minpts="+minpointslider.value+"&";
+      }
+      if(epsslider !== null) {
+        parameter += "eps="+epsslider.value+"&";
+      }
+      if (intersect_en !== null) {
+        if (intersect_en.checked) {
+          parameter += "plotpts=true"+"&";
+        } else {
+          parameter += "plotpts=false"+"&";
+        }
+      }
+      console.log(parameter);
+      let promise1 = transmittersDataSource.load('/output.czml?'+parameter);
       Cesium.when(promise1, function(dataSource1){
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
@@ -426,7 +447,7 @@
       epsoutput.innerHTML = this.value;
     }
     epsslider.onpointerup = function() {
-      updateParams("eps="+this.value);
+      updateParams("");
     }
     powerslider.oninput = function() {
       poweroutput.innerHTML = this.value;
@@ -444,7 +465,7 @@
       minpointoutput.innerHTML = this.value;
     }
     minpointslider.onpointerup = function() {
-      updateParams("minpts="+this.value);
+      updateParams("");
     }
 
     rx_enable.onchange = function() {
@@ -456,11 +477,12 @@
     }
 
     intersect_en.onchange = function() {
-      if (intersect_en.checked) {
-        updateParams("plotpts=true");
-      } else {
-        updateParams("plotpts=false");
-      }
+      updateParams("");
+      // if (intersect_en.checked) {
+      //   updateParams("plotpts=true");
+      // } else {
+      //   updateParams("plotpts=false");
+      // }
     }
 
   </script>

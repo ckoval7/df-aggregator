@@ -1,10 +1,16 @@
 ## Recent Changes:
-- The LOB for each receiver on the map is now red for low confidence LOBs and green
-  for high confidence LOBs.
-- Receivers on map update every 2.5 Seocnds.
-    - To customize this change `refreshrate` at the top of `static/receiver_configurator.js`.
+- Changed the way ellipse and clustering parameters are handled. This allows for
+multi-user map interaction.
+- Updated to Cesium 1.79
 
 ## Previous Changes
+- The LOB for each receiver on the map changes color based on the power and
+  confidence thresholds.
+    - Green when both power and confidence are above their thresholds
+    - Orange when just power is above it's threshold.
+    - Red when power is below it's minimum threshold.
+- Receivers on map update every 2.5 Seocnds.
+    - To customize this change `refreshrate` at the top of `static/receiver_configurator.js`.
 - Your old database files will not work directly with this latest commit. Several changes have been made
   to the database structure to accomodate new features.
 - Now introducing Single Receiver Mode! This will give you functionality similar to, but better than
