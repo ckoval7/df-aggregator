@@ -1,4 +1,7 @@
 ## Recent Changes:
+- LOB Length is now determined by the distance to the furthest intersection from
+the receiver.
+- Fixed bug where map lags behind the receiver.
 - Changed the way ellipse and clustering parameters are handled. This allows for
 multi-user map interaction.
 - Updated to Cesium 1.79

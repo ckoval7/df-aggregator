@@ -55,6 +55,7 @@ class math_settings:
         self.min_samp = min_samp
         self.min_conf = conf
         self.min_power = power
+    rx_busy = False
     receiving = True
     plotintersects = False
 
@@ -66,8 +67,6 @@ class receiver:
     def __init__(self, station_url):
         self.station_url = station_url
         self.isAuto = True
-        # hashed_url = hashlib.md5(station_url.encode('utf-8')).hexdigest()
-        # self.uid = hashed_url[:5] + hashed_url[-5:]
         self.isActive = True
         self.flipped = False
         self.inverted = True
@@ -124,8 +123,7 @@ class receiver:
             print(f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
             # raise IOError
 
-    # Returns receivers properties as a dict,
-    # useful for passing data to the WebUI
+    # Returns receivers properties as a dict, useful for passing data to the WebUI
     def receiver_dict(self):
         return ({'station_id': self.station_id, 'station_url': self.station_url,
         'latitude':self.latitude, 'longitude':self.longitude, 'heading':self.heading,
@@ -133,6 +131,12 @@ class receiver:
         'confidence':self.confidence, 'doa_time':self.doa_time, 'mobile': self.isMobile,
         'active':self.isActive, 'auto':self.isAuto, 'inverted':self.inverted,
         'single':self.isSingle})
+
+    def lob_length(self):
+        if self.d_2_last_intersection:
+            return round(max(self.d_2_last_intersection)) + 200
+        else:
+            return d
 
     latitude = 0.0
     longitude = 0.0
@@ -147,6 +151,7 @@ class receiver:
     isSingle = False
     previous_doa_time = 0
     last_processed_at = 0
+    d_2_last_intersection = [d]
 
 ###############################################
 # Converts Lat/Lon to polar coordinates
@@ -548,46 +553,46 @@ def write_rx_czml():
         "height": 48,
         "width": 48,
     }
-
-    for index, x in enumerate(receivers):
-        if x.isActive and ms.receiving:
-            if (x.confidence > min_conf and x.power > min_power):
-                lob_color = green
-            elif (x.confidence <= min_conf and x.power > min_power):
-                lob_color = orange
+    while not ms.rx_busy:
+        for index, x in enumerate(receivers):
+            if x.isActive and ms.receiving:
+                if (x.confidence > min_conf and x.power > min_power):
+                    lob_color = green
+                elif (x.confidence <= min_conf and x.power > min_power):
+                    lob_color = orange
+                else:
+                    lob_color = red
+                lob_start_lat = x.latitude
+                lob_start_lon = x.longitude
+                lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, x.lob_length())
+                lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
+                polyline=Polyline(
+                    material= Material( polylineOutline =
+                        PolylineOutlineMaterial(
+                            color= Color(rgba=lob_color),
+                            outlineColor= Color(rgba=[0, 0, 0, 255]),
+                            outlineWidth= 2
+                    )),
+                    clampToGround=True,
+                    width=5,
+                    positions=Position(cartographicDegrees=[lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
+                )))
             else:
-                lob_color = red
-            lob_start_lat = x.latitude
-            lob_start_lon = x.longitude
-            lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, d)
-            lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
-            polyline=Polyline(
-                material= Material( polylineOutline =
-                    PolylineOutlineMaterial(
-                        color= Color(rgba=lob_color),
-                        outlineColor= Color(rgba=[0, 0, 0, 255]),
-                        outlineWidth= 2
-                )),
-                clampToGround=True,
-                width=5,
-                positions=Position(cartographicDegrees=[lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
-            )))
-        else:
-            lob_packets = []
+                lob_packets = []
 
-        if x.isMobile == True:
-            rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
-            # if x.heading > 0 or x.heading < 180:
-            #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
-            # elif x.heading < 0 or x.heading > 180:
-            #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
-        else:
-            rx_icon = {"image":{"uri":"/static/tower.svg"}}
-        receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
-        billboard={**rx_properties, **rx_icon},
-        position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
+            if x.isMobile == True:
+                rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
+                # if x.heading > 0 or x.heading < 180:
+                #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
+                # elif x.heading < 0 or x.heading > 180:
+                #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
+            else:
+                rx_icon = {"image":{"uri":"/static/tower.svg"}}
+            receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
+            billboard={**rx_properties, **rx_icon},
+            position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
-    return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
+        return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
 
 ###############################################
 # Writes aoi.czml used by the WebUI
@@ -863,6 +868,15 @@ def run_receiver(receivers):
 
         # Main loop to compute intersections between multiple receivers
         intersect_list = np.array([]).reshape(0,3)
+        ms.rx_busy = True
+
+        for rx in receivers:
+            try:
+                if rx.isActive: rx.update()
+            except IOError:
+                print("Problem connecting to receiver.")
+            rx.d_2_last_intersection = []
+
         for x in range(len(receivers)):
             for y in range(x):
                 if x != y:
@@ -876,13 +890,16 @@ def run_receiver(receivers):
                         receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
                         if intersection:
                             print(intersection)
+                            receivers[x].d_2_last_intersection.append(v.haversine(
+                                receivers[x].latitude, receivers[x].longitude, *intersection))
+                            receivers[y].d_2_last_intersection.append(v.haversine(
+                                receivers[y].latitude, receivers[y].longitude, *intersection))
                             intersection = list(intersection)
                             avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
                             intersection.append(avg_conf)
                             intersection = np.array([intersection])
                             if intersection.any() != None:
                                 intersect_list = np.concatenate((intersect_list, intersection), axis=0)
-
 
         if intersect_list.size != 0:
             avg_coord = np.average(intersect_list[:,0:3], weights=intersect_list[:,2], axis = 0)
@@ -947,11 +964,12 @@ def run_receiver(receivers):
                 DATABASE_RETURN.get(timeout=1)
 
             DATABASE_EDIT_Q.put(("done", None, False))
-            try:
-                if rx.isActive: rx.update()
-            except IOError:
-                print("Problem connecting to receiver.")
+            # try:
+            #     if rx.isActive: rx.update()
+            # except IOError:
+            #     print("Problem connecting to receiver.")
 
+        ms.rx_busy = False
         time.sleep(1)
         if dots > 5:
             dots = 1
