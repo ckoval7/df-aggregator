@@ -35,6 +35,7 @@ from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
+from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 DBSCAN_Q = Queue()
 DBSCAN_WAIT_Q = Queue()
@@ -842,7 +843,7 @@ def handle_interest_areas(action):
 ###############################################
 def start_server(ipaddr = "127.0.0.1", port=8080):
     try:
-        run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
+        run(host=ipaddr, port=port, quiet=True, server=GeventWebSocketServer, debug=True)
     except OSError:
         print(f"Port {port} seems to be in use. Please select another port or " +
         "check if another instance of DFA is already running.")
