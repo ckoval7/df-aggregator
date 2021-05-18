@@ -593,7 +593,7 @@ def write_rx_czml():
             billboard={**rx_properties, **rx_icon},
             position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
-    return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
+        return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
 
 @get("/lob_history.czml")
 def lob_history():
