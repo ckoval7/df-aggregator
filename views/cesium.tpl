@@ -52,7 +52,7 @@
       // }),
       sceneModePicker: false,
       homeButton: false,
-      // timeline: false,
+      timeline: false,
     });
 
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
