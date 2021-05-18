@@ -600,7 +600,7 @@ def lob_history():
     min_time = (time.time() - 3600) * 1000 # 1 hour
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
-    c.execute('''SELECT station_id, time, latitude, longitude, confidence, power, lob FROM lobs
+    c.execute('''SELECT station_id, time, latitude, longitude, confidence, power, lob FROM lob_history
     WHERE time < ?''', [min_time])
     lob_array = c.fetchall()
     conn.close()
@@ -941,10 +941,10 @@ def run_receiver(receivers):
             keep, in_aoi = check_aoi(*avg_coord[0:2])
             if keep:
                 to_table = [receivers[x].doa_time, round(avg_coord[0], 6), round(avg_coord[1], 6),
-                    len(intersect_list), avg_coord[2], in_aoi]
+                    len(intersect_list), avg_coord[2], rx.frequency, in_aoi]
                 command = '''INSERT INTO intersects
-                (time, latitude, longitude, num_parents, confidence, aoi_id)
-                VALUES (?,?,?,?,?,?)'''
+                (time, latitude, longitude, num_parents, confidence, frequency, aoi_id)
+                VALUES (?,?,?,?,?,?,?)'''
                 DATABASE_EDIT_Q.put((command, (to_table,), True))
                 DATABASE_RETURN.get(timeout=1)
 
@@ -957,7 +957,7 @@ def run_receiver(receivers):
                 current_doa = [rx.doa_time, rx.station_id, rx.latitude,
                     rx.longitude, rx.confidence, rx.power, rx.doa]
                 min_time = rx.doa_time - 1200000 #15 Minutes
-                c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
+                c.execute('''SELECT latitude, longitude, confidence, lob FROM lob_history
                  WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
                 lob_array = c.fetchall()
                 current_time = current_doa[0]
@@ -987,17 +987,17 @@ def run_receiver(receivers):
                                 if keep:
                                     keep_count += 1
                                     to_table = [current_time, round(intersection[0], 5), round(intersection[1], 5),
-                                        1, intersection[2], in_aoi]
+                                        1, intersection[2], rx.frequency, in_aoi]
                                     command = '''INSERT INTO intersects
-                                    (time, latitude, longitude, num_parents, confidence, aoi_id)
-                                    VALUES (?,?,?,?,?,?)'''
+                                    (time, latitude, longitude, num_parents, confidence, frequency, aoi_id)
+                                    VALUES (?,?,?,?,?,?,?)'''
                                     DATABASE_EDIT_Q.put((command, (to_table,), True))
                                     DATABASE_RETURN.get(timeout=1)
                 print(f"Computed and kept {keep_count} intersections.")
 
-                command = "INSERT INTO lobs VALUES (?,?,?,?,?,?,?)"
-                DATABASE_EDIT_Q.put((command, [current_doa,], True))
-                DATABASE_RETURN.get(timeout=1)
+                # command = "INSERT INTO lobs VALUES (?,?,?,?,?,?,?)"
+                # DATABASE_EDIT_Q.put((command, [current_doa,], True))
+                # DATABASE_RETURN.get(timeout=1)
 
             DATABASE_EDIT_Q.put(("done", None, False))
             # try:
@@ -1183,13 +1183,13 @@ def database_writer():
         frequency REAL,
         aoi_id INTEGER)''')
     #Stores useful LOBs for single reciever mode
-    c.execute('''CREATE TABLE IF NOT EXISTS lobs (
-        time INTEGER,
-        station_id TEXT,
-        latitude REAL,
-        longitude REAL,
-        confidence INTEGER,
-        lob REAL)''')
+    # c.execute('''CREATE TABLE IF NOT EXISTS lobs (
+    #     time INTEGER,
+    #     station_id TEXT,
+    #     latitude REAL,
+    #     longitude REAL,
+    #     confidence INTEGER,
+    #     lob REAL)''')
     #Store a complete LOB history for display in WebUI
     c.execute('''CREATE TABLE IF NOT EXISTS lob_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
