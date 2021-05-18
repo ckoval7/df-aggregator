@@ -300,7 +300,10 @@
     }
 
     function clearOld() {
-      viewer.dataSources.removeAll(true);
+      viewer.dataSources.remove(receiversDataSource, true);
+      viewer.dataSources.remove(aoiDataSource, true);
+      viewer.dataSources.remove(transmittersDataSource, true);
+      // viewer.dataSources.removeAll(true);
       // console.log("Cleared old");
     }
 
