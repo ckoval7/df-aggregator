@@ -7,6 +7,8 @@ test*
 *.db
 *.txt
 *.czml
+*.kmz
 fil-result/
 static/node_modules
+static/cesium-kml-czml-editor
 package-lock.json

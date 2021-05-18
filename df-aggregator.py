@@ -35,6 +35,7 @@ from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
+from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 DBSCAN_Q = Queue()
 DBSCAN_WAIT_Q = Queue()
@@ -55,6 +56,7 @@ class math_settings:
         self.min_samp = min_samp
         self.min_conf = conf
         self.min_power = power
+    rx_busy = False
     receiving = True
     plotintersects = False
 
@@ -66,8 +68,6 @@ class receiver:
     def __init__(self, station_url):
         self.station_url = station_url
         self.isAuto = True
-        # hashed_url = hashlib.md5(station_url.encode('utf-8')).hexdigest()
-        # self.uid = hashed_url[:5] + hashed_url[-5:]
         self.isActive = True
         self.flipped = False
         self.inverted = True
@@ -133,6 +133,12 @@ class receiver:
         'active':self.isActive, 'auto':self.isAuto, 'inverted':self.inverted,
         'single':self.isSingle})
 
+    def lob_length(self):
+        if self.d_2_last_intersection:
+            return round(max(self.d_2_last_intersection)) + 200
+        else:
+            return d
+
     latitude = 0.0
     longitude = 0.0
     heading = 0.0
@@ -146,6 +152,7 @@ class receiver:
     isSingle = False
     previous_doa_time = 0
     last_processed_at = 0
+    d_2_last_intersection = [d]
 
 ###############################################
 # Converts Lat/Lon to polar coordinates
@@ -213,9 +220,9 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 100
 # We start this in it's own process do it doesn't eat all of your RAM.
 # This becomes noticable at over 10k intersections.
 #######################################################################
-def do_dbscan(X):
+def do_dbscan(X, epsilon, minsamp):
     DBSCAN_WAIT_Q.put(True)
-    db = DBSCAN(eps=ms.eps, min_samples=ms.min_samp).fit(X)
+    db = DBSCAN(eps=epsilon, min_samples=minsamp).fit(X)
     DBSCAN_Q.put(db.labels_)
     if not DBSCAN_WAIT_Q.empty():
         DBSCAN_WAIT_Q.get()
@@ -224,7 +231,7 @@ def do_dbscan(X):
 # Computes DBSCAN Alorithm is applicable,
 # finds the mean of a cluster of intersections.
 ###############################################
-def process_data(database_name):
+def process_data(database_name, epsilon, min_samp):
     n_std=3.0
     intersect_list = []
     likely_location = []
@@ -244,7 +251,7 @@ def process_data(database_name):
             WHERE aoi_id=? ORDER BY confidence LIMIT 25000''', [aoi])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
-            if ms.eps > 0:
+            if epsilon > 0:
                 X = StandardScaler().fit_transform(intersect_array[:,0:2])
                 n_points = len(X)
                 size_x = sys.getsizeof(X)/1024
@@ -254,7 +261,7 @@ def process_data(database_name):
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan,args=(X,))
+                db = Process(target=do_dbscan,args=(X,epsilon,min_samp))
                 db.daemon = True
                 db.start()
                 try:
@@ -432,7 +439,7 @@ def write_geojson(best_point, all_the_points):
             if best_point != None:
                 reversed_best_point = []
                 for x in best_point:
-                    reversed_best_point.append(x[::-1])
+                    reversed_best_point.append(x)
                 best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(reversed_best_point)))
                 file1.write(str(FeatureCollection([best_point, all_the_points])))
             else:
@@ -442,7 +449,7 @@ def write_geojson(best_point, all_the_points):
 ###############################################
 # Writes output.czml used by the WebUI
 ###############################################
-def write_czml(best_point, all_the_points, ellipsedata):
+def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
     point_properties = {
         "pixelSize":5.0,
         "heightReference":"CLAMP_TO_GROUND",
@@ -474,7 +481,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
     best_point_packets = []
     ellipse_packets = []
 
-    if len(all_the_points) > 0 and (ms.plotintersects or ms.eps == 0):
+    if len(all_the_points) > 0 and (plotallintersects or eps == 0):
         all_the_points = np.array(all_the_points)
         scaled_time = minmax_scale(all_the_points[:,-1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
@@ -521,10 +528,7 @@ def write_czml(best_point, all_the_points, ellipsedata):
             ellipse={**ellipse_properties, **ellipse_info},
             position={"cartographicDegrees": [ x[3], x[4], 0 ]}))
 
-    output = json.dumps(json.loads(str(Document([top] + best_point_packets + all_point_packets + ellipse_packets))),
-                separators=(',', ':'))
-
-    return output
+    return Document([top] + best_point_packets + all_point_packets + ellipse_packets).dumps(separators=(',', ':'))
 
 ###############################################
 # Writes receivers.czml used by the WebUI
@@ -550,47 +554,46 @@ def write_rx_czml():
         "height": 48,
         "width": 48,
     }
-
-    for index, x in enumerate(receivers):
-        if x.isActive and ms.receiving:
-            if (x.confidence > min_conf and x.power > min_power):
-                lob_color = green
-            elif (x.confidence <= min_conf and x.power > min_power):
-                lob_color = orange
+    while not ms.rx_busy:
+        for index, x in enumerate(receivers):
+            if x.isActive and ms.receiving:
+                if (x.confidence > min_conf and x.power > min_power):
+                    lob_color = green
+                elif (x.confidence <= min_conf and x.power > min_power):
+                    lob_color = orange
+                else:
+                    lob_color = red
+                lob_start_lat = x.latitude
+                lob_start_lon = x.longitude
+                lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, x.lob_length())
+                lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
+                polyline=Polyline(
+                    material= Material( polylineOutline =
+                        PolylineOutlineMaterial(
+                            color= Color(rgba=lob_color),
+                            outlineColor= Color(rgba=[0, 0, 0, 255]),
+                            outlineWidth= 2
+                    )),
+                    clampToGround=True,
+                    width=5,
+                    positions=Position(cartographicDegrees=[lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
+                )))
             else:
-                lob_color = red
-            lob_start_lat = x.latitude
-            lob_start_lon = x.longitude
-            lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, d)
-            lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
-            polyline=Polyline(
-                material= Material( polylineOutline =
-                    PolylineOutlineMaterial(
-                        color= Color(rgba=lob_color),
-                        outlineColor= Color(rgba=[0, 0, 0, 255]),
-                        outlineWidth= 2
-                )),
-                clampToGround=True,
-                width=5,
-                positions=Position(cartographicDegrees=[lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
-            )))
-        else:
-            lob_packets = []
+                lob_packets = []
 
-        if x.isMobile == True:
-            rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
-            # if x.heading > 0 or x.heading < 180:
-            #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
-            # elif x.heading < 0 or x.heading > 180:
-            #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
-        else:
-            rx_icon = {"image":{"uri":"/static/tower.svg"}}
-        receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
-        billboard={**rx_properties, **rx_icon},
-        position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
+            if x.isMobile == True:
+                rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
+                # if x.heading > 0 or x.heading < 180:
+                #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
+                # elif x.heading < 0 or x.heading > 180:
+                #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
+            else:
+                rx_icon = {"image":{"uri":"/static/tower.svg"}}
+            receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
+            billboard={**rx_properties, **rx_icon},
+            position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
 
-    output = json.dumps(json.loads(str(Document([top] + receiver_point_packets + lob_packets))),separators=(',', ':'))
-    return output
+    return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
 
 @get("/lob_history.czml")
 def lob_history():
@@ -608,8 +611,7 @@ def lob_history():
     lob_packets = []
     top = Preamble(name="LOB History")
 
-    output = json.dumps(json.loads(str(Document([top] + lob_packets))),separators=(',', ':'))
-    return output
+    return Document([top] + lob_packets).dumps(separators=(',', ':'))
 
 ###############################################
 # Writes aoi.czml used by the WebUI
@@ -668,9 +670,7 @@ def wr_aoi_czml():
         ellipse={**aoi_properties, **aoi_info},
         position={"cartographicDegrees": [ aoi['longitude'], aoi['latitude'], 0 ]}))
 
-    output = json.dumps(json.loads(str(Document([top] + aoi_packets))),separators=(',', ':'))
-    # output = str(Document([top] + aoi_packets))
-    return output
+    return Document([top] + aoi_packets).dumps(separators=(',', ':'))
 
 ###############################################
 # CLears the screen if debugging is off.
@@ -719,20 +719,20 @@ def cesium():
 ###############################################
 @get('/update')
 def update_cesium():
-    ms.eps = float(request.query.eps) if request.query.eps else ms.eps
+    # eps = float(request.query.eps) if request.query.eps else ms.eps
+    # min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
     ms.min_conf = float(request.query.minconf) if request.query.minconf else ms.min_conf
     ms.min_power = float(request.query.minpower) if request.query.minpower else ms.min_power
-    ms.min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
 
     if request.query.rx == "true":
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
 
-    if request.query.plotpts == "true":
-        ms.plotintersects = True
-    elif request.query.plotpts == "false":
-        ms.plotintersects = False
+    # if request.query.plotpts == "true":
+    #     ms.plotintersects = True
+    # elif request.query.plotpts == "false":
+    #     ms.plotintersects = False
 
     return "OK"
 
@@ -760,8 +760,16 @@ def rx_params():
 ###############################################
 @get('/output.czml')
 def tx_czml_out():
+    eps = float(request.query.eps) if request.query.eps else ms.eps
+    min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
+    if request.query.plotpts == "true":
+        plotallintersects = True
+    elif request.query.plotpts == "false":
+        plotallintersects = False
+    else:
+        plotallintersects = ms.plotintersects
     response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
-    output = write_czml(*process_data(database_name))
+    output = write_czml(*process_data(database_name, eps, min_samp), plotallintersects, eps)
     return str(output)
 
 ###############################################
@@ -853,7 +861,7 @@ def handle_interest_areas(action):
 ###############################################
 def start_server(ipaddr = "127.0.0.1", port=8080):
     try:
-        run(host=ipaddr, port=port, quiet=True, server="paste", debug=True)
+        run(host=ipaddr, port=port, quiet=True, server=GeventWebSocketServer, debug=True)
     except OSError:
         print(f"Port {port} seems to be in use. Please select another port or " +
         "check if another instance of DFA is already running.")
@@ -879,6 +887,15 @@ def run_receiver(receivers):
 
         # Main loop to compute intersections between multiple receivers
         intersect_list = np.array([]).reshape(0,3)
+        ms.rx_busy = True
+
+        for rx in receivers:
+            try:
+                if rx.isActive: rx.update()
+            except IOError:
+                print("Problem connecting to receiver.")
+            rx.d_2_last_intersection = []
+
         for x in range(len(receivers)):
             rx = receivers[x]
             to_lob_history = [
@@ -908,13 +925,16 @@ def run_receiver(receivers):
                         receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
                         if intersection:
                             print(intersection)
+                            receivers[x].d_2_last_intersection.append(v.haversine(
+                                receivers[x].latitude, receivers[x].longitude, *intersection))
+                            receivers[y].d_2_last_intersection.append(v.haversine(
+                                receivers[y].latitude, receivers[y].longitude, *intersection))
                             intersection = list(intersection)
                             avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
                             intersection.append(avg_conf)
                             intersection = np.array([intersection])
                             if intersection.any() != None:
                                 intersect_list = np.concatenate((intersect_list, intersection), axis=0)
-
 
         if intersect_list.size != 0:
             avg_coord = np.average(intersect_list[:,0:3], weights=intersect_list[:,2], axis = 0)
@@ -980,11 +1000,12 @@ def run_receiver(receivers):
                 DATABASE_RETURN.get(timeout=1)
 
             DATABASE_EDIT_Q.put(("done", None, False))
-            try:
-                if rx.isActive: rx.update()
-            except IOError:
-                print("Problem connecting to receiver.")
+            # try:
+            #     if rx.isActive: rx.update()
+            # except IOError:
+            #     print("Problem connecting to receiver.")
 
+        ms.rx_busy = False
         time.sleep(1)
         if dots > 5:
             dots = 1

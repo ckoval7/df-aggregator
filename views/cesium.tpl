@@ -24,11 +24,11 @@
   <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.76/Build/Cesium/Cesium.js"></script>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.80/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.80/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.76/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> -->
   <link href="/static/style.css" rel="stylesheet">
   <link href="/static/menu.css" rel="stylesheet">
 </head>
@@ -47,6 +47,10 @@
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     % end
     var viewer = new Cesium.Viewer('cesiumContainer', {
+      // imageryProvider : new Cesium.TileMapServiceImageryProvider({
+      //   url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+      // }),
+      sceneModePicker: false,
       homeButton: false,
       // timeline: false,
     });
@@ -234,10 +238,31 @@
     }
 
     function loadTxCzml() {
+      let parameter = "";
+
       let spinner = document.getElementById("loader");
       spinner.style.visibility = "visible";
       spinner.style.zIndex = "10";
-      let promise1 = transmittersDataSource.load('/output.czml');
+
+      const epsslider = document.getElementById("epsilonRange");
+      const minpointslider = document.getElementById("minpointRange");
+      const intersect_en = document.getElementById("intersect_en");
+
+      if(minpointslider !== null) {
+        parameter += "minpts="+minpointslider.value+"&";
+      }
+      if(epsslider !== null) {
+        parameter += "eps="+epsslider.value+"&";
+      }
+      if (intersect_en !== null) {
+        if (intersect_en.checked) {
+          parameter += "plotpts=true"+"&";
+        } else {
+          parameter += "plotpts=false"+"&";
+        }
+      }
+      console.log(parameter);
+      let promise1 = transmittersDataSource.load('/output.czml?'+parameter);
       Cesium.when(promise1, function(dataSource1){
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
@@ -275,7 +300,10 @@
     }
 
     function clearOld() {
-      viewer.dataSources.removeAll(true);
+      viewer.dataSources.remove(receiversDataSource, true);
+      viewer.dataSources.remove(aoiDataSource, true);
+      viewer.dataSources.remove(transmittersDataSource, true);
+      // viewer.dataSources.removeAll(true);
       // console.log("Cleared old");
     }
 
@@ -422,7 +450,7 @@
       epsoutput.innerHTML = this.value;
     }
     epsslider.onpointerup = function() {
-      updateParams("eps="+this.value);
+      updateParams("");
     }
     powerslider.oninput = function() {
       poweroutput.innerHTML = this.value;
@@ -440,7 +468,7 @@
       minpointoutput.innerHTML = this.value;
     }
     minpointslider.onpointerup = function() {
-      updateParams("minpts="+this.value);
+      updateParams("");
     }
 
     rx_enable.onchange = function() {
@@ -452,11 +480,12 @@
     }
 
     intersect_en.onchange = function() {
-      if (intersect_en.checked) {
-        updateParams("plotpts=true");
-      } else {
-        updateParams("plotpts=false");
-      }
+      updateParams("");
+      // if (intersect_en.checked) {
+      //   updateParams("plotpts=true");
+      // } else {
+      //   updateParams("plotpts=false");
+      // }
     }
 
   </script>
