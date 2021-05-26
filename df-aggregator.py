@@ -248,7 +248,7 @@ def process_data(database_name, epsilon, min_samp):
     for aoi in aoi_list:
         print(f"Checking AOI {aoi}.")
         curs.execute('''SELECT longitude, latitude, time FROM intersects
-            WHERE aoi_id=? ORDER BY confidence LIMIT 25000''', [aoi])
+            WHERE aoi_id=? ORDER BY confidence DESC LIMIT 25000''', [aoi])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
             if epsilon > 0:
