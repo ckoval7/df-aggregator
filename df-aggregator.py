@@ -37,6 +37,7 @@ from multiprocessing import Process, Queue
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
+
 DBSCAN_Q = Queue()
 DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
@@ -227,6 +228,32 @@ def do_dbscan(X, epsilon, minsamp):
     if not DBSCAN_WAIT_Q.empty():
         DBSCAN_WAIT_Q.get()
 
+####################################
+# Autocalculate the best eps value.
+####################################
+def autoeps_calc(X):
+    X = X[:min(2000, len(X)):2]
+    min_distances = []
+    for x in X:
+        distances = []
+        for y in X:
+            distance = math.sqrt(sum([(a - b) ** 2 for a, b in zip(x, y)]))
+            if distance > 0:
+                distances.append(distance)
+        min_distances.extend(np.sort(distances)[0:3].tolist())
+
+    sorted_distances = np.sort(min_distances).tolist()
+    try:
+        for x1, y1 in enumerate(sorted_distances):
+            x2 = x1 + 1
+            y2 = sorted_distances[x2]
+            m = (y2 - y1) / (x2 - x1)
+            if m > 0.005:
+                # print(f"Slope: {round(m, 3)}, eps: {y1}")
+                return y1
+    except IndexError:
+        return 0
+
 ###############################################
 # Computes DBSCAN Alorithm is applicable,
 # finds the mean of a cluster of intersections.
@@ -254,6 +281,9 @@ def process_data(database_name, epsilon, min_samp):
             if epsilon > 0:
                 X = StandardScaler().fit_transform(intersect_array[:,0:2])
                 n_points = len(X)
+                autoeps = autoeps_calc(X)
+                min_samp = max(3, round(0.05 * n_points, 0))
+                print(f"min_samp: {min_samp}, eps: {autoeps}")
                 size_x = sys.getsizeof(X)/1024
                 print(f"The dataset is {size_x} kilobytes")
                 print(f"Computing Clusters from {n_points} intersections.")
@@ -261,7 +291,8 @@ def process_data(database_name, epsilon, min_samp):
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan,args=(X,epsilon,min_samp))
+                db = Process(target=do_dbscan,args=(X,autoeps,min_samp))
+                # db = Process(target=do_dbscan,args=(X,epsilon,min_samp))
                 db.daemon = True
                 db.start()
                 try:

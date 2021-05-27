@@ -247,13 +247,21 @@
       const epsslider = document.getElementById("epsilonRange");
       const minpointslider = document.getElementById("minpointRange");
       const intersect_en = document.getElementById("intersect_en");
+      const clustering_en = document.getElementById("clustering_en");
 
       if(minpointslider !== null) {
         parameter += "minpts="+minpointslider.value+"&";
       }
-      if(epsslider !== null) {
-        parameter += "eps="+epsslider.value+"&";
+      if (clustering_en !== null) {
+        if (clustering_en.checked) {
+          parameter += "eps=1&";
+        } else {
+          parameter += "eps=0&";
+        }
       }
+      // if(epsslider !== null) {
+      //   parameter += "eps="+epsslider.value+"&";
+      // }
       if (intersect_en !== null) {
         if (intersect_en.checked) {
           parameter += "plotpts=true"+"&";
@@ -392,7 +400,7 @@
       </span>
       <span class="slidevalue" id="confidence"></span>
     </div>
-    <div class="tooltip">
+    <!-- <div class="tooltip">
       <span class="tooltiptext">Epsilon:<br>
         Maximum distance between neighboring points in a cluster. Set to 0 to disable clustering.<br>
         Disabling clustering will plot all intersections and may cause longer load times.</span>
@@ -407,6 +415,17 @@
         <input name="minpointValue" type="range" min="0" max="300" step="5" value="{{minpoints}}" class="slider" id="minpointRange">
       </span>
       <span class="slidevalue" id="minpoints"></span>
+    </div> -->
+    <div style="width: 600px">
+      <span class="tooltip">
+        <span class="slidetitle"><h4>Clustering:</h4></span>
+        <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
+        <label class="switch">
+          <input id="clustering_en" name="clustering_en" {{"checked" if epsilon > 0 else ""}} type="checkbox" onchange="updateParams()">
+          <span class="switchslider round"></span>
+        </label></span>
+        <span class="tooltiptext">Turns clustering on or off. Clustering On will draw ellipses.</span>
+      </span>
     </div>
     <div style="width: 600px">
       <span class="tooltip">
@@ -433,25 +452,26 @@
     var confoutput = document.getElementById("confidence");
     confoutput.innerHTML = confslider.value;
 
-    var epsslider = document.getElementById("epsilonRange");
-    var epsoutput = document.getElementById("epsilon");
-    epsoutput.innerHTML = epsslider.value;
+    // var epsslider = document.getElementById("epsilonRange");
+    // var epsoutput = document.getElementById("epsilon");
+    // epsoutput.innerHTML = epsslider.value;
 
-    var minpointslider = document.getElementById("minpointRange");
-    var minpointoutput = document.getElementById("minpoints");
-    minpointoutput.innerHTML = minpointslider.value;
+    // var minpointslider = document.getElementById("minpointRange");
+    // var minpointoutput = document.getElementById("minpoints");
+    // minpointoutput.innerHTML = minpointslider.value;
 
     var rx_enable = document.getElementById("rx_en");
 
     var intersect_en = document.getElementById("intersect_en");
+    // var clustering_en = document.getElementById("clustering_en");
 
     // Update the current slider value (each time you drag the slider handle)
-    epsslider.oninput = function() {
-      epsoutput.innerHTML = this.value;
-    }
-    epsslider.onpointerup = function() {
-      updateParams("");
-    }
+    // epsslider.oninput = function() {
+    //   epsoutput.innerHTML = this.value;
+    // }
+    // epsslider.onpointerup = function() {
+    //   updateParams("");
+    // }
     powerslider.oninput = function() {
       poweroutput.innerHTML = this.value;
     }
@@ -464,12 +484,12 @@
     confslider.onpointerup = function() {
       updateParams("minconf="+this.value);
     }
-    minpointslider.oninput = function() {
-      minpointoutput.innerHTML = this.value;
-    }
-    minpointslider.onpointerup = function() {
-      updateParams("");
-    }
+    // minpointslider.oninput = function() {
+    //   minpointoutput.innerHTML = this.value;
+    // }
+    // minpointslider.onpointerup = function() {
+    //   updateParams("");
+    // }
 
     rx_enable.onchange = function() {
       if (rx_enable.checked) {
@@ -481,11 +501,6 @@
 
     intersect_en.onchange = function() {
       updateParams("");
-      // if (intersect_en.checked) {
-      //   updateParams("plotpts=true");
-      // } else {
-      //   updateParams("plotpts=false");
-      // }
     }
 
   </script>
