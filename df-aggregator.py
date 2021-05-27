@@ -248,7 +248,7 @@ def autoeps_calc(X):
             x2 = x1 + 1
             y2 = sorted_distances[x2]
             m = (y2 - y1) / (x2 - x1)
-            if m > 0.005:
+            if m > 0.003:
                 # print(f"Slope: {round(m, 3)}, eps: {y1}")
                 return y1
     except IndexError:
