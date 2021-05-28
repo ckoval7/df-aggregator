@@ -250,11 +250,19 @@
       const clustering_en = document.getElementById("clustering_en");
 
       if(minpointslider !== null) {
-        parameter += "minpts="+minpointslider.value+"&";
+        if (minpointslider.value > 0) {
+          parameter += "minpts="+minpointslider.value+"&";
+        } else {
+          parameter += "minpts=auto&";
+        }
       }
       if (clustering_en !== null) {
         if (clustering_en.checked) {
-          parameter += "eps=auto&";
+          if (epsslider.value == 0) {
+            parameter += "eps=auto&";
+          } else {
+            parameter += "eps="+epsslider.value+"&";
+          }
         } else {
           parameter += "eps=0&";
         }
@@ -400,22 +408,22 @@
       </span>
       <span class="slidevalue" id="confidence"></span>
     </div>
-    <!-- <div class="tooltip">
+    <div class="tooltip">
       <span class="tooltiptext">Epsilon:<br>
-        Maximum distance between neighboring points in a cluster. Set to 0 to disable clustering.<br>
-        Disabling clustering will plot all intersections and may cause longer load times.</span>
+        Maximum distance between neighboring points in a cluster.<br>
+        </span>
       <span class="slidespan">
-        <input name="epsilonValue" type="range" min="0" max="2" step="0.01" value="{{epsilon}}" class="slider" id="epsilonRange">
+        <input name="epsilonValue" type="range" min="0" max="2" step="0.01" value="{{0 if epsilon == "auto" else epsilon}}" class="slider" id="epsilonRange">
       </span>
       <span class="slidevalue" id="epsilon"></span>
     </div>
     <div class="tooltip">
-      <span class="tooltiptext">Minimum points per cluster</span>
+      <span class="tooltiptext">Minimum points per sample in a cluster.</span>
       <span class="slidespan">
-        <input name="minpointValue" type="range" min="0" max="300" step="5" value="{{minpoints}}" class="slider" id="minpointRange">
+        <input name="minpointValue" type="range" min="0" max="300" step="5" value="{{0 if minpoints == "auto" else minpoints}}" class="slider" id="minpointRange">
       </span>
       <span class="slidevalue" id="minpoints"></span>
-    </div> -->
+    </div>
     <div style="width: 600px">
       <span class="tooltip">
         <span class="slidetitle"><h4>Clustering:</h4></span>
@@ -424,7 +432,8 @@
           <input id="clustering_en" name="clustering_en" {{"checked" if epsilon == "auto" else ""}} type="checkbox" onchange="updateParams()">
           <span class="switchslider round"></span>
         </label></span>
-        <span class="tooltiptext">Turns clustering on or off. Clustering On will draw ellipses.</span>
+        <span class="tooltiptext">Turns clustering on or off. Clustering On will draw ellipses.
+        Disabling clustering will plot all intersections and may cause longer load times.</span>
       </span>
     </div>
     <div style="width: 600px">
@@ -452,13 +461,21 @@
     var confoutput = document.getElementById("confidence");
     confoutput.innerHTML = confslider.value;
 
-    // var epsslider = document.getElementById("epsilonRange");
-    // var epsoutput = document.getElementById("epsilon");
-    // epsoutput.innerHTML = epsslider.value;
+    var epsslider = document.getElementById("epsilonRange");
+    var epsoutput = document.getElementById("epsilon");
+    if (epsslider.value == 0) {
+      epsoutput.innerHTML = "Auto";
+    } else {
+      epsoutput.innerHTML = epsslider.value;
+    }
 
-    // var minpointslider = document.getElementById("minpointRange");
-    // var minpointoutput = document.getElementById("minpoints");
-    // minpointoutput.innerHTML = minpointslider.value;
+    var minpointslider = document.getElementById("minpointRange");
+    var minpointoutput = document.getElementById("minpoints");
+    if (minpointslider.value == 0) {
+      minpointoutput.innerHTML = "Auto";
+    } else {
+      minpointoutput.innerHTML = minpointslider.value;
+    }
 
     var rx_enable = document.getElementById("rx_en");
 
@@ -466,12 +483,16 @@
     // var clustering_en = document.getElementById("clustering_en");
 
     // Update the current slider value (each time you drag the slider handle)
-    // epsslider.oninput = function() {
-    //   epsoutput.innerHTML = this.value;
-    // }
-    // epsslider.onpointerup = function() {
-    //   updateParams("");
-    // }
+    epsslider.oninput = function() {
+      if (this.value > 0) {
+        epsoutput.innerHTML = this.value;
+      } else {
+        epsoutput.innerHTML = "Auto";
+      }
+    }
+    epsslider.onpointerup = function() {
+      updateParams("");
+    }
     powerslider.oninput = function() {
       poweroutput.innerHTML = this.value;
     }
@@ -484,12 +505,16 @@
     confslider.onpointerup = function() {
       updateParams("minconf="+this.value);
     }
-    // minpointslider.oninput = function() {
-    //   minpointoutput.innerHTML = this.value;
-    // }
-    // minpointslider.onpointerup = function() {
-    //   updateParams("");
-    // }
+    minpointslider.oninput = function() {
+      if (this.value > 0) {
+        minpointoutput.innerHTML = this.value;
+      } else {
+        minpointoutput.innerHTML = "Auto";
+      }
+    }
+    minpointslider.onpointerup = function() {
+      updateParams("");
+    }
 
     rx_enable.onchange = function() {
       if (rx_enable.checked) {

@@ -283,18 +283,26 @@ def process_data(database_name, epsilon, min_samp):
             WHERE aoi_id=? ORDER BY confidence DESC LIMIT 25000''', [aoi])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
-            if ((epsilon.isnumeric() and float(epsilon) > 0)
-              or epsilon == "auto"):
+            if epsilon != "0":
                 X = StandardScaler().fit_transform(intersect_array[:,0:2])
                 n_points = len(X)
-                min_samp = max(3, round(0.05 * n_points, 0))
+
+                if min_samp == "auto":
+                    min_samp = max(3, round(0.05 * n_points, 0))
+                elif min_samp.isnumeric():
+                    min_samp = int(min_samp)
+                else:
+                    break
+
                 if epsilon == "auto":
                     epsilon = autoeps_calc(X)
                     print(f"min_samp: {min_samp}, eps: {epsilon}")
-                elif epsilon.isnumeric():
-                    epsilon = float(epsilon)
                 else:
-                    epsilon = ms.eps
+                    try:
+                        epsilon = float(epsilon)
+                    except ValueError:
+                        break
+
                 # size_x = sys.getsizeof(X)/1024
                 # print(f"The dataset is {size_x} kilobytes")
                 print(f"Computing Clusters from {n_points} intersections.")
@@ -522,7 +530,7 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
     best_point_packets = []
     ellipse_packets = []
 
-    if len(all_the_points) > 0 and (plotallintersects or eps == 0):
+    if len(all_the_points) > 0 and (plotallintersects or eps == "0"):
         all_the_points = np.array(all_the_points)
         scaled_time = minmax_scale(all_the_points[:,-1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
@@ -784,7 +792,7 @@ def rx_params():
 @get('/output.czml')
 def tx_czml_out():
     eps = request.query.eps if request.query.eps else str(ms.eps)
-    min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
+    min_samp = request.query.minpts if request.query.minpts else str(ms.min_samp)
     if request.query.plotpts == "true":
         plotallintersects = True
     elif request.query.plotpts == "false":
@@ -1233,14 +1241,14 @@ if __name__ == '__main__':
     parser.add_option("-d", "--database", dest="database_name", help="REQUIRED Database File", metavar="FILE")
     parser.add_option("-r", "--receivers", dest="rx_file", help="List of receiver URLs", metavar="FILE")
     parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
-    parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default \"auto\". 0 to disable clustering.",
+    parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default \"auto\".",
     metavar="NUMBER or \"auto\"", default="auto")
     parser.add_option("-c", "--confidence", dest="conf", help="Minimum confidence value, default 10",
     metavar="NUMBER", type="int", default=10)
     parser.add_option("-p", "--power", dest="pwr", help="Minimum power value, default 10",
     metavar="NUMBER", type="int", default=10)
-    parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default 20",
-    metavar="NUMBER", type="int", default=20)
+    parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default: \"auto\"",
+    metavar="NUMBER or \"auto\"", default="auto")
     parser.add_option("--plot_intersects", dest="plotintersects", help="""Plots all the intersect points in a cluster.
      Only applies when clustering is turned on. This creates larger CZML files.""",action="store_true")
     parser.add_option("-o", "--offline", dest="disable", help="Starts program with receiver turned off.",
