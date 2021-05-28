@@ -232,11 +232,13 @@ def do_dbscan(X, epsilon, minsamp):
 # Autocalculate the best eps value.
 ####################################
 def autoeps_calc(X):
+    # only use a sample of the data to speed up calculation.
     X = X[:min(2000, len(X)):2]
     min_distances = []
     for x in X:
         distances = []
         for y in X:
+            # calculate euclidian distance
             distance = math.sqrt(sum([(a - b) ** 2 for a, b in zip(x, y)]))
             if distance > 0:
                 distances.append(distance)
@@ -247,7 +249,10 @@ def autoeps_calc(X):
         for x1, y1 in enumerate(sorted_distances):
             x2 = x1 + 1
             y2 = sorted_distances[x2]
+            # calculate slope
             m = (y2 - y1) / (x2 - x1)
+
+            # once the slope starts getting steeper, use that as the eps value
             if m > 0.003:
                 # print(f"Slope: {round(m, 3)}, eps: {y1}")
                 return y1
@@ -278,21 +283,26 @@ def process_data(database_name, epsilon, min_samp):
             WHERE aoi_id=? ORDER BY confidence DESC LIMIT 25000''', [aoi])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
-            if epsilon > 0:
+            if ((epsilon.isnumeric() and float(epsilon) > 0)
+              or epsilon == "auto"):
                 X = StandardScaler().fit_transform(intersect_array[:,0:2])
                 n_points = len(X)
-                autoeps = autoeps_calc(X)
                 min_samp = max(3, round(0.05 * n_points, 0))
-                print(f"min_samp: {min_samp}, eps: {autoeps}")
-                size_x = sys.getsizeof(X)/1024
-                print(f"The dataset is {size_x} kilobytes")
+                if epsilon == "auto":
+                    epsilon = autoeps_calc(X)
+                    print(f"min_samp: {min_samp}, eps: {epsilon}")
+                elif epsilon.isnumeric():
+                    epsilon = float(epsilon)
+                else:
+                    epsilon = ms.eps
+                # size_x = sys.getsizeof(X)/1024
+                # print(f"The dataset is {size_x} kilobytes")
                 print(f"Computing Clusters from {n_points} intersections.")
                 while not DBSCAN_WAIT_Q.empty():
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan,args=(X,autoeps,min_samp))
-                # db = Process(target=do_dbscan,args=(X,epsilon,min_samp))
+                db = Process(target=do_dbscan,args=(X,epsilon,min_samp))
                 db.daemon = True
                 db.start()
                 try:
@@ -773,7 +783,7 @@ def rx_params():
 ###############################################
 @get('/output.czml')
 def tx_czml_out():
-    eps = float(request.query.eps) if request.query.eps else ms.eps
+    eps = request.query.eps if request.query.eps else str(ms.eps)
     min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
     if request.query.plotpts == "true":
         plotallintersects = True
@@ -1223,8 +1233,8 @@ if __name__ == '__main__':
     parser.add_option("-d", "--database", dest="database_name", help="REQUIRED Database File", metavar="FILE")
     parser.add_option("-r", "--receivers", dest="rx_file", help="List of receiver URLs", metavar="FILE")
     parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
-    parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default 0.2. 0 to disable clustering.",
-    metavar="NUMBER", type="float", default=0.2)
+    parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default \"auto\". 0 to disable clustering.",
+    metavar="NUMBER or \"auto\"", default="auto")
     parser.add_option("-c", "--confidence", dest="conf", help="Minimum confidence value, default 10",
     metavar="NUMBER", type="int", default=10)
     parser.add_option("-p", "--power", dest="pwr", help="Minimum power value, default 10",

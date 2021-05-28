@@ -254,7 +254,7 @@
       }
       if (clustering_en !== null) {
         if (clustering_en.checked) {
-          parameter += "eps=1&";
+          parameter += "eps=auto&";
         } else {
           parameter += "eps=0&";
         }
@@ -421,7 +421,7 @@
         <span class="slidetitle"><h4>Clustering:</h4></span>
         <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
         <label class="switch">
-          <input id="clustering_en" name="clustering_en" {{"checked" if epsilon > 0 else ""}} type="checkbox" onchange="updateParams()">
+          <input id="clustering_en" name="clustering_en" {{"checked" if epsilon == "auto" else ""}} type="checkbox" onchange="updateParams()">
           <span class="switchslider round"></span>
         </label></span>
         <span class="tooltiptext">Turns clustering on or off. Clustering On will draw ellipses.</span>
