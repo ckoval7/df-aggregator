@@ -8,6 +8,7 @@ test*
 *.txt
 *.czml
 *.kmz
+*.db-journal
 fil-result/
 static/node_modules
 static/cesium-kml-czml-editor

@@ -1,11 +1,8 @@
 # DF Aggregator
 
 ## Recent Changes:
-- LOB Length is now determined by the distance to the furthest intersection from
-the receiver.
-- Fixed bug where map lags behind the receiver.
-- Changed the way ellipse and clustering parameters are handled. This allows for
-multi-user map interaction.
+- Ellipse parameters are now automatically calculated. You can still adjust them
+if you want, but the auto-calculation works exceptionally well.
 - For previous changes see the [Change Log](CHANGELOG.md).
 
 ## Installing:
@@ -17,7 +14,6 @@ multi-user map interaction.
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
 - [czml3](https://github.com/poliastro/czml3)
-    - ~As of this writing, the version from pip does not support ellipses. Please use the version from GitHub.~
     - pip3 now has the proper version of czml3! Version should be >= 0.5.4
 
 ## Other things you'll need:
@@ -49,8 +45,8 @@ multi-user map interaction.
     - GeoJSON Output File
     - Conventional file extension: .geojson
 
--  -e Number, --epsilon=Number
-    - Max Clustering Distance, Default 0.2.
+-  -e Number, --epsilon=Number or "auto"
+    - Max Clustering Distance, Default "auto".
     - 0 to disable clustering.
     - Point spread across a larger geographical area should require a smaller value.
     - Clustering should be disabled for moving targets.
@@ -63,8 +59,8 @@ multi-user map interaction.
     - Minimum power value, default 10
     - Do not compute intersects for LOBs less than this value.
 
--  -m Number, --min-samples=Number
-    - Minimum samples per cluster. Default 20
+-  -m Number, --min-samples=Number or "auto"
+    - Minimum samples per cluster. Default "auto"
     - A higher value can yield more accurate results, but requires more data.
 
 -  --plot_intersects     
@@ -97,6 +93,10 @@ Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number
 - The smaller dots, if turned on vary in color from red to green. These dots are the individual
   intersections. The color represents the age relative to the full data set. Red is older, green is
   newer. This is very helpful for following moving targets.
+- LOBs can either be red, orange, or green.
+    - Red means neither power nor confidence are above threshold.
+    - Orange means either power or confidence, but not both are above threshold.
+    - Green means power and confidence are above threshold.
 
 ### Attributions
 Tower and car icons made by Freepik from www.flaticon.com
