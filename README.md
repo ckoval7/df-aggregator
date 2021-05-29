@@ -25,7 +25,7 @@ if you want, but the auto-calculation works exceptionally well.
 - [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
     - This is available for both Qt4 (original version) and Qt5 (Ubuntu 20.04+). Just check out the appropriate branch.
 
-![Screenshot](https://raw.githubusercontent.com/ckoval7/df-aggregator/master/screenshots/Screenshot%20from%202020-12-05%2009-14-40.png)
+![Screenshot](https://raw.githubusercontent.com/ckoval7/df-aggregator/master/screenshots/Screenshot%20from%202021-05-29%2009-52-08.png)
 
 ## Usage: df-aggregator.py [options]
 
