@@ -30,11 +30,11 @@ from os import system, name, kill, getpid
 from lxml import etree
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
-from geojson import Point, MultiPoint, Feature, FeatureCollection
+from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
 from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
 from multiprocessing import Process, Queue
-from bottle import route, run, request, get, post, put, response, redirect, template, static_file
+from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 from sys import version_info
@@ -51,9 +51,10 @@ DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
 
-d = 40000 #draw distance of LOBs in meters
+d = 40000  # draw distance of LOBs in meters
 max_age = 5000
 receivers = []
+
 
 ###############################################
 # Stores settings realted to intersect capture
@@ -68,6 +69,7 @@ class math_settings:
     rx_busy = False
     receiving = True
     plotintersects = False
+
 
 ################################################
 # Stores all variables pertaining to a reveiver.
@@ -130,17 +132,18 @@ class receiver:
             self.doa_time = 0
             self.isActive = False
             print(ex)
-            print(f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
+            print(
+                f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
             # raise IOError
 
     # Returns receivers properties as a dict, useful for passing data to the WebUI
     def receiver_dict(self):
         return ({'station_id': self.station_id, 'station_url': self.station_url,
-        'latitude':self.latitude, 'longitude':self.longitude, 'heading':self.heading,
-        'doa':self.doa, 'frequency':self.frequency, 'power':self.power,
-        'confidence':self.confidence, 'doa_time':self.doa_time, 'mobile': self.isMobile,
-        'active':self.isActive, 'auto':self.isAuto, 'inverted':self.inverted,
-        'single':self.isSingle})
+                 'latitude': self.latitude, 'longitude': self.longitude, 'heading': self.heading,
+                 'doa': self.doa, 'frequency': self.frequency, 'power': self.power,
+                 'confidence': self.confidence, 'doa_time': self.doa_time, 'mobile': self.isMobile,
+                 'active': self.isActive, 'auto': self.isAuto, 'inverted': self.inverted,
+                 'single': self.isSingle})
 
     def lob_length(self):
         if self.d_2_last_intersection:
@@ -163,15 +166,16 @@ class receiver:
     last_processed_at = 0
     d_2_last_intersection = [d]
 
+
 ###############################################
 # Converts Lat/Lon to polar coordinates
 ###############################################
 def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
     # Convert points in great circle 1, degrees to radians
     p1_lat1_rad = math.radians(lat_a)
-    p1_long1_rad =  math.radians(lon_a)
-    p1_lat2_rad =  math.radians(lat_a2)
-    p1_long2_rad =  math.radians(lon_a2)
+    p1_long1_rad = math.radians(lon_a)
+    p1_lat2_rad = math.radians(lat_a2)
+    p1_long2_rad = math.radians(lon_a2)
 
     # Put in polar coordinates
     x1 = math.cos(p1_lat1_rad) * math.cos(p1_long1_rad)
@@ -183,10 +187,11 @@ def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
 
     return ([x1, y1, z1], [x2, y2, z2])
 
+
 #####################################################
 # Find line of intersection between two great circles
 #####################################################
-def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 100000):
+def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=100000):
     # plot another point on the lob
     # v.direct(lat_a, lon_a, doa_a, d)
     # returns (lat_a2, lon_a2)
@@ -205,16 +210,18 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 100
     # Find two intersection points
     X1 = L / np.sqrt(L[0]**2 + L[1]**2 + L[2]**2)
     X2 = -X1
-    mag = lambda q: np.sqrt(np.vdot(q, q))
-    dist1 = mag(X1-plane_a[0])
-    dist2 = mag(X2-plane_a[0])
-    #return the (lon_lat pair of the closer intersection)
+
+    def mag(q):
+        return np.sqrt(np.vdot(q, q))
+    dist1 = mag(X1 - plane_a[0])
+    dist2 = mag(X2 - plane_a[0])
+    # return the (lon_lat pair of the closer intersection)
     if dist1 < dist2:
-        i_lat = math.asin(X1[2]) * 180./np.pi
-        i_long = math.atan2(X1[1], X1[0]) * 180./np.pi
+        i_lat = math.asin(X1[2]) * 180. / np.pi
+        i_long = math.atan2(X1[1], X1[0]) * 180. / np.pi
     else:
-        i_lat = math.asin(X2[2]) * 180./np.pi
-        i_long = math.atan2(X2[1], X2[0]) * 180./np.pi
+        i_lat = math.asin(X2[2]) * 180. / np.pi
+        i_long = math.atan2(X2[1], X2[0]) * 180. / np.pi
 
     check_bearing = v.get_heading((lat_a, lon_a), (i_lat, i_long))
 
@@ -224,6 +231,7 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance = 100
             return (i_lat, i_long)
         else:
             return None
+
 
 #######################################################################
 # We start this in it's own process do it doesn't eat all of your RAM.
@@ -235,6 +243,7 @@ def do_dbscan(X, epsilon, minsamp):
     DBSCAN_Q.put(db.labels_)
     if not DBSCAN_WAIT_Q.empty():
         DBSCAN_WAIT_Q.get()
+
 
 ####################################
 # Autocalculate the best eps value.
@@ -267,12 +276,13 @@ def autoeps_calc(X):
     except IndexError:
         return 0
 
+
 ###############################################
 # Computes DBSCAN Alorithm is applicable,
 # finds the mean of a cluster of intersections.
 ###############################################
 def process_data(database_name, epsilon, min_samp):
-    n_std=3.0
+    n_std = 3.0
     intersect_list = []
     likely_location = []
     ellipsedata = []
@@ -292,7 +302,7 @@ def process_data(database_name, epsilon, min_samp):
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
             if epsilon != "0":
-                X = StandardScaler().fit_transform(intersect_array[:,0:2])
+                X = StandardScaler().fit_transform(intersect_array[:, 0:2])
                 n_points = len(X)
 
                 if min_samp == "auto":
@@ -318,7 +328,7 @@ def process_data(database_name, epsilon, min_samp):
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan,args=(X,epsilon,min_samp))
+                db = Process(target=do_dbscan, args=(X, epsilon, min_samp))
                 db.daemon = True
                 db.start()
                 try:
@@ -332,7 +342,8 @@ def process_data(database_name, epsilon, min_samp):
                     return likely_location, intersect_list, ellipsedata
 
                 stoptime = time.time()
-                print(f"DBSCAN took {stoptime - starttime} seconds to compute the clusters.")
+                print(
+                    f"DBSCAN took {stoptime - starttime} seconds to compute the clusters.")
 
                 intersect_array = np.column_stack((intersect_array, labels))
 
@@ -344,33 +355,37 @@ def process_data(database_name, epsilon, min_samp):
                 print('Outliers Removed: %d' % n_noise_)
 
                 for x in range(n_clusters_):
-                    cluster = np.array([]).reshape(0,3)
+                    cluster = np.array([]).reshape(0, 3)
                     for y in range(len(intersect_array)):
                         if intersect_array[y][-1] == x:
-                            cluster = np.concatenate((cluster, [intersect_array[y][0:-1]]), axis = 0)
+                            cluster = np.concatenate(
+                                (cluster, [intersect_array[y][0:-1]]), axis=0)
                     # weighted_location.append(np.average(cluster[:,0:2], weights=cluster[:,2], axis=0).tolist())
-                    clustermean = np.mean(cluster[:,0:2], axis=0)
+                    clustermean = np.mean(cluster[:, 0:2], axis=0)
                     likely_location.append(clustermean.tolist())
-                    cov = np.cov(cluster[:,0], cluster[:,1])
-                    a = cov[0,0]
-                    b = cov[0,1]
-                    c = cov[1,1]
-                    lam1 = a+c/2 + np.sqrt((a-c/2)**2 + b**2)
-                    lam2 = a+c/2 - np.sqrt((a-c/2)**2 + b**2)
+                    cov = np.cov(cluster[:, 0], cluster[:, 1])
+                    a = cov[0, 0]
+                    b = cov[0, 1]
+                    c = cov[1, 1]
+                    lam1 = a + c / 2 + np.sqrt((a - c / 2)**2 + b**2)
+                    # lam2 = a+c/2 - np.sqrt((a-c/2)**2 + b**2)
                     # print([lam1, lam2, a, c])
-                    pearson = b/np.sqrt(a * c)
+                    pearson = b / np.sqrt(a * c)
                     ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(a) * n_std
                     ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
-                    axis_x = v.inverse(clustermean.tolist()[::-1], (ell_radius_x + clustermean[1], clustermean[0]))[0]
-                    axis_y = v.inverse(clustermean.tolist()[::-1], (clustermean[1], ell_radius_y + clustermean[0]))[0]
+                    axis_x = v.inverse(clustermean.tolist()[
+                        ::-1], (ell_radius_x + clustermean[1], clustermean[0]))[0]
+                    axis_y = v.inverse(clustermean.tolist()[
+                        ::-1], (clustermean[1], ell_radius_y + clustermean[0]))[0]
                     if b == 0 and a >= c:
                         rotation = 0
                     elif b == 0 and a < c:
-                        rotation = np.pi/2
+                        rotation = np.pi / 2
                     else:
                         rotation = math.atan2(lam1 - a, b)
 
-                    ellipsedata.append([axis_x, axis_y, rotation, *clustermean.tolist()])
+                    ellipsedata.append(
+                        [axis_x, axis_y, rotation, *clustermean.tolist()])
 
                 for x in likely_location:
                     print(x[::-1])
@@ -386,6 +401,7 @@ def process_data(database_name, epsilon, min_samp):
             print(f"No Intersections in AOI {aoi}.")
     conn.close()
     return likely_location, intersect_list, ellipsedata
+
 
 #######################################################################
 # Checks interesections stored in the database against a lat/lon/radius
@@ -411,6 +427,7 @@ def purge_database(type, lat, lon, radius):
     # DATABASE_RETURN.get(timeout=1)
     DATABASE_EDIT_Q.put(("done", None, False))
     print(f"I purged {purge_count} intersects.")
+
 
 ###############################################
 # Checks interesections stored in the database
@@ -484,41 +501,47 @@ def run_aoi_rules():
     print(f"Purged {purged} intersections and sorted {sorted} intersections into {n_aoi} AOIs in {stoptime - starttime} seconds.")
     return "OK"
 
+
 ###############################################
 # Writes a geojson file upon request.
 ###############################################
 def write_geojson(best_point, all_the_points):
     all_pt_style = {"name": "Various Intersections", "marker-color": "#FF0000"}
-    best_pt_style = {"name": "Most Likely TX Location", "marker-color": "#00FF00"}
-    if all_the_points != None:
-        all_the_points = Feature(properties = all_pt_style, geometry = MultiPoint(tuple(all_the_points)))
+    best_pt_style = {"name": "Most Likely TX Location",
+                     "marker-color": "#00FF00"}
+    if all_the_points is not None:
+        all_the_points = Feature(
+            properties=all_pt_style, geometry=MultiPoint(tuple(all_the_points)))
         with open(geofile, "w") as file1:
-            if best_point != None:
+            if best_point is not None:
                 reversed_best_point = []
                 for x in best_point:
                     reversed_best_point.append(x)
-                best_point = Feature(properties = best_pt_style, geometry = MultiPoint(tuple(reversed_best_point)))
-                file1.write(str(FeatureCollection([best_point, all_the_points])))
+                best_point = Feature(properties=best_pt_style, geometry=MultiPoint(
+                    tuple(reversed_best_point)))
+                file1.write(str(FeatureCollection(
+                    [best_point, all_the_points])))
             else:
                 file1.write(str(FeatureCollection([all_the_points])))
         print(f"Wrote file {geofile}")
+
 
 ###############################################
 # Writes output.czml used by the WebUI
 ###############################################
 def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
     point_properties = {
-        "pixelSize":5.0,
-        "heightReference":"CLAMP_TO_GROUND",
+        "pixelSize": 5.0,
+        "heightReference": "CLAMP_TO_GROUND",
         "zIndex": 3
     }
     best_point_properties = {
-        "pixelSize":12.0,
+        "pixelSize": 12.0,
         "zIndex": 10,
-        "heightReference":"CLAMP_TO_GROUND",
+        "heightReference": "CLAMP_TO_GROUND",
         "color": {
             "rgba": [0, 255, 0, 255],
-      }
+        }
     }
 
     ellipse_properties = {
@@ -528,10 +551,10 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
             "solidColor": {
                 "color": {
                     "rgba": [255, 0, 0, 90]
-                    }
                 }
             }
         }
+    }
 
     top = Preamble(name="Geolocation Data")
     all_point_packets = []
@@ -540,25 +563,26 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
 
     if len(all_the_points) > 0 and (plotallintersects or eps == "0"):
         all_the_points = np.array(all_the_points)
-        scaled_time = minmax_scale(all_the_points[:,-1])
+        scaled_time = minmax_scale(all_the_points[:, -1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
         for x in all_the_points:
             # rgb = hsvtorgb(x[-1]/3, 0.9, 0.9)
-            rgb = map(lambda x : int(x*255), hsv_to_rgb(x[-1]/3, 0.9, 0.9))
-            color_property = {"color":{"rgba": [*rgb, 255]}}
+            rgb = map(lambda x: int(x * 255), hsv_to_rgb(x[-1] / 3, 0.9, 0.9))
+            color_property = {"color": {"rgba": [*rgb, 255]}}
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
-            point={**point_properties, **color_property},
-            position={"cartographicDegrees": [ x[0], x[1], 0 ]},
+                                            point={**point_properties,
+                                                   **color_property},
+                                            position={
+                "cartographicDegrees": [x[0], x[1], 0]},
             ))
 
     if len(best_point) > 0:
         for x in best_point:
             gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={x[1]},+{x[0]}&travelmode=driving"
             best_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
-            point=best_point_properties,
-            description =
-            f"<a href='{gmaps_url}' target='_blank'>Google Maps Directions</a>",
-            position={"cartographicDegrees": [x[0], x[1], 0]}))
+                                             point=best_point_properties,
+                                             description=f"<a href='{gmaps_url}' target='_blank'>Google Maps Directions</a>",
+                                             position={"cartographicDegrees": [x[0], x[1], 0]}))
 
     if len(ellipsedata) > 0:
         for x in ellipsedata:
@@ -568,7 +592,7 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
                 semiMajorAxis = x[0]
                 semiMinorAxis = x[1]
                 rotation = 2 * np.pi - x[2]
-                rotation += np.pi/2
+                rotation += np.pi / 2
                 # print(f"{x[2]} Inverted to: {rotation}")
                 # print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
                 # print(f"{x[4], x[3]} is inveted")
@@ -580,25 +604,29 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
                 # print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
                 # print(f"{x[4], x[3]} is NOT inveted")
 
-            ellipse_info = {"semiMajorAxis": semiMajorAxis, "semiMinorAxis": semiMinorAxis, "rotation": rotation}
+            ellipse_info = {"semiMajorAxis": semiMajorAxis,
+                            "semiMinorAxis": semiMinorAxis, "rotation": rotation}
             ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
-            ellipse={**ellipse_properties, **ellipse_info},
-            position={"cartographicDegrees": [ x[3], x[4], 0 ]}))
+                                          ellipse={
+                                              **ellipse_properties, **ellipse_info},
+                                          position={"cartographicDegrees": [x[3], x[4], 0]}))
 
     return Document([top] + best_point_packets + all_point_packets + ellipse_packets).dumps(separators=(',', ':'))
+
 
 ###############################################
 # Writes receivers.czml used by the WebUI
 ###############################################
 @get('/receivers.czml')
 def write_rx_czml():
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    response.set_header(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     height = 50
     min_conf = ms.min_conf
     min_power = ms.min_power
-    green = [0,255,0,255]
+    green = [0, 255, 0, 255]
     orange = [255, 140, 0, 255]
-    red = [255,0,0,255]
+    red = [255, 0, 0, 255]
     receiver_point_packets = []
     lob_packets = []
     top = Preamble(name="Receivers")
@@ -607,7 +635,7 @@ def write_rx_czml():
         "verticalOrigin": "BOTTOM",
         "zIndex": 9,
         "scale": 0.75,
-        "heightReference":"CLAMP_TO_GROUND",
+        "heightReference": "CLAMP_TO_GROUND",
         "height": 48,
         "width": 48,
     }
@@ -622,42 +650,48 @@ def write_rx_czml():
                     lob_color = red
                 lob_start_lat = x.latitude
                 lob_start_lon = x.longitude
-                lob_stop_lat, lob_stop_lon = v.direct(lob_start_lat, lob_start_lon, x.doa, x.lob_length())
+                lob_stop_lat, lob_stop_lon = v.direct(
+                    lob_start_lat, lob_start_lon, x.doa, x.lob_length())
                 lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
-                polyline=Polyline(
-                    material= Material( polylineOutline =
-                        PolylineOutlineMaterial(
-                            color= Color(rgba=lob_color),
-                            outlineColor= Color(rgba=[0, 0, 0, 255]),
-                            outlineWidth= 2
-                    )),
-                    clampToGround=True,
-                    width=5,
-                    positions=Position(cartographicDegrees=[lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
-                )))
+                                          polyline=Polyline(
+                                              material=Material(polylineOutline=PolylineOutlineMaterial(
+                                                  color=Color(
+                                                      rgba=lob_color),
+                                                  outlineColor=Color(
+                                                      rgba=[0, 0, 0, 255]),
+                                                  outlineWidth=2
+                                              )),
+                                              clampToGround=True,
+                                              width=5,
+                                              positions=Position(cartographicDegrees=[
+                                                  lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
+                                          )))
             else:
                 lob_packets = []
 
-            if x.isMobile == True:
-                rx_icon = {"image":{"uri":"/static/flipped_car.svg"}}
+            if x.isMobile is True:
+                rx_icon = {"image": {"uri": "/static/flipped_car.svg"}}
                 # if x.heading > 0 or x.heading < 180:
                 #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
                 # elif x.heading < 0 or x.heading > 180:
                 #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
             else:
-                rx_icon = {"image":{"uri":"/static/tower.svg"}}
+                rx_icon = {"image": {"uri": "/static/tower.svg"}}
             receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
-            billboard={**rx_properties, **rx_icon},
-            position={"cartographicDegrees": [ x.longitude, x.latitude, 15 ]}))
+                                                 billboard={
+                                                     **rx_properties, **rx_icon},
+                                                 position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
 
         return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
+
 
 ###############################################
 # Writes aoi.czml used by the WebUI
 ###############################################
 @get("/aoi.czml")
 def wr_aoi_czml():
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    response.set_header(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     aoi_packets = []
     top = Preamble(name="AOIs")
     area_of_interest_properties = {
@@ -668,13 +702,13 @@ def wr_aoi_czml():
             "solidColor": {
                 "color": {
                     "rgba": [0, 0, 255, 25]
-                    }
                 }
-            },
+            }
+        },
         "outline": True,
         "outlineWidth": 2,
-        "outlineColor": {"rgba": [53, 184, 240, 255],},
-        },
+        "outlineColor": {"rgba": [53, 184, 240, 255], },
+    },
 
     exclusion_area_properties = {
         "granularity": 0.008722222,
@@ -684,13 +718,13 @@ def wr_aoi_czml():
             "solidColor": {
                 "color": {
                     "rgba": [242, 10, 0, 25]
-                    }
                 }
-            },
+            }
+        },
         "outline": True,
         "outlineWidth": 2,
-        "outlineColor": {"rgba": [224, 142, 0, 255],},
-        },
+        "outlineColor": {"rgba": [224, 142, 0, 255], },
+    },
 
     for x in fetch_aoi_data():
         aoi = {
@@ -704,24 +738,27 @@ def wr_aoi_czml():
             aoi_properties = area_of_interest_properties[0]
         elif aoi['aoi_type'] == "exclusion":
             aoi_properties = exclusion_area_properties[0]
-        aoi_info = {"semiMajorAxis": aoi['radius'], "semiMinorAxis": aoi['radius'], "rotation": 0}
+        aoi_info = {"semiMajorAxis": aoi['radius'],
+                    "semiMinorAxis": aoi['radius'], "rotation": 0}
         aoi_packets.append(Packet(id=aoi['aoi_type'] + str(aoi['uid']),
-        ellipse={**aoi_properties, **aoi_info},
-        position={"cartographicDegrees": [ aoi['longitude'], aoi['latitude'], 0 ]}))
+                                  ellipse={**aoi_properties, **aoi_info},
+                                  position={"cartographicDegrees": [aoi['longitude'], aoi['latitude'], 0]}))
 
     return Document([top] + aoi_packets).dumps(separators=(',', ':'))
 
+
 ###############################################
-# CLears the screen if debugging is off.
+# Clears the screen if debugging is off.
 ###############################################
 def clear(debugging):
     if not debugging:
-      # for windows
+        # for windows
         if name == 'nt':
             _ = system('cls')
         # for mac and linux(here, os.name is 'posix')
         else:
             _ = system('clear')
+
 
 ###############################################
 # Serves static files such as CSS and JS to the
@@ -730,8 +767,10 @@ def clear(debugging):
 @route('/static/<filepath:path>', name='static')
 def server_static(filepath):
     response = static_file(filepath, root='./static')
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    response.set_header(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     return response
+
 
 ###############################################
 # Loads the main page of the WebUI
@@ -741,16 +780,18 @@ def server_static(filepath):
 @get('/index')
 @get('/cesium')
 def cesium():
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    response.set_header(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     return template('cesium.tpl',
-    {'access_token':access_token,
-    'epsilon':ms.eps,
-    'minpower':ms.min_power,
-    'minconf':ms.min_conf,
-    'minpoints':ms.min_samp,
-    'rx_state':"checked" if ms.receiving == True else "",
-    'intersect_state':"checked" if ms.plotintersects == True else "",
-    'receivers':receivers})
+                    {'access_token': access_token,
+                     'epsilon': ms.eps,
+                     'minpower': ms.min_power,
+                     'minconf': ms.min_conf,
+                     'minpoints': ms.min_samp,
+                     'rx_state': "checked" if ms.receiving is True else "",
+                     'intersect_state': "checked" if ms.plotintersects is True else "",
+                     'receivers': receivers})
+
 
 ###############################################
 # GET Request to update parameters from the
@@ -760,8 +801,10 @@ def cesium():
 def update_cesium():
     # eps = float(request.query.eps) if request.query.eps else ms.eps
     # min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
-    ms.min_conf = float(request.query.minconf) if request.query.minconf else ms.min_conf
-    ms.min_power = float(request.query.minpower) if request.query.minpower else ms.min_power
+    ms.min_conf = float(
+        request.query.minconf) if request.query.minconf else ms.min_conf
+    ms.min_power = float(
+        request.query.minpower) if request.query.minpower else ms.min_power
 
     if request.query.rx == "true":
         ms.receiving = True
@@ -775,6 +818,7 @@ def update_cesium():
 
     return "OK"
 
+
 ###############################################
 # Returns a JSON file to the WebUI with
 # information to fill in the RX cards.
@@ -782,7 +826,7 @@ def update_cesium():
 @get('/rx_params')
 def rx_params():
 
-    all_rx = {'receivers':{}}
+    all_rx = {'receivers': {}}
     rx_properties = []
     for index, x in enumerate(receivers):
         x.update()
@@ -793,6 +837,7 @@ def rx_params():
     response.headers['Content-Type'] = 'application/json'
     return json.dumps(all_rx)
 
+
 ###############################################
 # Returns a CZML file that contains intersect
 # and ellipse information for Cesium.
@@ -800,16 +845,20 @@ def rx_params():
 @get('/output.czml')
 def tx_czml_out():
     eps = request.query.eps if request.query.eps else str(ms.eps)
-    min_samp = request.query.minpts if request.query.minpts else str(ms.min_samp)
+    min_samp = request.query.minpts if request.query.minpts else str(
+        ms.min_samp)
     if request.query.plotpts == "true":
         plotallintersects = True
     elif request.query.plotpts == "false":
         plotallintersects = False
     else:
         plotallintersects = ms.plotintersects
-    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
-    output = write_czml(*process_data(database_name, eps, min_samp), plotallintersects, eps)
+    response.set_header(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    output = write_czml(*process_data(database_name, eps,
+                                      min_samp), plotallintersects, eps)
     return str(output)
+
 
 ###############################################
 # PUT request to update receiver variables
@@ -824,7 +873,8 @@ def update_rx(action):
     elif action == "del":
         index = int(data['uid'])
         command = "DELETE FROM receivers WHERE station_id=?"
-        DATABASE_EDIT_Q.put((command, [(receivers[index].station_id,),], True))
+        DATABASE_EDIT_Q.put(
+            (command, [(receivers[index].station_id,), ], True))
         DATABASE_RETURN.get(timeout=1)
         DATABASE_EDIT_Q.put(("done", None, False))
         # del_receiver(receivers[index].station_id)
@@ -845,13 +895,14 @@ def update_rx(action):
             print("I got some bad data. Doing nothing out of spite.")
     return redirect('/rx_params')
 
+
 ###############################################
 # Returns a JSON file to the WebUI with
 # information to fill in the AOI cards.
 ###############################################
 @get('/interest_areas')
 def load_interest_areas():
-    all_aoi = {'aois':{}}
+    all_aoi = {'aois': {}}
     aoi_properties = []
     for x in fetch_aoi_data():
         aoi = {
@@ -865,6 +916,7 @@ def load_interest_areas():
     all_aoi['aois'] = aoi_properties
     response.headers['Content-Type'] = 'application/json'
     return json.dumps(all_aoi)
+
 
 ##########################################
 # PUT request to add new AOI to DB
@@ -880,32 +932,36 @@ def handle_interest_areas(action):
         add_aoi(aoi_type, lat, lon, radius)
     elif action == "del":
         command = "UPDATE intersects SET aoi_id=? WHERE aoi_id=?"
-        DATABASE_EDIT_Q.put((command, [(-1, data['uid']),], True))
+        DATABASE_EDIT_Q.put((command, [(-1, data['uid']), ], True))
         DATABASE_RETURN.get(timeout=1)
         to_table = (str(data['uid']),)
         command = "DELETE FROM interest_areas WHERE uid=?"
-        DATABASE_EDIT_Q.put((command, [to_table,], True))
+        DATABASE_EDIT_Q.put((command, [to_table, ], True))
         DATABASE_RETURN.get(timeout=1)
         DATABASE_EDIT_Q.put(("done", None, False))
     elif action == "purge":
         conn = sqlite3.connect(database_name)
         c = conn.cursor()
-        c.execute("SELECT aoi_type, latitude, longitude, radius FROM interest_areas WHERE uid=?", [data['uid']])
+        c.execute("SELECT aoi_type, latitude, longitude, radius FROM interest_areas WHERE uid=?", [
+                  data['uid']])
         properties = c.fetchone()
         conn.close()
         purge_database(*properties)
 
+
 ###############################################
 # Starts the Bottle webserver.
 ###############################################
-def start_server(ipaddr = "127.0.0.1", port=8080):
+def start_server(ipaddr="127.0.0.1", port=8080):
     try:
-        run(host=ipaddr, port=port, quiet=True, server=GeventWebSocketServer, debug=True)
+        run(host=ipaddr, port=port, quiet=True,
+            server=GeventWebSocketServer, debug=True)
     except OSError:
         print(f"Port {port} seems to be in use. Please select another port or " +
-        "check if another instance of DFA is already running.")
+              "check if another instance of DFA is already running.")
         debugging = True
         finish()
+
 
 ###############################################
 # Captures DOA data and computes intersections
@@ -921,16 +977,17 @@ def run_receiver(receivers):
 
     while ms.receiving:
         if not debugging:
-            print("Receiving" + dots*'.')
+            print("Receiving" + dots * '.')
             print("Press Control+C to process data and exit.")
 
         # Main loop to compute intersections between multiple receivers
-        intersect_list = np.array([]).reshape(0,3)
+        intersect_list = np.array([]).reshape(0, 3)
         ms.rx_busy = True
 
         for rx in receivers:
             try:
-                if rx.isActive: rx.update()
+                if rx.isActive:
+                    rx.update()
             except IOError:
                 print("Problem connecting to receiver.")
             rx.d_2_last_intersection = []
@@ -939,13 +996,13 @@ def run_receiver(receivers):
             for y in range(x):
                 if x != y:
                     if (receivers[x].confidence >= ms.min_conf and
-                    receivers[y].confidence >= ms.min_conf and
-                    receivers[x].power >= ms.min_power and
-                    receivers[y].power >= ms.min_power and
-                    abs(receivers[x].doa_time - receivers[y].doa_time) <= max_age and
-                    receivers[x].frequency == receivers[y].frequency):
+                        receivers[y].confidence >= ms.min_conf and
+                        receivers[x].power >= ms.min_power and
+                        receivers[y].power >= ms.min_power and
+                        abs(receivers[x].doa_time - receivers[y].doa_time) <= max_age and
+                            receivers[x].frequency == receivers[y].frequency):
                         intersection = plot_intersects(receivers[x].latitude, receivers[x].longitude,
-                        receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
+                                                       receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
                         if intersection:
                             print(intersection)
                             receivers[x].d_2_last_intersection.append(v.haversine(
@@ -953,18 +1010,21 @@ def run_receiver(receivers):
                             receivers[y].d_2_last_intersection.append(v.haversine(
                                 receivers[y].latitude, receivers[y].longitude, *intersection))
                             intersection = list(intersection)
-                            avg_conf = np.mean([receivers[x].confidence, receivers[y].confidence])
+                            avg_conf = np.mean(
+                                [receivers[x].confidence, receivers[y].confidence])
                             intersection.append(avg_conf)
                             intersection = np.array([intersection])
-                            if intersection.any() != None:
-                                intersect_list = np.concatenate((intersect_list, intersection), axis=0)
+                            if intersection.any() is not None:
+                                intersect_list = np.concatenate(
+                                    (intersect_list, intersection), axis=0)
 
         if intersect_list.size != 0:
-            avg_coord = np.average(intersect_list[:,0:3], weights=intersect_list[:,2], axis = 0)
+            avg_coord = np.average(
+                intersect_list[:, 0:3], weights=intersect_list[:, 2], axis=0)
             keep, in_aoi = check_aoi(*avg_coord[0:2])
             if keep:
                 to_table = [receivers[x].doa_time, round(avg_coord[0], 6), round(avg_coord[1], 6),
-                    len(intersect_list), avg_coord[2], in_aoi]
+                            len(intersect_list), avg_coord[2], in_aoi]
                 command = '''INSERT INTO intersects
                 (time, latitude, longitude, num_parents, confidence, aoi_id)
                 VALUES (?,?,?,?,?,?)'''
@@ -974,12 +1034,12 @@ def run_receiver(receivers):
         # Loop to compute intersections for a single receiver and update all receivers
         for rx in receivers:
             if (rx.isSingle and rx.isMobile and rx.isActive and
-            rx.confidence >= ms.min_conf and
-            rx.power >= ms.min_power and
-            rx.doa_time >= rx.previous_doa_time + 10000):
+                rx.confidence >= ms.min_conf and
+                rx.power >= ms.min_power and
+                    rx.doa_time >= rx.previous_doa_time + 10000):
                 current_doa = [rx.doa_time, rx.station_id, rx.latitude,
-                    rx.longitude, rx.confidence, rx.doa]
-                min_time = rx.doa_time - 1200000 #15 Minutes
+                               rx.longitude, rx.confidence, rx.doa]
+                min_time = rx.doa_time - 1200000  # 15 Minutes
                 c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
                  WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
                 lob_array = c.fetchall()
@@ -995,12 +1055,13 @@ def run_receiver(receivers):
                         lon_rxb = previous[1]
                         conf_rxb = previous[2]
                         doa_rxb = previous[3]
-                        spacial_diversity, z = v.inverse((lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
+                        spacial_diversity, z = v.inverse(
+                            (lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
                         min_diversity = 500
                         if (spacial_diversity > min_diversity and
-                             abs(doa_rxa - doa_rxb) > 5):
+                                abs(doa_rxa - doa_rxb) > 5):
                             intersection = plot_intersects(lat_rxa, lon_rxa,
-                                doa_rxa, lat_rxb, lon_rxb, doa_rxb)
+                                                           doa_rxa, lat_rxb, lon_rxb, doa_rxb)
                             if intersection:
                                 intersection = list(intersection)
                                 avg_conf = np.mean([conf_rxa, conf_rxb])
@@ -1009,16 +1070,17 @@ def run_receiver(receivers):
                                 if keep:
                                     keep_count += 1
                                     to_table = [current_time, round(intersection[0], 5), round(intersection[1], 5),
-                                        1, intersection[2], in_aoi]
+                                                1, intersection[2], in_aoi]
                                     command = '''INSERT INTO intersects
                                     (time, latitude, longitude, num_parents, confidence, aoi_id)
                                     VALUES (?,?,?,?,?,?)'''
-                                    DATABASE_EDIT_Q.put((command, (to_table,), True))
+                                    DATABASE_EDIT_Q.put(
+                                        (command, (to_table,), True))
                                     DATABASE_RETURN.get(timeout=1)
                 print(f"Computed and kept {keep_count} intersections.")
 
                 command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
-                DATABASE_EDIT_Q.put((command, [current_doa,], True))
+                DATABASE_EDIT_Q.put((command, [current_doa, ], True))
                 DATABASE_RETURN.get(timeout=1)
 
             DATABASE_EDIT_Q.put(("done", None, False))
@@ -1036,6 +1098,7 @@ def run_receiver(receivers):
         clear(debugging)
 
     conn.close()
+
 
 ###############################################
 # Checks if intersection should be kept or not
@@ -1074,6 +1137,7 @@ def check_aoi(lat, lon):
     keep = any(keep_list)
     return keep, in_aoi
 
+
 ###############################################
 # Adds a new receiver to the program, saves it
 # in the database.
@@ -1088,16 +1152,16 @@ def add_receiver(receiver_url):
             receivers.append(receiver(receiver_url))
             new_rx = receivers[-1].receiver_dict()
             to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
-                new_rx['mobile'],new_rx['single'], new_rx['latitude'], new_rx['longitude']]
+                        new_rx['mobile'], new_rx['single'], new_rx['latitude'], new_rx['longitude']]
 
             command = "INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)"
-            DATABASE_EDIT_Q.put((command, [to_table,], True))
+            DATABASE_EDIT_Q.put((command, [to_table, ], True))
             DATABASE_RETURN.get(timeout=1)
             DATABASE_EDIT_Q.put(("done", None, False))
             mobile = c.execute("SELECT isMobile FROM receivers WHERE station_id = ?",
-                [new_rx['station_id']]).fetchone()[0]
+                               [new_rx['station_id']]).fetchone()[0]
             single = c.execute("SELECT isSingle FROM receivers WHERE station_id = ?",
-                [new_rx['station_id']]).fetchone()[0]
+                               [new_rx['station_id']]).fetchone()[0]
             receivers[-1].isMobile = bool(mobile)
             receivers[-1].isSingle = bool(single)
             print("Created new DF Station at " + receiver_url)
@@ -1105,6 +1169,7 @@ def add_receiver(receiver_url):
         pass
 
     conn.close()
+
 
 ###############################################
 # Reads receivers from the database into the
@@ -1123,6 +1188,7 @@ def read_rx_table():
         rx_list = []
     conn.close()
 
+
 ###############################################
 # Updates the database with any changes made to
 # the receivers.
@@ -1130,7 +1196,8 @@ def read_rx_table():
 def update_rx_table():
     for item in receivers:
         rx = item.receiver_dict()
-        to_table = [rx['auto'], rx['mobile'], rx['single'], rx['latitude'], rx['longitude'], rx['station_id']]
+        to_table = [rx['auto'], rx['mobile'], rx['single'],
+                    rx['latitude'], rx['longitude'], rx['station_id']]
         command = '''UPDATE receivers SET
             isAuto=?,
             isMobile=?,
@@ -1138,12 +1205,13 @@ def update_rx_table():
             latitude=?,
             longitude=?
             WHERE station_id = ?'''
-        DATABASE_EDIT_Q.put((command, [to_table,], True))
+        DATABASE_EDIT_Q.put((command, [to_table, ], True))
         # try:
         DATABASE_RETURN.get(timeout=1)
         # except:
         #     pass
     DATABASE_EDIT_Q.put(("done", None, False))
+
 
 ###############################################
 # Updates the database with new interest areas.
@@ -1154,12 +1222,13 @@ def add_aoi(aoi_type, lat, lon, radius):
 
     prev_uid = c.execute('SELECT MAX(uid) from interest_areas').fetchone()[0]
     conn.close()
-    uid = (prev_uid + 1) if prev_uid != None else 0
+    uid = (prev_uid + 1) if prev_uid is not None else 0
     to_table = [uid, aoi_type, lat, lon, radius]
     command = 'INSERT INTO interest_areas VALUES (?,?,?,?,?)'
-    DATABASE_EDIT_Q.put((command, [to_table,], True))
+    DATABASE_EDIT_Q.put((command, [to_table, ], True))
     DATABASE_RETURN.get(timeout=1)
     DATABASE_EDIT_Q.put(("done", None, False))
+
 
 #########################################
 # Read all the AOIs from the DB
@@ -1171,6 +1240,7 @@ def fetch_aoi_data():
     aoi_list = c.fetchall()
     conn.close()
     return aoi_list
+
 
 ###############################################
 # One thread responsible for all database write
@@ -1226,6 +1296,7 @@ def database_writer():
             if reply:
                 DATABASE_RETURN.put(True)
 
+
 ###############################################
 # Thangs to do before closing the program.
 ###############################################
@@ -1236,9 +1307,10 @@ def finish():
     update_rx_table()
     DATABASE_EDIT_Q.put(("close", None, True))
     DATABASE_RETURN.get(timeout=1)
-    if geofile != None:
+    if geofile is not None:
         write_geojson(*process_data(database_name)[:2])
     kill(getpid(), signal.SIGTERM)
+
 
 if __name__ == '__main__':
     ###############################################
@@ -1246,36 +1318,40 @@ if __name__ == '__main__':
     ###############################################
     usage = "usage: %prog -d FILE [options]"
     parser = OptionParser(usage=usage)
-    parser.add_option("-d", "--database", dest="database_name", help="REQUIRED Database File", metavar="FILE")
-    parser.add_option("-r", "--receivers", dest="rx_file", help="List of receiver URLs", metavar="FILE")
-    parser.add_option("-g", "--geofile", dest="geofile", help="GeoJSON Output File", metavar="FILE")
+    parser.add_option("-d", "--database", dest="database_name",
+                      help="REQUIRED Database File", metavar="FILE")
+    parser.add_option("-r", "--receivers", dest="rx_file",
+                      help="List of receiver URLs", metavar="FILE")
+    parser.add_option("-g", "--geofile", dest="geofile",
+                      help="GeoJSON Output File", metavar="FILE")
     parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default \"auto\".",
-    metavar="NUMBER or \"auto\"", default="auto")
+                      metavar="NUMBER or \"auto\"", default="auto")
     parser.add_option("-c", "--confidence", dest="conf", help="Minimum confidence value, default 10",
-    metavar="NUMBER", type="int", default=10)
+                      metavar="NUMBER", type="int", default=10)
     parser.add_option("-p", "--power", dest="pwr", help="Minimum power value, default 10",
-    metavar="NUMBER", type="int", default=10)
+                      metavar="NUMBER", type="int", default=10)
     parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default: \"auto\"",
-    metavar="NUMBER or \"auto\"", default="auto")
+                      metavar="NUMBER or \"auto\"", default="auto")
     parser.add_option("--plot_intersects", dest="plotintersects", help="""Plots all the intersect points in a cluster.
-     Only applies when clustering is turned on. This creates larger CZML files.""",action="store_true")
+     Only applies when clustering is turned on. This creates larger CZML files.""", action="store_true")
     parser.add_option("-o", "--offline", dest="disable", help="Starts program with receiver turned off.",
-    action="store_false", default=True)
-    parser.add_option("--access_token", dest="token_file", help="Cesium Access Token File", metavar="FILE")
+                      action="store_false", default=True)
+    parser.add_option("--access_token", dest="token_file",
+                      help="Cesium Access Token File", metavar="FILE")
     parser.add_option("--ip", dest="ipaddr", help="IP Address to serve from. Default 127.0.0.1",
-    metavar="IP ADDRESS", type="str", default="127.0.0.1")
+                      metavar="IP ADDRESS", type="str", default="127.0.0.1")
     parser.add_option("--port", dest="port", help="Port number to serve from. Default 8080",
-    metavar="NUMBER", type="int", default=8080)
+                      metavar="NUMBER", type="int", default=8080)
     parser.add_option("--debug", dest="debugging", help="Does not clear the screen. Useful for seeing errors and warnings.",
-    action="store_true")
+                      action="store_true")
     (options, args) = parser.parse_args()
 
     mandatories = ['database_name']
     for m in mandatories:
-      if options.__dict__[m] is None:
-        print("You forgot an arguement")
-        parser.print_help()
-        exit(-1)
+        if options.__dict__[m] is None:
+            print("You forgot an arguement")
+            parser.print_help()
+            exit(-1)
 
     ms = math_settings(options.eps, options.minsamp, options.conf, options.pwr)
 
@@ -1294,14 +1370,14 @@ if __name__ == '__main__':
     else:
         access_token = None
 
-    web = threading.Thread(target=start_server,args=(options.ipaddr, options.port))
+    web = threading.Thread(target=start_server,
+                           args=(options.ipaddr, options.port))
     web.daemon = True
     web.start()
 
     dbwriter = threading.Thread(target=database_writer)
     dbwriter.daemon = True
     dbwriter.start()
-
 
     try:
         ###############################################
