@@ -22,7 +22,7 @@ import math
 import time
 import sqlite3
 import threading
-import signal, sys
+import signal
 import json
 from colorsys import hsv_to_rgb
 from optparse import OptionParser
@@ -36,6 +36,14 @@ from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color,
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, post, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
+
+from sys import version_info
+if (version_info.major != 3 or version_info.minor < 6):
+    print("Looks like you're running python version " +
+          str(version_info.major) + "." +
+          str(version_info.minor) + ", which is no longer supported.")
+    print("Your python version is out of date, please update to 3.6 or newer.")
+    quit()
 
 
 DBSCAN_Q = Queue()
