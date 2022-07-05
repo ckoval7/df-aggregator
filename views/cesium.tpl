@@ -24,8 +24,15 @@
   <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.80/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.80/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.90.0/Cesium.min.js"
+    integrity="sha512-W65woW5WpUCEi+hZswQOxxaQuLHXMfQ0Tr2Bvibgr91Jg2V6FY7juhtdd17VGcuaOYKPHoabUH7fQkRdulbu1w=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.90.0/Widgets/widgets.min.css"
+    integrity="sha512-h9djTljMpI/36vV9pOtaO/bqarwzjbD6eYjE1ISRhnPDkJ3IWNpEUnSyqUUepEPDno/k6Mv+Cm179z1O1qYAJA=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer" /> -->
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
   <!-- <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> -->
@@ -396,7 +403,7 @@
       <span class="tooltiptext">Minimum Power: <br>
         Minimun power level to record an intersection.Does not affect historical data.</span>
       <span class="slidespan">
-        <input name="powerValue" type="range" min="0" max="50" value="{{minpower}}" class="slider" id="powerRange">
+        <input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange">
       </span>
       <span class="slidevalue" id="power"></span>
     </div>
@@ -404,7 +411,7 @@
       <span class="tooltiptext">Minimum Confidence:<br>
         Minimum confidence level to record an intersection. Does not affect historical data.</span>
       <span class="slidespan">
-        <input name="confValue" type="range" min="0" max="100" value="{{minconf}}" class="slider" id="confRange">
+        <input name="confValue" type="range" min="0" max="300" value="{{minconf}}" class="slider" id="confRange">
       </span>
       <span class="slidevalue" id="confidence"></span>
     </div>
