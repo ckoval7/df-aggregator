@@ -53,7 +53,14 @@
     // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     % end
+
+    // Set default map to ESRI
+    const esri = new Cesium.ArcGisMapServerImageryProvider({
+      url : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+    });
+
     var viewer = new Cesium.Viewer('cesiumContainer', {
+      imageryProvider: esri,
       // imageryProvider : new Cesium.TileMapServiceImageryProvider({
       //   url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
       // }),
