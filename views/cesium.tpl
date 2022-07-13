@@ -293,9 +293,10 @@
       }
       console.log(parameter);
       let promise1 = transmittersDataSource.load('/output.czml?'+parameter);
-      Cesium.when(promise1, function(dataSource1){
-        spinner.style.visibility = "hidden";
-        spinner.style.zIndex = "0";
+      promise1.then(
+        function(dataSource1) {
+          spinner.style.visibility = "hidden";
+          spinner.style.zIndex = "0";
       });
       viewer.dataSources.add(transmittersDataSource);
       return transmittersDataSource;
@@ -305,22 +306,12 @@
       receiversDataSource.load('/receivers.czml');
       viewer.dataSources.add(receiversDataSource);
       return receiversDataSource;
-      // let promise1 = Cesium.CzmlDataSource.load('/receivers.czml');
-      // Cesium.when(promise1, function(dataSource1){
-      //   viewer.dataSources.add(dataSource1);
-      //   return dataSource1;
-      // });
     }
 
     function loadAoiCzml() {
       aoiDataSource.load('/aoi.czml');
       viewer.dataSources.add(aoiDataSource);
       return aoiDataSource;
-      // let promise1 = Cesium.CzmlDataSource.load('/aoi.czml');
-      // Cesium.when(promise1, function(dataSource1){
-      //   viewer.dataSources.add(dataSource1);
-      //   return dataSource1;
-      // });
     }
 
     function loadAllCzml() {
