@@ -1,8 +1,10 @@
 ## Recent Changes:
-- Ellipse parameters are now automatically calculated. You can still adjust them
-if you want, but the auto-calculation works exceptionally well.
+- Update to CesiumJS 1.95
+- Power and Confidence range sliders have been updated to reflect data output by the KrakenSDR software.
 
 ## Previous Changes
+- Ellipse parameters are now automatically calculated. You can still adjust them
+if you want, but the auto-calculation works exceptionally well.
 - LOB Length is now determined by the distance to the furthest intersection from
 the receiver.
 - Fixed bug where map lags behind the receiver.

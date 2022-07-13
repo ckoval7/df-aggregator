@@ -1,6 +1,7 @@
 # DF Aggregator
 
 ## Recent Changes:
+- Update to CesiumJS 1.95
 - Power and Confidence range sliders have been updated to reflect data output by the KrakenSDR software.
 - Ellipse parameters are now automatically calculated. You can still adjust them
 if you want, but the auto-calculation works exceptionally well.

@@ -24,15 +24,14 @@
   <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.90.0/Cesium.min.js"
-    integrity="sha512-W65woW5WpUCEi+hZswQOxxaQuLHXMfQ0Tr2Bvibgr91Jg2V6FY7juhtdd17VGcuaOYKPHoabUH7fQkRdulbu1w=="
+  <!-- <script src="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Widgets/widgets.css" rel="stylesheet"> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Cesium.js"
+    integrity="sha512-Y95sidA9cDT2a8MMmD47EyCVxQRJYNhXEnvBgbsp+q0gK2k3VSMpMvs9DTct0dEjm+6Dru+d2wYllhgceEiFgw=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.90.0/Widgets/widgets.min.css"
-    integrity="sha512-h9djTljMpI/36vV9pOtaO/bqarwzjbD6eYjE1ISRhnPDkJ3IWNpEUnSyqUUepEPDno/k6Mv+Cm179z1O1qYAJA=="
-    crossorigin="anonymous"
-    referrerpolicy="no-referrer" /> -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Widgets/widgets.min.css"
+    integrity="sha512-dWztHlhNizO37Lu3hJ+wCd8/T/VTqD8PHp4ZHRpHuGvEJJ59vTD0LPXekgZiaghVYDyZvXAqTAVhuctgyyukgw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
   <!-- <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> -->
