@@ -63,9 +63,10 @@
       // imageryProvider : new Cesium.TileMapServiceImageryProvider({
       //   url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
       // }),
-      sceneModePicker: false,
+      sceneModePicker: true,
       homeButton: false,
       timeline: false,
+      mapProjection : new Cesium.WebMercatorProjection(),
     });
 
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
