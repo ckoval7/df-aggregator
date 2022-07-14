@@ -55,7 +55,7 @@ d = 40000  # draw distance of LOBs in meters
 heading_d = 20000
 max_age = 5000
 receivers = []
-
+hqmaprendering = False
 
 ###############################################
 # Stores settings realted to intersect capture
@@ -821,7 +821,8 @@ def cesium():
                      'minpoints': ms.min_samp,
                      'rx_state': "checked" if ms.receiving is True else "",
                      'intersect_state': "checked" if ms.plotintersects is True else "",
-                     'receivers': receivers})
+                     'receivers': receivers,
+                     'hqmaprendering_state': "checked" if hqmaprendering else ""})
 
 
 ###############################################
@@ -830,6 +831,7 @@ def cesium():
 ###############################################
 @get('/update')
 def update_cesium():
+    global hqmaprendering
     # eps = float(request.query.eps) if request.query.eps else ms.eps
     # min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
     ms.min_conf = float(
@@ -841,6 +843,8 @@ def update_cesium():
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
+
+    hqmaprendering = True if request.query.hqmaprendering == "true" else False
 
     # if request.query.plotpts == "true":
     #     ms.plotintersects = True

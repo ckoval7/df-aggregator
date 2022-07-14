@@ -69,6 +69,9 @@
       mapProjection : new Cesium.WebMercatorProjection(),
     });
 
+    viewer.scene.postProcessStages.fxaa.enabled = false;
+    defaultMaximumScreenSpaceError = viewer.scene.globe.maximumScreenSpaceError;
+
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
     viewer.infoBox.frame.src = "about:blank";
 
@@ -453,6 +456,17 @@
           Enabling this can cause longer load times.</span>
       </span>
     </div>
+    <div class="tooltip">
+      <span>
+      <span class="slidetitle"><h4>Enable High Quality Map Rendering:</h4></span>
+      <span class="slidespan" style="text-align:left;width: 100px;margin: 5px;">
+      <label class="switch">
+      <input id="hqmaprendering_en" name="hqmaprendering_en" {{hqmaprendering_state}} type="checkbox">
+      <span class="switchslider round"></span>
+      </label></span>
+      </span>
+      <span class="tooltiptext">Enables or disables high quality map rendering.</span>
+    </div>
     <div>
       <span><input id="refreshbutton" class="slider" type="button" value="Refresh" onclick="updateParams()"></span>
     </div>
@@ -486,6 +500,7 @@
 
     var intersect_en = document.getElementById("intersect_en");
     // var clustering_en = document.getElementById("clustering_en");
+    var hqmaprendering_en = document.getElementById("hqmaprendering_en");
 
     // Update the current slider value (each time you drag the slider handle)
     epsslider.oninput = function() {
@@ -531,6 +546,16 @@
 
     intersect_en.onchange = function() {
       updateParams("");
+    }
+
+    hqmaprendering_en.onchange = function() {
+      if (hqmaprendering_en.checked) {
+        viewer.scene.globe.maximumScreenSpaceError = 1.0;
+        updateParams("hqmaprendering=true");
+      } else {
+        viewer.scene.globe.maximumScreenSpaceError = defaultMaximumScreenSpaceError;
+        updateParams("hqmaprendering=false");
+      }
     }
 
   </script>
