@@ -32,7 +32,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
-from czml3.properties import Position, Polyline, PolylineOutlineMaterial, Color, Material
+from czml3.properties import Position, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Material
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
@@ -627,6 +627,7 @@ def write_rx_czml():
     green = [0, 255, 0, 255]
     orange = [255, 140, 0, 255]
     red = [255, 0, 0, 255]
+    gray = [128, 128, 128, 255]
     receiver_point_packets = []
     lob_packets = []
     top = Preamble(name="Receivers")
@@ -665,6 +666,23 @@ def write_rx_czml():
                                               width=5,
                                               positions=Position(cartographicDegrees=[
                                                   lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
+                                          )))
+                heading_start_lat = x.latitude
+                heading_start_lon = x.longitude
+                heading_stop_lat, heading_stop_lon = v.direct(
+                    heading_start_lat, heading_start_lon, x.heading, x.lob_length())
+                lob_packets.append(Packet(id=f"HEADING-{x.station_id}-{index}",
+                                          polyline=Polyline(
+                                              material=PolylineMaterial(
+                                                  polylineDash = PolylineDashMaterial(color=Color(
+                                                      rgba=gray),
+                                                  gapColor=Color(
+                                                      rgba=[0, 0, 0, 0])
+                                              )),
+                                              clampToGround=True,
+                                              width=2,
+                                              positions=Position(cartographicDegrees=[
+                                                  heading_start_lon, heading_start_lat, height, heading_stop_lon, heading_stop_lat, height])
                                           )))
             else:
                 lob_packets = []
