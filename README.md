@@ -24,7 +24,8 @@ if you want, but the auto-calculation works exceptionally well.
     - Turns out you can use a public token, you just can't use Cesium Assets.
       Most people don't need to use assets.
     - The token is optional with --access_token=accesstoken.txt
-- [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
+- Preferred: [KrakenSDR Software](https://github.com/krakenrf/krakensdr_doa)
+- Alternatively: [Extended XML KerberosSDR Software](https://github.com/ckoval7/kerberossdr)
     - This is available for both Qt4 (original version) and Qt5 (Ubuntu 20.04+). Just check out the appropriate branch.
 
 ![Screenshot](https://raw.githubusercontent.com/ckoval7/df-aggregator/master/screenshots/Screenshot%20from%202021-05-29%2009-52-08.png)
