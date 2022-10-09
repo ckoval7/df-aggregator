@@ -376,6 +376,12 @@ def process_data(database_name, epsilon, min_samp):
                     # lam2 = a+c/2 - np.sqrt((a-c/2)**2 + b**2)
                     # print([lam1, lam2, a, c])
                     pearson = b / np.sqrt(a * c)
+                    if (1 + pearson < 0.0 or 1 - pearson < 0.0):
+                        if debugging:
+                            print(f"Pearson Value: {pearson}")
+                            print("Unable to resolve ellipse.")
+                        break
+                    print(f"A: {a} B: {b} C: {c} pearson: {pearson}")
                     ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(a) * n_std
                     ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
                     axis_x = v.inverse(clustermean.tolist()[
