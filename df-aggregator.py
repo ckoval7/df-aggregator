@@ -52,6 +52,7 @@ DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
 
 d = 40000  # draw distance of LOBs in meters
+heading_d = 20000
 max_age = 5000
 receivers = []
 
@@ -681,7 +682,7 @@ def write_rx_czml():
                 heading_start_lat = x.latitude
                 heading_start_lon = x.longitude
                 heading_stop_lat, heading_stop_lon = v.direct(
-                    heading_start_lat, heading_start_lon, x.heading, x.lob_length())
+                    heading_start_lat, heading_start_lon, x.heading, heading_d)
                 lob_packets.append(Packet(id=f"HEADING-{x.station_id}-{index}",
                                           polyline=Polyline(
                                               material=PolylineMaterial(
