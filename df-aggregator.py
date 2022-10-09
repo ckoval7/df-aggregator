@@ -367,6 +367,11 @@ def process_data(database_name, epsilon, min_samp):
                     a = cov[0, 0]
                     b = cov[0, 1]
                     c = cov[1, 1]
+                    if (a == 0.0 or b == 0.0 or c == 0.0):
+                        if debugging:
+                            print(f"A: {a} B: {b} C: {c}")
+                            print("Unable to resolve ellipse.")
+                        break
                     lam1 = a + c / 2 + np.sqrt((a - c / 2)**2 + b**2)
                     # lam2 = a+c/2 - np.sqrt((a-c/2)**2 + b**2)
                     # print([lam1, lam2, a, c])
