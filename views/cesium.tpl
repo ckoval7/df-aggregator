@@ -26,11 +26,11 @@
   <!-- Include the CesiumJS JavaScript and CSS files -->
   <!-- <script src="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Widgets/widgets.css" rel="stylesheet"> -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Cesium.js"
-    integrity="sha512-Y95sidA9cDT2a8MMmD47EyCVxQRJYNhXEnvBgbsp+q0gK2k3VSMpMvs9DTct0dEjm+6Dru+d2wYllhgceEiFgw=="
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.104.0/Cesium.js"
+    integrity="sha512-nQHCvWEEqV00Iub+ftVm+C9COm2G5cW0nyCUVkVnzMWSF0cuAyC75YhcyE3a+lRsssPuj1qk9H9teyGxDIyAIQ=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Widgets/widgets.min.css"
-    integrity="sha512-dWztHlhNizO37Lu3hJ+wCd8/T/VTqD8PHp4ZHRpHuGvEJJ59vTD0LPXekgZiaghVYDyZvXAqTAVhuctgyyukgw=="
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.104.0/Widgets/widgets.min.css"
+    integrity="sha512-B5b+YSvAqAIXLgYMg42Tc9KmdoYyGQt2G13igHZaDPitOzeO6hUsMkz8uhNg24eRbPcTivMcQ55/FhyxzcCFVQ=="
     crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
@@ -66,6 +66,7 @@
       sceneModePicker: true,
       homeButton: false,
       timeline: false,
+      requestRenderMode : true,
       mapProjection : new Cesium.WebMercatorProjection(),
     });
 
