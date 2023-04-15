@@ -67,8 +67,12 @@
       homeButton: false,
       timeline: false,
       requestRenderMode : true,
+      maximumRenderTimeChange : Infinity,
       mapProjection : new Cesium.WebMercatorProjection(),
     });
+
+    // No need to render starts
+    viewer.scene.skyBox.show = false;
 
     viewer.scene.postProcessStages.fxaa.enabled = false;
     defaultMaximumScreenSpaceError = viewer.scene.globe.maximumScreenSpaceError;
