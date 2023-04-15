@@ -629,6 +629,7 @@ def write_rx_czml():
     min_conf = ms.min_conf
     min_power = ms.min_power
     green = [0, 255, 0, 255]
+    green_diamond = [62, 251, 184, 255]
     orange = [255, 140, 0, 255]
     red = [255, 0, 0, 255]
     gray = [128, 128, 128, 255]
@@ -636,13 +637,25 @@ def write_rx_czml():
     lob_packets = []
     top = Preamble(name="Receivers")
 
-    rx_properties = {
+    rx_img_properties = {
         "verticalOrigin": "BOTTOM",
         "zIndex": 9,
         "scale": 0.75,
         "heightReference": "CLAMP_TO_GROUND",
         "height": 48,
         "width": 48,
+    }
+
+    rx_label_properties = {
+        "verticalOrigin": "BOTTOM",
+        "font": "20pt Open Sans",
+        "horizontalOrigin": "CENTER",
+        "heightReference": "CLAMP_TO_GROUND",
+        "zIndex": 9,
+        "showBackground": True,
+        "pixelOffset": {
+            "cartesian2": [ 0, 24 ]
+        },
     }
     while not ms.rx_busy:
         for index, x in enumerate(receivers):
@@ -701,10 +714,20 @@ def write_rx_czml():
                 #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
             else:
                 rx_icon = {"image": {"uri": "/static/tower.svg"}}
-            receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
+
+            label_color = green_diamond
+            if (not x.isActive or x.doa_time == x.previous_doa_time):
+                label_color = gray
+
+            rx_label = {"text": f"{x.station_id}", "fillColor": {"rgba":  label_color}}
+            receiver_point_packets.append(Packet(id=f"IMG-{x.station_id}-{index}",
                                                  billboard={
-                                                     **rx_properties, **rx_icon},
-                                                 position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
+                                                     **rx_img_properties, **rx_icon},
+                                                 position={"cartographicDegrees": [x.longitude, x.latitude, height]}))
+
+            receiver_point_packets.append(Packet(id=f"LABEL-{x.station_id}-{index}",
+                                                 label={**rx_label_properties, **rx_label},
+                                                 position={"cartographicDegrees": [x.longitude, x.latitude, height]}))
 
         return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
 
