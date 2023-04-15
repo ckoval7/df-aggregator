@@ -92,6 +92,7 @@ class receiver:
             xml_station_id = xml_contents.find('STATION_ID')
             self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
+            self.previous_doa_time = self.doa_time
             self.doa_time = int(xml_doa_time.text)
             xml_freq = xml_contents.find('FREQUENCY')
             self.frequency = float(xml_freq.text)
@@ -122,19 +123,9 @@ class receiver:
         except Exception as ex:
             if first_run:
                 self.station_id = "Unknown"
-            self.latitude = 0.0
-            self.longitude = 0.0
-            self.heading = 0.0
-            self.raw_doa = 0.0
-            self.doa = 0.0
-            self.frequency = 0.0
-            self.power = 0.0
-            self.confidence = 0
-            self.doa_time = 0
-            self.isActive = False
-            print(ex)
             print(
                 f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
+            print(ex)
             # raise IOError
 
     # Returns receivers properties as a dict, useful for passing data to the WebUI
@@ -656,7 +647,9 @@ def write_rx_czml():
     while not ms.rx_busy:
         for index, x in enumerate(receivers):
             if x.isActive and ms.receiving:
-                if (x.confidence > min_conf and x.power > min_power):
+                if x.doa_time == x.previous_doa_time:
+                    lob_color = gray
+                elif (x.confidence > min_conf and x.power > min_power):
                     lob_color = green
                 elif (x.confidence <= min_conf and x.power > min_power):
                     lob_color = orange
