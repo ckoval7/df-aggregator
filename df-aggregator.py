@@ -637,18 +637,9 @@ def write_rx_czml():
     lob_packets = []
     top = Preamble(name="Receivers")
 
-    rx_img_properties = {
-        "verticalOrigin": "BOTTOM",
-        "zIndex": 9,
-        "scale": 0.75,
-        "heightReference": "CLAMP_TO_GROUND",
-        "height": 48,
-        "width": 48,
-    }
-
     rx_label_properties = {
         "verticalOrigin": "BOTTOM",
-        "font": "20pt Open Sans",
+        "font": "16pt Open Sans",
         "horizontalOrigin": "CENTER",
         "heightReference": "CLAMP_TO_GROUND",
         "zIndex": 9,
@@ -706,26 +697,12 @@ def write_rx_czml():
             else:
                 lob_packets = []
 
-            if x.isMobile is True:
-                rx_icon = {"image": {"uri": "/static/flipped_car.svg"}}
-                # if x.heading > 0 or x.heading < 180:
-                #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
-                # elif x.heading < 0 or x.heading > 180:
-                #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
-            else:
-                rx_icon = {"image": {"uri": "/static/tower.svg"}}
-
             label_color = green_diamond
             if (not x.isActive or x.doa_time == x.previous_doa_time):
                 label_color = gray
 
             rx_label = {"text": f"{x.station_id}", "fillColor": {"rgba":  label_color}}
-            receiver_point_packets.append(Packet(id=f"IMG-{x.station_id}-{index}",
-                                                 billboard={
-                                                     **rx_img_properties, **rx_icon},
-                                                 position={"cartographicDegrees": [x.longitude, x.latitude, height]}))
-
-            receiver_point_packets.append(Packet(id=f"LABEL-{x.station_id}-{index}",
+            receiver_point_packets.append(Packet(id=f"{x.station_id}",
                                                  label={**rx_label_properties, **rx_label},
                                                  position={"cartographicDegrees": [x.longitude, x.latitude, height]}))
 
