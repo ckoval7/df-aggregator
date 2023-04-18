@@ -704,6 +704,10 @@ def write_rx_czml():
             rx_label = {"text": f"{x.station_id}", "fillColor": {"rgba":  label_color}}
             receiver_point_packets.append(Packet(id=f"{x.station_id}",
                                                  label={**rx_label_properties, **rx_label},
+                                                 description= f'''<table class="cesium-infoBox-defaultTable"><tbody>'''
+                                                              f'''<tr><td>Type</td><td>{"MOBILE" if x.isMobile else "STATIC"}</td><td></td></tr>'''
+                                                              f'''<tr><td>Frequency</td><td>{x.frequency}</td><td>MHz</td></tr>'''
+                                                              f'''</tbody></table>''',
                                                  position={"cartographicDegrees": [x.longitude, x.latitude, height]}))
 
         return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
