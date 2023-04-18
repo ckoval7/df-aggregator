@@ -437,7 +437,7 @@
       </span>
       <span class="slidevalue" id="minpoints"></span>
     </div>
-    <div style="width: 600px">
+    <div>
       <span class="tooltip">
         <span class="slidetitle"><h4>Clustering:</h4></span>
         <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
@@ -449,7 +449,7 @@
         Disabling clustering will plot all intersections and may cause longer load times.</span>
       </span>
     </div>
-    <div style="width: 600px">
+    <div>
       <span class="tooltip">
         <span class="slidetitle"><h4>Plot All Intersect Points:</h4></span>
         <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
