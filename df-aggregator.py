@@ -123,10 +123,8 @@ class receiver:
         except Exception as ex:
             if first_run:
                 self.station_id = "Unknown"
-            print(
-                f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
-            print(ex)
-            # raise IOError
+            self.previous_doa_time = self.doa_time
+            print(f"Problem connecting to {self.station_url}: {ex}")
 
     # Returns receivers properties as a dict, useful for passing data to the WebUI
     def receiver_dict(self):
