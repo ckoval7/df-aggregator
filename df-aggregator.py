@@ -51,6 +51,8 @@ DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
 
+DEFAULT_UPDATE_TIME_SECONDS = 1.0
+
 d = 40000  # draw distance of LOBs in meters
 heading_d = 20000
 max_age = 5000
@@ -118,6 +120,10 @@ class receiver:
             self.power = float(xml_power.text)
             xml_conf = xml_contents.find('CONF')
             self.confidence = int(xml_conf.text)
+            self.daq_latency_seconds = int(xml_contents.find('LATENCY').text) * 1e-3
+            self.doa_processing_time_seconds = (
+                int(xml_contents.find('PROCESSING_TIME').text) * 1e-3
+            )
         except KeyboardInterrupt:
             finish()
         except Exception as ex:
@@ -154,6 +160,8 @@ class receiver:
     isSingle = False
     previous_doa_time = 0
     last_processed_at = 0
+    daq_latency_seconds = 1.0
+    doa_processing_time_seconds = 1.0
     d_2_last_intersection = [d]
 
 
@@ -1006,6 +1014,7 @@ def run_receiver(receivers):
     c = conn.cursor()
 
     while ms.receiving:
+        start_time = time.time()
         if not debugging:
             print("Receiving" + dots * '.')
             print("Press Control+C to process data and exit.")
@@ -1014,10 +1023,14 @@ def run_receiver(receivers):
         intersect_list = np.array([]).reshape(0, 3)
         ms.rx_busy = True
 
+        min_update_time_seconds = DEFAULT_UPDATE_TIME_SECONDS
         for rx in receivers:
             try:
                 if rx.isActive:
                     rx.update()
+                    update_time_seconds = rx.daq_latency_seconds + rx.doa_processing_time_seconds
+                    if update_time_seconds > 0.0:
+                        min_update_time_seconds = min(update_time_seconds, min_update_time_seconds)
             except IOError:
                 print("Problem connecting to receiver.")
             rx.d_2_last_intersection = []
@@ -1120,7 +1133,10 @@ def run_receiver(receivers):
             #     print("Problem connecting to receiver.")
 
         ms.rx_busy = False
-        time.sleep(1)
+        processing_time = time.time() - start_time
+        sleep_time = max(min_update_time_seconds - processing_time, 0.0)
+        print(f"sleep_time: {sleep_time} s, min_update_time: {min_update_time_seconds} s, processing_time: {processing_time} s")
+        time.sleep(sleep_time)
         if dots > 5:
             dots = 1
         else:
