@@ -52,6 +52,7 @@ DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
 
 DEFAULT_UPDATE_TIME_SECONDS = 1.0
+LOW_DOA_SNR_THRESHOLD = 0.0
 
 d = 40000  # draw distance of LOBs in meters
 heading_d = 20000
@@ -665,6 +666,8 @@ def write_rx_czml():
             if x.isActive and ms.receiving:
                 if x.doa_time == x.previous_doa_time:
                     lob_color = gray
+                elif (x.adc_overdrive or x.doa_snr < LOW_DOA_SNR_THRESHOLD or x.doa_num_correlated_sources > 0):
+                    lob_color = red
                 elif (x.confidence > min_conf and x.power > min_power):
                     lob_color = green
                 elif (x.confidence <= min_conf and x.power > min_power):
