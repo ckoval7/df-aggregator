@@ -124,6 +124,9 @@ class receiver:
             self.doa_processing_time_seconds = (
                 int(xml_contents.find('PROCESSING_TIME').text) * 1e-3
             )
+            self.doa_snr = float(xml_contents.find('SNR_DB').text)
+            self.doa_num_correlated_sources = int(xml_contents.find('NUM_CORRELATED_SOURCES').text)
+            self.adc_overdrive = bool(int(xml_contents.find('ADC_OVERDRIVE').text))
         except KeyboardInterrupt:
             finish()
         except Exception as ex:
@@ -162,6 +165,9 @@ class receiver:
     last_processed_at = 0
     daq_latency_seconds = 1.0
     doa_processing_time_seconds = 1.0
+    doa_num_correlated_sources = 0
+    adc_overdrive = False
+    doa_snr = 0.0
     d_2_last_intersection = [d]
 
 
@@ -712,7 +718,18 @@ def write_rx_czml():
                                                  label={**rx_label_properties, **rx_label},
                                                  description= f'''<table class="cesium-infoBox-defaultTable"><tbody>'''
                                                               f'''<tr><td>Type</td><td>{"MOBILE" if x.isMobile else "STATIC"}</td><td></td></tr>'''
+                                                              f'''<tr><td>DAQ Latency</td><td>{x.daq_latency_seconds}</td><td>s</td></tr>'''
+                                                              f'''<tr><td>DSP Time</td><td>{x.doa_processing_time_seconds}</td><td>s</td></tr>'''
+                                                              f'''<tr><td>ADC Overdrive</td><td>{x.adc_overdrive}</td><td></td></tr>'''
+                                                              f'''<tr><td>Latitude</td><td>{x.latitude}</td><td>deg</td></tr>'''
+                                                              f'''<tr><td>Longitude</td><td>{x.longitude}</td><td>deg</td></tr>'''
+                                                              f'''<tr><td>Heading</td><td>{x.heading}</td><td>deg</td></tr>'''
                                                               f'''<tr><td>Frequency</td><td>{x.frequency}</td><td>MHz</td></tr>'''
+                                                              f'''<tr><td>DoA</td><td>{x.doa}</td><td>deg</td></tr>'''
+                                                              f'''<tr><td>Power</td><td>{x.power}</td><td>dB</td></tr>'''
+                                                              f'''<tr><td>Confidence</td><td>{x.confidence}</td><td></td></tr>'''
+                                                              f'''<tr><td>DoA SNR</td><td>{x.doa_snr}</td><td>db</td></tr>'''
+                                                              f'''<tr><td>Correlated Sources</td><td>{x.doa_num_correlated_sources}</td><td>#</td></tr>'''
                                                               f'''</tbody></table>''',
                                                  position={"cartographicDegrees": [x.longitude, x.latitude, height]}))
 
