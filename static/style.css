@@ -1,6 +1,6 @@
 body {
-  font-size: 12pt;
-  font-family: 'Courier New', Courier, monospace;
+  font-size: max(min(12pt, 1vw), 9pt);
+  font-family: Helvetica, Arial, Sans;
   background-color: #ecebeb;
 }
 
@@ -178,7 +178,7 @@ span {
 /*Slider Stuff*/
 .slidecontainer {
   width: 100%; /* Width of the outside container */
-  max-width: 600px;
+  max-width: 35vw;
   color: white;
   text-shadow:
     -1px -1px 0 #000,
@@ -207,7 +207,7 @@ span {
 }
 
 .slidespan {
-  max-width: 40vw;
+  max-width: 20vw;
   width: 550px; /* Width of the outside container */
 /*  padding-top: 10px;
   padding-bottom: 10px;*/

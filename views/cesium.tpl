@@ -26,11 +26,11 @@
   <!-- Include the CesiumJS JavaScript and CSS files -->
   <!-- <script src="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Widgets/widgets.css" rel="stylesheet"> -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Cesium.js"
-    integrity="sha512-Y95sidA9cDT2a8MMmD47EyCVxQRJYNhXEnvBgbsp+q0gK2k3VSMpMvs9DTct0dEjm+6Dru+d2wYllhgceEiFgw=="
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.104.0/Cesium.js"
+    integrity="sha512-nQHCvWEEqV00Iub+ftVm+C9COm2G5cW0nyCUVkVnzMWSF0cuAyC75YhcyE3a+lRsssPuj1qk9H9teyGxDIyAIQ=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Widgets/widgets.min.css"
-    integrity="sha512-dWztHlhNizO37Lu3hJ+wCd8/T/VTqD8PHp4ZHRpHuGvEJJ59vTD0LPXekgZiaghVYDyZvXAqTAVhuctgyyukgw=="
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.104.0/Widgets/widgets.min.css"
+    integrity="sha512-B5b+YSvAqAIXLgYMg42Tc9KmdoYyGQt2G13igHZaDPitOzeO6hUsMkz8uhNg24eRbPcTivMcQ55/FhyxzcCFVQ=="
     crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
@@ -66,8 +66,16 @@
       sceneModePicker: true,
       homeButton: false,
       timeline: false,
+      requestRenderMode : true,
+      maximumRenderTimeChange : Infinity,
       mapProjection : new Cesium.WebMercatorProjection(),
     });
+
+    // No need to render starts
+    viewer.scene.skyBox.show = false;
+
+    viewer.scene.postProcessStages.fxaa.enabled = false;
+    defaultMaximumScreenSpaceError = viewer.scene.globe.maximumScreenSpaceError;
 
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
     viewer.infoBox.frame.src = "about:blank";
@@ -429,7 +437,7 @@
       </span>
       <span class="slidevalue" id="minpoints"></span>
     </div>
-    <div style="width: 600px">
+    <div>
       <span class="tooltip">
         <span class="slidetitle"><h4>Clustering:</h4></span>
         <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
@@ -441,7 +449,7 @@
         Disabling clustering will plot all intersections and may cause longer load times.</span>
       </span>
     </div>
-    <div style="width: 600px">
+    <div>
       <span class="tooltip">
         <span class="slidetitle"><h4>Plot All Intersect Points:</h4></span>
         <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
@@ -452,6 +460,17 @@
         <span class="tooltiptext">This setting does not apply if clustering is turned off (epsilon = 0).<br>
           Enabling this can cause longer load times.</span>
       </span>
+    </div>
+    <div class="tooltip">
+      <span>
+      <span class="slidetitle"><h4>Enable High Quality Map Rendering:</h4></span>
+      <span class="slidespan" style="text-align:left;width: 100px;margin: 5px;">
+      <label class="switch">
+      <input id="hqmaprendering_en" name="hqmaprendering_en" {{hqmaprendering_state}} type="checkbox">
+      <span class="switchslider round"></span>
+      </label></span>
+      </span>
+      <span class="tooltiptext">Enables or disables high quality map rendering.</span>
     </div>
     <div>
       <span><input id="refreshbutton" class="slider" type="button" value="Refresh" onclick="updateParams()"></span>
@@ -486,6 +505,7 @@
 
     var intersect_en = document.getElementById("intersect_en");
     // var clustering_en = document.getElementById("clustering_en");
+    var hqmaprendering_en = document.getElementById("hqmaprendering_en");
 
     // Update the current slider value (each time you drag the slider handle)
     epsslider.oninput = function() {
@@ -531,6 +551,16 @@
 
     intersect_en.onchange = function() {
       updateParams("");
+    }
+
+    hqmaprendering_en.onchange = function() {
+      if (hqmaprendering_en.checked) {
+        viewer.scene.globe.maximumScreenSpaceError = 1.0;
+        updateParams("hqmaprendering=true");
+      } else {
+        viewer.scene.globe.maximumScreenSpaceError = defaultMaximumScreenSpaceError;
+        updateParams("hqmaprendering=false");
+      }
     }
 
   </script>

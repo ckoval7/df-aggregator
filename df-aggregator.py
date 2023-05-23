@@ -51,11 +51,14 @@ DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
 
+DEFAULT_UPDATE_TIME_SECONDS = 1.0
+LOW_DOA_SNR_THRESHOLD = 0.0
+
 d = 40000  # draw distance of LOBs in meters
 heading_d = 20000
 max_age = 5000
 receivers = []
-
+hqmaprendering = False
 
 ###############################################
 # Stores settings realted to intersect capture
@@ -92,6 +95,7 @@ class receiver:
             xml_station_id = xml_contents.find('STATION_ID')
             self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
+            self.previous_doa_time = self.doa_time
             self.doa_time = int(xml_doa_time.text)
             xml_freq = xml_contents.find('FREQUENCY')
             self.frequency = float(xml_freq.text)
@@ -117,25 +121,20 @@ class receiver:
             self.power = float(xml_power.text)
             xml_conf = xml_contents.find('CONF')
             self.confidence = int(xml_conf.text)
+            self.daq_latency_seconds = int(xml_contents.find('LATENCY').text) * 1e-3
+            self.doa_processing_time_seconds = (
+                int(xml_contents.find('PROCESSING_TIME').text) * 1e-3
+            )
+            self.doa_snr = float(xml_contents.find('SNR_DB').text)
+            self.doa_num_correlated_sources = int(xml_contents.find('NUM_CORRELATED_SOURCES').text)
+            self.adc_overdrive = bool(int(xml_contents.find('ADC_OVERDRIVE').text))
         except KeyboardInterrupt:
             finish()
         except Exception as ex:
             if first_run:
                 self.station_id = "Unknown"
-            self.latitude = 0.0
-            self.longitude = 0.0
-            self.heading = 0.0
-            self.raw_doa = 0.0
-            self.doa = 0.0
-            self.frequency = 0.0
-            self.power = 0.0
-            self.confidence = 0
-            self.doa_time = 0
-            self.isActive = False
-            print(ex)
-            print(
-                f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
-            # raise IOError
+            self.previous_doa_time = self.doa_time
+            print(f"Problem connecting to {self.station_url}: {ex}")
 
     # Returns receivers properties as a dict, useful for passing data to the WebUI
     def receiver_dict(self):
@@ -165,6 +164,11 @@ class receiver:
     isSingle = False
     previous_doa_time = 0
     last_processed_at = 0
+    daq_latency_seconds = 1.0
+    doa_processing_time_seconds = 1.0
+    doa_num_correlated_sources = 0
+    adc_overdrive = False
+    doa_snr = 0.0
     d_2_last_intersection = [d]
 
 
@@ -638,6 +642,7 @@ def write_rx_czml():
     min_conf = ms.min_conf
     min_power = ms.min_power
     green = [0, 255, 0, 255]
+    green_diamond = [62, 251, 184, 255]
     orange = [255, 140, 0, 255]
     red = [255, 0, 0, 255]
     gray = [128, 128, 128, 255]
@@ -645,18 +650,25 @@ def write_rx_czml():
     lob_packets = []
     top = Preamble(name="Receivers")
 
-    rx_properties = {
+    rx_label_properties = {
         "verticalOrigin": "BOTTOM",
-        "zIndex": 9,
-        "scale": 0.75,
+        "font": "16pt Open Sans",
+        "horizontalOrigin": "CENTER",
         "heightReference": "CLAMP_TO_GROUND",
-        "height": 48,
-        "width": 48,
+        "zIndex": 9,
+        "showBackground": True,
+        "pixelOffset": {
+            "cartesian2": [ 0, 24 ]
+        },
     }
     while not ms.rx_busy:
         for index, x in enumerate(receivers):
             if x.isActive and ms.receiving:
-                if (x.confidence > min_conf and x.power > min_power):
+                if x.doa_time == x.previous_doa_time:
+                    lob_color = gray
+                elif (x.adc_overdrive or x.doa_snr < LOW_DOA_SNR_THRESHOLD or x.doa_num_correlated_sources > 0):
+                    lob_color = red
+                elif (x.confidence > min_conf and x.power > min_power):
                     lob_color = green
                 elif (x.confidence <= min_conf and x.power > min_power):
                     lob_color = orange
@@ -700,18 +712,29 @@ def write_rx_czml():
             else:
                 lob_packets = []
 
-            if x.isMobile is True:
-                rx_icon = {"image": {"uri": "/static/flipped_car.svg"}}
-                # if x.heading > 0 or x.heading < 180:
-                #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
-                # elif x.heading < 0 or x.heading > 180:
-                #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
-            else:
-                rx_icon = {"image": {"uri": "/static/tower.svg"}}
-            receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
-                                                 billboard={
-                                                     **rx_properties, **rx_icon},
-                                                 position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
+            label_color = green_diamond
+            if (not x.isActive or x.doa_time == x.previous_doa_time):
+                label_color = gray
+
+            rx_label = {"text": f"{x.station_id}", "fillColor": {"rgba":  label_color}}
+            receiver_point_packets.append(Packet(id=f"{x.station_id}",
+                                                 label={**rx_label_properties, **rx_label},
+                                                 description= f'''<table class="cesium-infoBox-defaultTable"><tbody>'''
+                                                              f'''<tr><td>Type</td><td>{"MOBILE" if x.isMobile else "STATIC"}</td><td></td></tr>'''
+                                                              f'''<tr><td>DAQ Latency</td><td>{x.daq_latency_seconds}</td><td>s</td></tr>'''
+                                                              f'''<tr><td>DSP Time</td><td>{x.doa_processing_time_seconds}</td><td>s</td></tr>'''
+                                                              f'''<tr><td>ADC Overdrive</td><td>{x.adc_overdrive}</td><td></td></tr>'''
+                                                              f'''<tr><td>Latitude</td><td>{x.latitude}</td><td>deg</td></tr>'''
+                                                              f'''<tr><td>Longitude</td><td>{x.longitude}</td><td>deg</td></tr>'''
+                                                              f'''<tr><td>Heading</td><td>{x.heading}</td><td>deg</td></tr>'''
+                                                              f'''<tr><td>Frequency</td><td>{x.frequency}</td><td>MHz</td></tr>'''
+                                                              f'''<tr><td>DoA</td><td>{x.doa}</td><td>deg</td></tr>'''
+                                                              f'''<tr><td>Power</td><td>{x.power}</td><td>dB</td></tr>'''
+                                                              f'''<tr><td>Confidence</td><td>{x.confidence}</td><td></td></tr>'''
+                                                              f'''<tr><td>DoA SNR</td><td>{x.doa_snr}</td><td>db</td></tr>'''
+                                                              f'''<tr><td>Correlated Sources</td><td>{x.doa_num_correlated_sources}</td><td>#</td></tr>'''
+                                                              f'''</tbody></table>''',
+                                                 position={"cartographicDegrees": [x.longitude, x.latitude, height]}))
 
         return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
 
@@ -821,7 +844,8 @@ def cesium():
                      'minpoints': ms.min_samp,
                      'rx_state': "checked" if ms.receiving is True else "",
                      'intersect_state': "checked" if ms.plotintersects is True else "",
-                     'receivers': receivers})
+                     'receivers': receivers,
+                     'hqmaprendering_state': "checked" if hqmaprendering else ""})
 
 
 ###############################################
@@ -830,6 +854,7 @@ def cesium():
 ###############################################
 @get('/update')
 def update_cesium():
+    global hqmaprendering
     # eps = float(request.query.eps) if request.query.eps else ms.eps
     # min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
     ms.min_conf = float(
@@ -841,6 +866,8 @@ def update_cesium():
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
+
+    hqmaprendering = True if request.query.hqmaprendering == "true" else False
 
     # if request.query.plotpts == "true":
     #     ms.plotintersects = True
@@ -1007,6 +1034,7 @@ def run_receiver(receivers):
     c = conn.cursor()
 
     while ms.receiving:
+        start_time = time.time()
         if not debugging:
             print("Receiving" + dots * '.')
             print("Press Control+C to process data and exit.")
@@ -1015,10 +1043,14 @@ def run_receiver(receivers):
         intersect_list = np.array([]).reshape(0, 3)
         ms.rx_busy = True
 
+        min_update_time_seconds = DEFAULT_UPDATE_TIME_SECONDS
         for rx in receivers:
             try:
                 if rx.isActive:
                     rx.update()
+                    update_time_seconds = rx.daq_latency_seconds + rx.doa_processing_time_seconds
+                    if update_time_seconds > 0.0:
+                        min_update_time_seconds = min(update_time_seconds, min_update_time_seconds)
             except IOError:
                 print("Problem connecting to receiver.")
             rx.d_2_last_intersection = []
@@ -1121,7 +1153,10 @@ def run_receiver(receivers):
             #     print("Problem connecting to receiver.")
 
         ms.rx_busy = False
-        time.sleep(1)
+        processing_time = time.time() - start_time
+        sleep_time = max(min_update_time_seconds - processing_time, 0.0)
+        print(f"sleep_time: {sleep_time} s, min_update_time: {min_update_time_seconds} s, processing_time: {processing_time} s")
+        time.sleep(sleep_time)
         if dots > 5:
             dots = 1
         else:

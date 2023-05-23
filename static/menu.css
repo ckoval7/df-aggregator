@@ -88,6 +88,7 @@ body {
 
 #menu {
   position: fixed;
+  max-width: 25vw;
   width: 500px;
   margin: -75px 0 0 90px;
   padding: 25px;
