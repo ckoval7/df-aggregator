@@ -3,5 +3,5 @@ bottle-websocket>=0.2.9
 geojson>=2.5.0
 numpy>=1.13.3
 lxml>=4.2.1
-czml3>=0.5.4
+czml3>=2.3.4
 scikit_learn>=0.23.2
