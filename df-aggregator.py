@@ -46,6 +46,33 @@ if (version_info.major != 3 or version_info.minor < 6):
     quit()
 
 
+###############################################
+# Creates a secure XML parser to prevent XXE
+# (XML External Entity) attacks.
+###############################################
+def create_secure_parser():
+    """
+    Create an XML parser with security protections against XXE attacks.
+
+    This parser configuration:
+    - Disables external entity resolution
+    - Blocks all network access
+    - Disables DTD loading and validation
+    - Removes XML comments
+
+    Returns:
+        lxml.etree.XMLParser: A configured secure parser
+    """
+    parser = etree.XMLParser(
+        resolve_entities=False,  # Disable external entity resolution (XXE protection)
+        no_network=True,         # Disable network access entirely
+        remove_comments=True,    # Remove comments from XML
+        dtd_validation=False,    # Disable DTD validation
+        load_dtd=False          # Don't load DTD at all
+    )
+    return parser
+
+
 DBSCAN_Q = Queue()
 DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
@@ -88,7 +115,8 @@ class receiver:
     # Updates receiver from the remote URL
     def update(self, first_run=False):
         try:
-            xml_contents = etree.parse(self.station_url)
+            # Use secure parser to prevent XXE attacks
+            xml_contents = etree.parse(self.station_url, parser=create_secure_parser())
             xml_station_id = xml_contents.find('STATION_ID')
             self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
