@@ -604,13 +604,11 @@ def write_geojson(best_point, all_the_points):
 def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
     point_properties = {
         "pixelSize": 5.0,
-        "heightReference": "CLAMP_TO_GROUND",
-        "zIndex": 3
+        "heightReference": {"heightReference": "CLAMP_TO_GROUND"}
     }
     best_point_properties = {
         "pixelSize": 12.0,
-        "zIndex": 10,
-        "heightReference": "CLAMP_TO_GROUND",
+        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
         "color": {
             "rgba": [0, 255, 0, 255],
         }
@@ -706,9 +704,8 @@ def write_rx_czml():
 
     rx_properties = {
         "verticalOrigin": "BOTTOM",
-        "zIndex": 9,
         "scale": 0.75,
-        "heightReference": "CLAMP_TO_GROUND",
+        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
         "height": 48,
         "width": 48,
     }
