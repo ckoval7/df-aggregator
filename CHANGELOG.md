@@ -4,8 +4,10 @@
   - Added error handler to loadTxCzml() to ensure spinner is always hidden
 - Update to czml3 3.0.0 (January 2025)
   - **Breaking Change**: Replaced `Preamble` class with `Packet(id="document", name="...", version=CZML_VERSION)`
+  - **Breaking Change**: `Document()` now requires keyword argument `packets=` instead of positional list
   - Fixed incorrect use of `Material` class for polyline materials
   - Changed to use `PolylineMaterial` for polyline-specific materials (polylineOutline, polylineDash)
+  - Updated all Document() calls to use `Document(packets=[...])` syntax
   - Removed unused `Material` import and `Preamble` import
   - Now imports `CZML_VERSION` from czml3
   - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)

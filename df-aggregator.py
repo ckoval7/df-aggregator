@@ -683,7 +683,7 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
                                               **ellipse_properties, **ellipse_info},
                                           position={"cartographicDegrees": [x[3], x[4], 0]}))
 
-    return Document([top] + best_point_packets + all_point_packets + ellipse_packets).dumps(separators=(',', ':'))
+    return Document(packets=[top] + best_point_packets + all_point_packets + ellipse_packets).dumps(separators=(',', ':'))
 
 
 ###############################################
@@ -773,7 +773,7 @@ def write_rx_czml():
                                                      **rx_properties, **rx_icon},
                                                  position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
 
-    return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
+    return Document(packets=[top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
 
 
 ###############################################
@@ -835,7 +835,7 @@ def wr_aoi_czml():
                                   ellipse={**aoi_properties, **aoi_info},
                                   position={"cartographicDegrees": [aoi['longitude'], aoi['latitude'], 0]}))
 
-    return Document([top] + aoi_packets).dumps(separators=(',', ':'))
+    return Document(packets=[top] + aoi_packets).dumps(separators=(',', ':'))
 
 
 ###############################################
