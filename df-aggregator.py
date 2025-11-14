@@ -1344,6 +1344,28 @@ def database_writer():
         longitude REAL,
         confidence INTEGER,
         lob REAL)''')
+
+    # Create indexes for performance optimization
+    # Index on intersects table for filtering by AOI and sorting by confidence
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_intersects_aoi_confidence
+        ON intersects(aoi_id, confidence DESC)''')
+
+    # Index on intersects table for time-based queries
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_intersects_time
+        ON intersects(time)''')
+
+    # Index on lobs table for single-receiver mode queries
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_lobs_station_time
+        ON lobs(station_id, time)''')
+
+    # Index on interest_areas table for UID lookups
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_interest_areas_uid
+        ON interest_areas(uid)''')
+
+    # Index on interest_areas table for type filtering
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_interest_areas_type
+        ON interest_areas(aoi_type)''')
+
     conn.commit()
     while True:
         # items should be list of lists
