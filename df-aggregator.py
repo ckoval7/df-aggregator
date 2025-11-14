@@ -34,7 +34,7 @@ from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
 from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, set_start_method
 from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
@@ -45,6 +45,14 @@ if (version_info.major != 3 or version_info.minor < 6):
           str(version_info.minor) + ", which is no longer supported.")
     print("Your python version is out of date, please update to 3.6 or newer.")
     quit()
+
+# Set multiprocessing start method to 'spawn' to avoid fork() deadlock warnings
+# when creating processes in a multi-threaded environment (web server, database writer threads)
+try:
+    set_start_method('spawn')
+except RuntimeError:
+    # Start method has already been set, which is fine
+    pass
 
 
 ###############################################
