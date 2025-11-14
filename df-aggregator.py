@@ -78,6 +78,13 @@ DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
 
+###############################################
+# Thread synchronization lock for receiver data
+# Prevents race conditions when reading/writing
+# receiver state from multiple threads
+###############################################
+rx_lock = threading.Lock()
+
 d = 40000  # draw distance of LOBs in meters
 heading_d = 20000
 max_age = 5000
@@ -94,7 +101,6 @@ class math_settings:
         self.min_samp = min_samp
         self.min_conf = conf
         self.min_power = power
-    rx_busy = False
     receiving = True
     plotintersects = False
 
@@ -681,7 +687,8 @@ def write_rx_czml():
         "height": 48,
         "width": 48,
     }
-    while not ms.rx_busy:
+    # Use lock to ensure thread-safe access to receiver data
+    with rx_lock:
         for index, x in enumerate(receivers):
             if x.isActive and ms.receiving:
                 if (x.confidence > min_conf and x.power > min_power):
@@ -741,7 +748,7 @@ def write_rx_czml():
                                                      **rx_properties, **rx_icon},
                                                  position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
 
-        return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
+    return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
 
 
 ###############################################
@@ -1040,115 +1047,114 @@ def run_receiver(receivers):
             print("Press Control+C to process data and exit.")
 
         # Main loop to compute intersections between multiple receivers
-        intersect_list = np.array([]).reshape(0, 3)
-        ms.rx_busy = True
+        # Use lock to ensure thread-safe access to receiver data
+        with rx_lock:
+            intersect_list = np.array([]).reshape(0, 3)
 
-        for rx in receivers:
-            try:
-                if rx.isActive:
-                    rx.update()
-            except IOError:
-                print("Problem connecting to receiver.")
-            rx.d_2_last_intersection = []
+            for rx in receivers:
+                try:
+                    if rx.isActive:
+                        rx.update()
+                except IOError:
+                    print("Problem connecting to receiver.")
+                rx.d_2_last_intersection = []
 
-        for x in range(len(receivers)):
-            for y in range(x):
-                if x != y:
-                    if (receivers[x].confidence >= ms.min_conf and
-                        receivers[y].confidence >= ms.min_conf and
-                        receivers[x].power >= ms.min_power and
-                        receivers[y].power >= ms.min_power and
-                        abs(receivers[x].doa_time - receivers[y].doa_time) <= max_age and
-                            receivers[x].frequency == receivers[y].frequency):
-                        intersection = plot_intersects(receivers[x].latitude, receivers[x].longitude,
-                                                       receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
-                        if intersection:
-                            print(intersection)
-                            receivers[x].d_2_last_intersection.append(v.haversine(
-                                receivers[x].latitude, receivers[x].longitude, *intersection))
-                            receivers[y].d_2_last_intersection.append(v.haversine(
-                                receivers[y].latitude, receivers[y].longitude, *intersection))
-                            intersection = list(intersection)
-                            avg_conf = np.mean(
-                                [receivers[x].confidence, receivers[y].confidence])
-                            intersection.append(avg_conf)
-                            intersection = np.array([intersection])
-                            if intersection.any() is not None:
-                                intersect_list = np.concatenate(
-                                    (intersect_list, intersection), axis=0)
-
-        if intersect_list.size != 0:
-            avg_coord = np.average(
-                intersect_list[:, 0:3], weights=intersect_list[:, 2], axis=0)
-            keep, in_aoi = check_aoi(*avg_coord[0:2])
-            if keep:
-                to_table = [receivers[x].doa_time, round(avg_coord[0], 6), round(avg_coord[1], 6),
-                            len(intersect_list), avg_coord[2], in_aoi]
-                command = '''INSERT INTO intersects
-                (time, latitude, longitude, num_parents, confidence, aoi_id)
-                VALUES (?,?,?,?,?,?)'''
-                DATABASE_EDIT_Q.put((command, (to_table,), True))
-                DATABASE_RETURN.get(timeout=1)
-
-        # Loop to compute intersections for a single receiver and update all receivers
-        for rx in receivers:
-            if (rx.isSingle and rx.isMobile and rx.isActive and
-                rx.confidence >= ms.min_conf and
-                rx.power >= ms.min_power and
-                    rx.doa_time >= rx.previous_doa_time + 10000):
-                current_doa = [rx.doa_time, rx.station_id, rx.latitude,
-                               rx.longitude, rx.confidence, rx.doa]
-                min_time = rx.doa_time - 1200000  # 15 Minutes
-                c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
-                 WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
-                lob_array = c.fetchall()
-                current_time = current_doa[0]
-                lat_rxa = current_doa[2]
-                lon_rxa = current_doa[3]
-                conf_rxa = current_doa[4]
-                doa_rxa = current_doa[5]
-                keep_count = 0
-                if len(lob_array) > 1:
-                    for previous in lob_array:
-                        lat_rxb = previous[0]
-                        lon_rxb = previous[1]
-                        conf_rxb = previous[2]
-                        doa_rxb = previous[3]
-                        spacial_diversity, z = v.inverse(
-                            (lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
-                        min_diversity = 500
-                        if (spacial_diversity > min_diversity and
-                                abs(doa_rxa - doa_rxb) > 5):
-                            intersection = plot_intersects(lat_rxa, lon_rxa,
-                                                           doa_rxa, lat_rxb, lon_rxb, doa_rxb)
+            for x in range(len(receivers)):
+                for y in range(x):
+                    if x != y:
+                        if (receivers[x].confidence >= ms.min_conf and
+                            receivers[y].confidence >= ms.min_conf and
+                            receivers[x].power >= ms.min_power and
+                            receivers[y].power >= ms.min_power and
+                            abs(receivers[x].doa_time - receivers[y].doa_time) <= max_age and
+                                receivers[x].frequency == receivers[y].frequency):
+                            intersection = plot_intersects(receivers[x].latitude, receivers[x].longitude,
+                                                           receivers[x].doa, receivers[y].latitude, receivers[y].longitude, receivers[y].doa)
                             if intersection:
+                                print(intersection)
+                                receivers[x].d_2_last_intersection.append(v.haversine(
+                                    receivers[x].latitude, receivers[x].longitude, *intersection))
+                                receivers[y].d_2_last_intersection.append(v.haversine(
+                                    receivers[y].latitude, receivers[y].longitude, *intersection))
                                 intersection = list(intersection)
-                                avg_conf = np.mean([conf_rxa, conf_rxb])
+                                avg_conf = np.mean(
+                                    [receivers[x].confidence, receivers[y].confidence])
                                 intersection.append(avg_conf)
-                                keep, in_aoi = check_aoi(*intersection[0:2])
-                                if keep:
-                                    keep_count += 1
-                                    to_table = [current_time, round(intersection[0], 5), round(intersection[1], 5),
-                                                1, intersection[2], in_aoi]
-                                    command = '''INSERT INTO intersects
-                                    (time, latitude, longitude, num_parents, confidence, aoi_id)
-                                    VALUES (?,?,?,?,?,?)'''
-                                    DATABASE_EDIT_Q.put(
-                                        (command, (to_table,), True))
-                                    DATABASE_RETURN.get(timeout=1)
-                print(f"Computed and kept {keep_count} intersections.")
+                                intersection = np.array([intersection])
+                                if intersection.any() is not None:
+                                    intersect_list = np.concatenate(
+                                        (intersect_list, intersection), axis=0)
 
-                command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
-                DATABASE_EDIT_Q.put((command, [current_doa, ], True))
-                DATABASE_RETURN.get(timeout=1)
+            if intersect_list.size != 0:
+                avg_coord = np.average(
+                    intersect_list[:, 0:3], weights=intersect_list[:, 2], axis=0)
+                keep, in_aoi = check_aoi(*avg_coord[0:2])
+                if keep:
+                    to_table = [receivers[x].doa_time, round(avg_coord[0], 6), round(avg_coord[1], 6),
+                                len(intersect_list), avg_coord[2], in_aoi]
+                    command = '''INSERT INTO intersects
+                    (time, latitude, longitude, num_parents, confidence, aoi_id)
+                    VALUES (?,?,?,?,?,?)'''
+                    DATABASE_EDIT_Q.put((command, (to_table,), True))
+                    DATABASE_RETURN.get(timeout=1)
+
+            # Loop to compute intersections for a single receiver and update all receivers
+            for rx in receivers:
+                if (rx.isSingle and rx.isMobile and rx.isActive and
+                    rx.confidence >= ms.min_conf and
+                    rx.power >= ms.min_power and
+                        rx.doa_time >= rx.previous_doa_time + 10000):
+                    current_doa = [rx.doa_time, rx.station_id, rx.latitude,
+                                   rx.longitude, rx.confidence, rx.doa]
+                    min_time = rx.doa_time - 1200000  # 15 Minutes
+                    c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
+                     WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
+                    lob_array = c.fetchall()
+                    current_time = current_doa[0]
+                    lat_rxa = current_doa[2]
+                    lon_rxa = current_doa[3]
+                    conf_rxa = current_doa[4]
+                    doa_rxa = current_doa[5]
+                    keep_count = 0
+                    if len(lob_array) > 1:
+                        for previous in lob_array:
+                            lat_rxb = previous[0]
+                            lon_rxb = previous[1]
+                            conf_rxb = previous[2]
+                            doa_rxb = previous[3]
+                            spacial_diversity, z = v.inverse(
+                                (lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
+                            min_diversity = 500
+                            if (spacial_diversity > min_diversity and
+                                    abs(doa_rxa - doa_rxb) > 5):
+                                intersection = plot_intersects(lat_rxa, lon_rxa,
+                                                               doa_rxa, lat_rxb, lon_rxb, doa_rxb)
+                                if intersection:
+                                    intersection = list(intersection)
+                                    avg_conf = np.mean([conf_rxa, conf_rxb])
+                                    intersection.append(avg_conf)
+                                    keep, in_aoi = check_aoi(*intersection[0:2])
+                                    if keep:
+                                        keep_count += 1
+                                        to_table = [current_time, round(intersection[0], 5), round(intersection[1], 5),
+                                                    1, intersection[2], in_aoi]
+                                        command = '''INSERT INTO intersects
+                                        (time, latitude, longitude, num_parents, confidence, aoi_id)
+                                        VALUES (?,?,?,?,?,?)'''
+                                        DATABASE_EDIT_Q.put(
+                                            (command, (to_table,), True))
+                                        DATABASE_RETURN.get(timeout=1)
+                    print(f"Computed and kept {keep_count} intersections.")
+
+                    command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
+                    DATABASE_EDIT_Q.put((command, [current_doa, ], True))
+                    DATABASE_RETURN.get(timeout=1)
 
             DATABASE_EDIT_Q.put(("done", None, False))
             # try:
             #     if rx.isActive: rx.update()
             # except IOError:
             #     print("Problem connecting to receiver.")
-
-        ms.rx_busy = False
         time.sleep(1)
         if dots > 5:
             dots = 1
