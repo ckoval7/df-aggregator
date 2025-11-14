@@ -9,13 +9,14 @@
   - **Breaking Change**: Property validation now strict with Pydantic
     - Removed invalid `zIndex` property from Point and Billboard (not supported)
     - Changed `heightReference` from string to dict: `{"heightReference": "CLAMP_TO_GROUND"}`
+    - Changed Polyline `positions` from `Position` to `PositionList`
     - Kept `zIndex` in Ellipse properties (valid for Ellipse)
   - Fixed incorrect use of `Material` class for polyline materials
   - Changed to use `PolylineMaterial` for polyline-specific materials (polylineOutline, polylineDash)
   - Updated all Document() calls to use `Document(packets=[...])` syntax
   - Updated all dumps() calls to remove separators argument
   - Removed unused `Material` import and `Preamble` import
-  - Now imports `CZML_VERSION` from czml3
+  - Now imports `CZML_VERSION` and `PositionList` from czml3
   - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)
   - Note: czml3 v2.0+ uses Pydantic for all classes with strict validation
 - Update to CesiumJS 1.135 (November 2025)

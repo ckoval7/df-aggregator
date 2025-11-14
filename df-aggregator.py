@@ -33,7 +33,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
-from czml3.properties import Position, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
+from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
@@ -736,7 +736,7 @@ def write_rx_czml():
                                               )),
                                               clampToGround=True,
                                               width=5,
-                                              positions=Position(cartographicDegrees=[
+                                              positions=PositionList(cartographicDegrees=[
                                                   lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
                                           )))
                 heading_start_lat = x.latitude
@@ -753,7 +753,7 @@ def write_rx_czml():
                                               )),
                                               clampToGround=True,
                                               width=2,
-                                              positions=Position(cartographicDegrees=[
+                                              positions=PositionList(cartographicDegrees=[
                                                   heading_start_lon, heading_start_lat, height, heading_stop_lon, heading_stop_lat, height])
                                           )))
             else:
