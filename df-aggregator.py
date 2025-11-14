@@ -401,6 +401,7 @@ def process_data(database_name, epsilon, min_samp):
                 # Create fresh Queue objects for this DBSCAN operation to avoid resource leaks
                 dbscan_result_q = Queue()
                 dbscan_wait_q = Queue()
+                process_terminated = False
 
                 while not dbscan_wait_q.empty():
                     print("Waiting for my turn...")
@@ -414,16 +415,28 @@ def process_data(database_name, epsilon, min_samp):
                     db.join()
                 except:
                     print("DBSCAN took took long, terminated.")
-                    if not dbscan_wait_q.empty():
-                        dbscan_wait_q.get()
+                    process_terminated = True
+                    # Drain queues before terminating to prevent deadlock
+                    try:
+                        while not dbscan_wait_q.empty():
+                            dbscan_wait_q.get_nowait()
+                    except:
+                        pass
                     db.terminate()
+                    db.join()  # Wait for termination to complete
                     return likely_location, intersect_list, ellipsedata
                 finally:
                     # Clean up queues to prevent resource leaks
                     dbscan_result_q.close()
-                    dbscan_result_q.join_thread()
                     dbscan_wait_q.close()
-                    dbscan_wait_q.join_thread()
+                    # If process was terminated, cancel join to avoid hanging
+                    # Otherwise, join properly to flush remaining data
+                    if process_terminated:
+                        dbscan_result_q.cancel_join_thread()
+                        dbscan_wait_q.cancel_join_thread()
+                    else:
+                        dbscan_result_q.join_thread()
+                        dbscan_wait_q.join_thread()
 
                 stoptime = time.time()
                 print(
@@ -1441,6 +1454,13 @@ def finish():
     DATABASE_RETURN.get(timeout=1)
     if geofile is not None:
         write_geojson(*process_data(database_name)[:2])
+
+    # Clean up database queues to prevent semaphore leaks
+    DATABASE_EDIT_Q.close()
+    DATABASE_EDIT_Q.join_thread()
+    DATABASE_RETURN.close()
+    DATABASE_RETURN.join_thread()
+
     kill(getpid(), signal.SIGTERM)
 
 
