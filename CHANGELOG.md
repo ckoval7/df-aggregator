@@ -1,4 +1,7 @@
 ## Recent Changes:
+- Bug fixes (January 2025)
+  - Fixed loading spinner staying visible when CZML data fails to load
+  - Added error handler to loadTxCzml() to ensure spinner is always hidden
 - Update to czml3 3.0.0 (January 2025)
   - **Breaking Change**: Replaced `Preamble` class with `Packet(id="document", name="...", version=CZML_VERSION)`
   - Fixed incorrect use of `Material` class for polyline materials

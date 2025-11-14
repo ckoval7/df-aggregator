@@ -288,6 +288,11 @@
         function(dataSource1) {
           spinner.style.visibility = "hidden";
           spinner.style.zIndex = "0";
+      }).catch(
+        function(error) {
+          console.error('Error loading transmitters CZML:', error);
+          spinner.style.visibility = "hidden";
+          spinner.style.zIndex = "0";
       });
       viewer.dataSources.add(transmittersDataSource);
       return transmittersDataSource;
