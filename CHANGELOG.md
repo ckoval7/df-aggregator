@@ -1,4 +1,9 @@
 ## Recent Changes:
+- Update to CesiumJS 1.135 (November 2025)
+  - Migrated from deprecated `imageryProvider` option to modern `baseLayer` API
+  - Updated to use `ArcGisMapServerImageryProvider.fromUrl()` async pattern
+  - Updated to use `ImageryLayer.fromProviderAsync()` for imagery layer initialization
+  - Using official Cesium CDN for latest version (1.135)
 - Update to CesiumJS 1.95
 - Power and Confidence range sliders have been updated to reflect data output by the KrakenSDR software.
 

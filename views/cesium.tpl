@@ -24,14 +24,8 @@
   <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
   <!-- Include the CesiumJS JavaScript and CSS files -->
-  <!-- <script src="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.90/Build/Cesium/Widgets/widgets.css" rel="stylesheet"> -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Cesium.js"
-    integrity="sha512-Y95sidA9cDT2a8MMmD47EyCVxQRJYNhXEnvBgbsp+q0gK2k3VSMpMvs9DTct0dEjm+6Dru+d2wYllhgceEiFgw=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Widgets/widgets.min.css"
-    integrity="sha512-dWztHlhNizO37Lu3hJ+wCd8/T/VTqD8PHp4ZHRpHuGvEJJ59vTD0LPXekgZiaghVYDyZvXAqTAVhuctgyyukgw=="
-    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.135/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.135/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
   <!-- <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> -->
@@ -53,16 +47,13 @@
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     % end
 
-    // Set default map to ESRI
-    const esri = new Cesium.ArcGisMapServerImageryProvider({
-      url : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
-    });
+    // Set default map to ESRI using the modern async pattern
+    const esriProvider = Cesium.ArcGisMapServerImageryProvider.fromUrl(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+    );
 
     var viewer = new Cesium.Viewer('cesiumContainer', {
-      imageryProvider: esri,
-      // imageryProvider : new Cesium.TileMapServiceImageryProvider({
-      //   url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
-      // }),
+      baseLayer: Cesium.ImageryLayer.fromProviderAsync(esriProvider),
       sceneModePicker: true,
       homeButton: false,
       timeline: false,
