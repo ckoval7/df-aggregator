@@ -308,12 +308,12 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_I
 # We start this in it's own process do it doesn't eat all of your RAM.
 # This becomes noticable at over 10k intersections.
 #######################################################################
-def do_dbscan(X, epsilon, minsamp):
-    DBSCAN_WAIT_Q.put(True)
+def do_dbscan(X, epsilon, minsamp, result_queue, wait_queue):
+    wait_queue.put(True)
     db = DBSCAN(eps=epsilon, min_samples=minsamp).fit(X)
-    DBSCAN_Q.put(db.labels_)
-    if not DBSCAN_WAIT_Q.empty():
-        DBSCAN_WAIT_Q.get()
+    result_queue.put(db.labels_)
+    if not wait_queue.empty():
+        wait_queue.get()
 
 
 ####################################
@@ -400,7 +400,7 @@ def process_data(database_name, epsilon, min_samp):
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan, args=(X, epsilon, min_samp))
+                db = Process(target=do_dbscan, args=(X, epsilon, min_samp, DBSCAN_Q, DBSCAN_WAIT_Q))
                 db.daemon = True
                 db.start()
                 try:
