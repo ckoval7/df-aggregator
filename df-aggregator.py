@@ -31,7 +31,7 @@ from lxml import etree
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
-from czml3 import Packet, Document, Preamble
+from czml3 import Packet, Document, CZML_VERSION
 from czml3.properties import Position, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, put, response, redirect, template, static_file
@@ -628,7 +628,7 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
         }
     }
 
-    top = Preamble(name="Geolocation Data")
+    top = Packet(id="document", name="Geolocation Data", version=CZML_VERSION)
     all_point_packets = []
     best_point_packets = []
     ellipse_packets = []
@@ -702,7 +702,7 @@ def write_rx_czml():
     gray = [128, 128, 128, 255]
     receiver_point_packets = []
     lob_packets = []
-    top = Preamble(name="Receivers")
+    top = Packet(id="document", name="Receivers", version=CZML_VERSION)
 
     rx_properties = {
         "verticalOrigin": "BOTTOM",
@@ -784,7 +784,7 @@ def wr_aoi_czml():
     response.set_header(
         'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     aoi_packets = []
-    top = Preamble(name="AOIs")
+    top = Packet(id="document", name="AOIs", version=CZML_VERSION)
     area_of_interest_properties = {
         "granularity": 0.008722222,
         "height": 0,

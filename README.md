@@ -1,7 +1,8 @@
 # DF Aggregator
 
 ## Recent Changes:
-- Update to czml3 >= 1.0.0 (January 2025)
+- Update to czml3 3.0.0 (January 2025)
+  - **Breaking Change**: Replaced deprecated `Preamble` class with `Packet(id="document")`
   - Fixed incorrect use of `Material` class for polyline materials
   - Changed to use `PolylineMaterial` for polyline-specific materials
   - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)

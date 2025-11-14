@@ -1,8 +1,10 @@
 ## Recent Changes:
-- Update to czml3 >= 1.0.0 (January 2025)
+- Update to czml3 3.0.0 (January 2025)
+  - **Breaking Change**: Replaced `Preamble` class with `Packet(id="document", name="...", version=CZML_VERSION)`
   - Fixed incorrect use of `Material` class for polyline materials
   - Changed to use `PolylineMaterial` for polyline-specific materials (polylineOutline, polylineDash)
-  - Removed unused `Material` import
+  - Removed unused `Material` import and `Preamble` import
+  - Now imports `CZML_VERSION` from czml3
   - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)
   - Note: czml3 v2.0+ uses Pydantic for all classes
 - Update to CesiumJS 1.135 (November 2025)
