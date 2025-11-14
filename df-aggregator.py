@@ -380,9 +380,10 @@ def process_data(database_name, epsilon, min_samp):
                     min_samp = round(0.05 * n_points)
                 elif not min_samp.isnumeric():
                     break
+                else:
+                    min_samp = int(min_samp)
 
                 min_samp = max(3, min_samp)
-                min_samp = int(min_samp)
 
                 if epsilon == "auto":
                     epsilon = autoeps_calc(X)
