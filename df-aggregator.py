@@ -34,7 +34,7 @@ from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
 from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, set_start_method
 from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
@@ -45,6 +45,15 @@ if (version_info.major != 3 or version_info.minor < 6):
           str(version_info.minor) + ", which is no longer supported.")
     print("Your python version is out of date, please update to 3.6 or newer.")
     quit()
+
+# Set multiprocessing start method to 'forkserver' to avoid fork() deadlock warnings
+# when creating processes in a multi-threaded environment (web server, database writer threads)
+# 'forkserver' is safer than 'fork' but more compatible than 'spawn' for this use case
+try:
+    set_start_method('forkserver')
+except RuntimeError:
+    # Start method has already been set, which is fine
+    pass
 
 
 ###############################################
@@ -299,12 +308,12 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_I
 # We start this in it's own process do it doesn't eat all of your RAM.
 # This becomes noticable at over 10k intersections.
 #######################################################################
-def do_dbscan(X, epsilon, minsamp):
-    DBSCAN_WAIT_Q.put(True)
+def do_dbscan(X, epsilon, minsamp, result_queue, wait_queue):
+    wait_queue.put(True)
     db = DBSCAN(eps=epsilon, min_samples=minsamp).fit(X)
-    DBSCAN_Q.put(db.labels_)
-    if not DBSCAN_WAIT_Q.empty():
-        DBSCAN_WAIT_Q.get()
+    result_queue.put(db.labels_)
+    if not wait_queue.empty():
+        wait_queue.get()
 
 
 ####################################
@@ -371,9 +380,10 @@ def process_data(database_name, epsilon, min_samp):
                     min_samp = round(0.05 * n_points)
                 elif not min_samp.isnumeric():
                     break
+                else:
+                    min_samp = int(min_samp)
 
                 min_samp = max(3, min_samp)
-                min_samp = int(min_samp)
 
                 if epsilon == "auto":
                     epsilon = autoeps_calc(X)
@@ -391,7 +401,7 @@ def process_data(database_name, epsilon, min_samp):
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan, args=(X, epsilon, min_samp))
+                db = Process(target=do_dbscan, args=(X, epsilon, min_samp, DBSCAN_Q, DBSCAN_WAIT_Q))
                 db.daemon = True
                 db.start()
                 try:
