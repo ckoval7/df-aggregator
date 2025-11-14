@@ -46,10 +46,11 @@ if (version_info.major != 3 or version_info.minor < 6):
     print("Your python version is out of date, please update to 3.6 or newer.")
     quit()
 
-# Set multiprocessing start method to 'spawn' to avoid fork() deadlock warnings
+# Set multiprocessing start method to 'forkserver' to avoid fork() deadlock warnings
 # when creating processes in a multi-threaded environment (web server, database writer threads)
+# 'forkserver' is safer than 'fork' but more compatible than 'spawn' for this use case
 try:
-    set_start_method('spawn')
+    set_start_method('forkserver')
 except RuntimeError:
     # Start method has already been set, which is fine
     pass
