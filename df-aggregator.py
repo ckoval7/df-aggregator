@@ -24,6 +24,7 @@ import sqlite3
 import threading
 import signal
 import json
+import urllib.request
 from colorsys import hsv_to_rgb
 from optparse import OptionParser
 from os import system, name, kill, getpid
@@ -55,17 +56,16 @@ def create_secure_parser():
     Create an XML parser with security protections against XXE attacks.
 
     This parser configuration:
-    - Disables external entity resolution
-    - Blocks all network access
+    - Disables external entity resolution (primary XXE protection)
     - Disables DTD loading and validation
     - Removes XML comments
+    - Allows network access for fetching receiver XML from remote URLs
 
     Returns:
         lxml.etree.XMLParser: A configured secure parser
     """
     parser = etree.XMLParser(
-        resolve_entities=False,  # Disable external entity resolution (XXE protection)
-        no_network=True,         # Disable network access entirely
+        resolve_entities=False,  # Disable external entity resolution (PRIMARY XXE protection)
         remove_comments=True,    # Remove comments from XML
         dtd_validation=False,    # Disable DTD validation
         load_dtd=False          # Don't load DTD at all
@@ -146,8 +146,10 @@ class receiver:
     # Updates receiver from the remote URL
     def update(self, first_run=False):
         try:
-            # Use secure parser to prevent XXE attacks
-            xml_contents = etree.parse(self.station_url, parser=create_secure_parser())
+            # Fetch XML from remote URL, then parse with secure parser to prevent XXE attacks
+            with urllib.request.urlopen(self.station_url) as response:
+                xml_data = response.read()
+            xml_contents = etree.fromstring(xml_data, parser=create_secure_parser())
             xml_station_id = xml_contents.find('STATION_ID')
             self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
