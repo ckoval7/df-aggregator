@@ -82,8 +82,8 @@ def create_secure_parser():
     return parser
 
 
-DBSCAN_Q = Queue()
-DBSCAN_WAIT_Q = Queue()
+# DATABASE_EDIT_Q and DATABASE_RETURN are used by the long-running database writer thread
+# and need to be persistent global queues
 DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
 
@@ -397,22 +397,33 @@ def process_data(database_name, epsilon, min_samp):
                 # size_x = sys.getsizeof(X)/1024
                 # print(f"The dataset is {size_x} kilobytes")
                 print(f"Computing Clusters from {n_points} intersections.")
-                while not DBSCAN_WAIT_Q.empty():
+
+                # Create fresh Queue objects for this DBSCAN operation to avoid resource leaks
+                dbscan_result_q = Queue()
+                dbscan_wait_q = Queue()
+
+                while not dbscan_wait_q.empty():
                     print("Waiting for my turn...")
                     time.sleep(1)
                 starttime = time.time()
-                db = Process(target=do_dbscan, args=(X, epsilon, min_samp, DBSCAN_Q, DBSCAN_WAIT_Q))
+                db = Process(target=do_dbscan, args=(X, epsilon, min_samp, dbscan_result_q, dbscan_wait_q))
                 db.daemon = True
                 db.start()
                 try:
-                    labels = DBSCAN_Q.get(timeout=10)
+                    labels = dbscan_result_q.get(timeout=10)
                     db.join()
                 except:
                     print("DBSCAN took took long, terminated.")
-                    if not DBSCAN_WAIT_Q.empty():
-                        DBSCAN_WAIT_Q.get()
+                    if not dbscan_wait_q.empty():
+                        dbscan_wait_q.get()
                     db.terminate()
                     return likely_location, intersect_list, ellipsedata
+                finally:
+                    # Clean up queues to prevent resource leaks
+                    dbscan_result_q.close()
+                    dbscan_result_q.join_thread()
+                    dbscan_wait_q.close()
+                    dbscan_wait_q.join_thread()
 
                 stoptime = time.time()
                 print(
