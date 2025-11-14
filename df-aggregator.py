@@ -32,7 +32,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, Preamble
-from czml3.properties import Position, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Material
+from czml3.properties import Position, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
@@ -728,7 +728,7 @@ def write_rx_czml():
                     lob_start_lat, lob_start_lon, x.doa, x.lob_length())
                 lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
                                           polyline=Polyline(
-                                              material=Material(polylineOutline=PolylineOutlineMaterial(
+                                              material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
                                                   color=Color(
                                                       rgba=lob_color),
                                                   outlineColor=Color(

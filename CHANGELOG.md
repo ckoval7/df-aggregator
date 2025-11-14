@@ -1,4 +1,10 @@
 ## Recent Changes:
+- Update to czml3 >= 1.0.0 (January 2025)
+  - Fixed incorrect use of `Material` class for polyline materials
+  - Changed to use `PolylineMaterial` for polyline-specific materials (polylineOutline, polylineDash)
+  - Removed unused `Material` import
+  - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)
+  - Note: czml3 v2.0+ uses Pydantic for all classes
 - Update to CesiumJS 1.135 (November 2025)
   - Migrated from deprecated `imageryProvider` option to modern `baseLayer` API
   - Updated to use `ArcGisMapServerImageryProvider.fromUrl()` async pattern
