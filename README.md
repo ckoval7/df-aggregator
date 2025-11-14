@@ -1,6 +1,15 @@
 # DF Aggregator
 
 ## Recent Changes:
+- Update to czml3 3.0.0 (January 2025)
+  - **Breaking Change**: Replaced deprecated `Preamble` class with `Packet(id="document")`
+  - Fixed incorrect use of `Material` class for polyline materials
+  - Changed to use `PolylineMaterial` for polyline-specific materials
+  - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)
+- Update to CesiumJS 1.135 (November 2025)
+  - Updated to use modern async imagery provider API
+  - Migrated from deprecated `imageryProvider` to `baseLayer` option
+  - Using official Cesium CDN for latest version
 - Update to CesiumJS 1.95
 - Power and Confidence range sliders have been updated to reflect data output by the KrakenSDR software.
 - Ellipse parameters are now automatically calculated. You can still adjust them
@@ -15,8 +24,9 @@ if you want, but the auto-calculation works exceptionally well.
 - [numpy](https://numpy.org/install/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
-- [czml3](https://github.com/poliastro/czml3)
-    - pip3 now has the proper version of czml3! Version should be >= 0.5.4
+- [czml3](https://github.com/Stoops-ML/czml3)
+    - Version should be >= 1.0.0
+    - Note: czml3 has moved from poliastro to Stoops-ML and now uses Pydantic
 
 ## Other things you'll need:
 - ~[Cesium Ion Token](https://cesium.com/docs/tutorials/quick-start/)~

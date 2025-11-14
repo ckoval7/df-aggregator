@@ -1,4 +1,29 @@
 ## Recent Changes:
+- Bug fixes (January 2025)
+  - Fixed loading spinner staying visible when CZML data fails to load
+  - Added error handler to loadTxCzml() to ensure spinner is always hidden
+- Update to czml3 3.0.0 (January 2025)
+  - **Breaking Change**: Replaced `Preamble` class with `Packet(id="document", name="...", version=CZML_VERSION)`
+  - **Breaking Change**: `Document()` now requires keyword argument `packets=` instead of positional list
+  - **Breaking Change**: `dumps()` method no longer accepts `separators` argument
+  - **Breaking Change**: Property validation now strict with Pydantic
+    - Removed invalid `zIndex` property from Point and Billboard (not supported)
+    - Changed `heightReference` from string to dict: `{"heightReference": "CLAMP_TO_GROUND"}`
+    - Changed Polyline `positions` from `Position` to `PositionList`
+    - Kept `zIndex` in Ellipse properties (valid for Ellipse)
+  - Fixed incorrect use of `Material` class for polyline materials
+  - Changed to use `PolylineMaterial` for polyline-specific materials (polylineOutline, polylineDash)
+  - Updated all Document() calls to use `Document(packets=[...])` syntax
+  - Updated all dumps() calls to remove separators argument
+  - Removed unused `Material` import and `Preamble` import
+  - Now imports `CZML_VERSION` and `PositionList` from czml3
+  - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)
+  - Note: czml3 v2.0+ uses Pydantic for all classes with strict validation
+- Update to CesiumJS 1.135 (November 2025)
+  - Migrated from deprecated `imageryProvider` option to modern `baseLayer` API
+  - Updated to use `ArcGisMapServerImageryProvider.fromUrl()` async pattern
+  - Updated to use `ImageryLayer.fromProviderAsync()` for imagery layer initialization
+  - Using official Cesium CDN for latest version (1.135)
 - Update to CesiumJS 1.95
 - Power and Confidence range sliders have been updated to reflect data output by the KrakenSDR software.
 

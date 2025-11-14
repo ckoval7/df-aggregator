@@ -24,6 +24,7 @@ import sqlite3
 import threading
 import signal
 import json
+import urllib.request
 from colorsys import hsv_to_rgb
 from optparse import OptionParser
 from os import system, name, kill, getpid
@@ -31,8 +32,8 @@ from lxml import etree
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
-from czml3 import Packet, Document, Preamble
-from czml3.properties import Position, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Material
+from czml3 import Packet, Document, CZML_VERSION
+from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
 from multiprocessing import Process, Queue
 from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
@@ -55,17 +56,16 @@ def create_secure_parser():
     Create an XML parser with security protections against XXE attacks.
 
     This parser configuration:
-    - Disables external entity resolution
-    - Blocks all network access
+    - Disables external entity resolution (primary XXE protection)
     - Disables DTD loading and validation
     - Removes XML comments
+    - Allows network access for fetching receiver XML from remote URLs
 
     Returns:
         lxml.etree.XMLParser: A configured secure parser
     """
     parser = etree.XMLParser(
-        resolve_entities=False,  # Disable external entity resolution (XXE protection)
-        no_network=True,         # Disable network access entirely
+        resolve_entities=False,  # Disable external entity resolution (PRIMARY XXE protection)
         remove_comments=True,    # Remove comments from XML
         dtd_validation=False,    # Disable DTD validation
         load_dtd=False          # Don't load DTD at all
@@ -146,8 +146,10 @@ class receiver:
     # Updates receiver from the remote URL
     def update(self, first_run=False):
         try:
-            # Use secure parser to prevent XXE attacks
-            xml_contents = etree.parse(self.station_url, parser=create_secure_parser())
+            # Fetch XML from remote URL, then parse with secure parser to prevent XXE attacks
+            with urllib.request.urlopen(self.station_url) as response:
+                xml_data = response.read()
+            xml_contents = etree.fromstring(xml_data, parser=create_secure_parser())
             xml_station_id = xml_contents.find('STATION_ID')
             self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
@@ -604,13 +606,11 @@ def write_geojson(best_point, all_the_points):
 def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
     point_properties = {
         "pixelSize": 5.0,
-        "heightReference": "CLAMP_TO_GROUND",
-        "zIndex": 3
+        "heightReference": {"heightReference": "CLAMP_TO_GROUND"}
     }
     best_point_properties = {
         "pixelSize": 12.0,
-        "zIndex": 10,
-        "heightReference": "CLAMP_TO_GROUND",
+        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
         "color": {
             "rgba": [0, 255, 0, 255],
         }
@@ -628,7 +628,7 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
         }
     }
 
-    top = Preamble(name="Geolocation Data")
+    top = Packet(id="document", name="Geolocation Data", version=CZML_VERSION)
     all_point_packets = []
     best_point_packets = []
     ellipse_packets = []
@@ -683,7 +683,7 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
                                               **ellipse_properties, **ellipse_info},
                                           position={"cartographicDegrees": [x[3], x[4], 0]}))
 
-    return Document([top] + best_point_packets + all_point_packets + ellipse_packets).dumps(separators=(',', ':'))
+    return Document(packets=[top] + best_point_packets + all_point_packets + ellipse_packets).dumps()
 
 
 ###############################################
@@ -702,13 +702,12 @@ def write_rx_czml():
     gray = [128, 128, 128, 255]
     receiver_point_packets = []
     lob_packets = []
-    top = Preamble(name="Receivers")
+    top = Packet(id="document", name="Receivers", version=CZML_VERSION)
 
     rx_properties = {
         "verticalOrigin": "BOTTOM",
-        "zIndex": 9,
         "scale": 0.75,
-        "heightReference": "CLAMP_TO_GROUND",
+        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
         "height": 48,
         "width": 48,
     }
@@ -728,7 +727,7 @@ def write_rx_czml():
                     lob_start_lat, lob_start_lon, x.doa, x.lob_length())
                 lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
                                           polyline=Polyline(
-                                              material=Material(polylineOutline=PolylineOutlineMaterial(
+                                              material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
                                                   color=Color(
                                                       rgba=lob_color),
                                                   outlineColor=Color(
@@ -737,7 +736,7 @@ def write_rx_czml():
                                               )),
                                               clampToGround=True,
                                               width=5,
-                                              positions=Position(cartographicDegrees=[
+                                              positions=PositionList(cartographicDegrees=[
                                                   lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
                                           )))
                 heading_start_lat = x.latitude
@@ -754,7 +753,7 @@ def write_rx_czml():
                                               )),
                                               clampToGround=True,
                                               width=2,
-                                              positions=Position(cartographicDegrees=[
+                                              positions=PositionList(cartographicDegrees=[
                                                   heading_start_lon, heading_start_lat, height, heading_stop_lon, heading_stop_lat, height])
                                           )))
             else:
@@ -773,7 +772,7 @@ def write_rx_czml():
                                                      **rx_properties, **rx_icon},
                                                  position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
 
-    return Document([top] + receiver_point_packets + lob_packets).dumps(separators=(',', ':'))
+    return Document(packets=[top] + receiver_point_packets + lob_packets).dumps()
 
 
 ###############################################
@@ -784,7 +783,7 @@ def wr_aoi_czml():
     response.set_header(
         'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
     aoi_packets = []
-    top = Preamble(name="AOIs")
+    top = Packet(id="document", name="AOIs", version=CZML_VERSION)
     area_of_interest_properties = {
         "granularity": 0.008722222,
         "height": 0,
@@ -835,7 +834,7 @@ def wr_aoi_czml():
                                   ellipse={**aoi_properties, **aoi_info},
                                   position={"cartographicDegrees": [aoi['longitude'], aoi['latitude'], 0]}))
 
-    return Document([top] + aoi_packets).dumps(separators=(',', ':'))
+    return Document(packets=[top] + aoi_packets).dumps()
 
 
 ###############################################
