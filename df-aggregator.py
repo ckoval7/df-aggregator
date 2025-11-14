@@ -85,9 +85,34 @@ DATABASE_RETURN = Queue()
 ###############################################
 rx_lock = threading.Lock()
 
-d = 40000  # draw distance of LOBs in meters
-heading_d = 20000
-max_age = 5000
+###############################################
+# Application Constants
+###############################################
+
+# Distance Constants (meters)
+LOB_DRAW_DISTANCE_METERS = 40000          # Draw distance for Lines of Bearing on map
+HEADING_DRAW_DISTANCE_METERS = 20000      # Draw distance for heading indicators
+MAX_INTERSECTION_DISTANCE_METERS = 100000 # Maximum distance for valid intersections
+MIN_SPATIAL_DIVERSITY_METERS = 500        # Minimum movement for single-receiver triangulation
+
+# Time Constants (milliseconds)
+MAX_TIME_DIFF_MS = 5000                   # Maximum time difference for intersection matching (5 seconds)
+SINGLE_RX_MIN_TIME_DIFF_MS = 10000        # Minimum time between single-receiver samples (10 seconds)
+HISTORICAL_LOB_WINDOW_MS = 1200000        # Historical LOB window for single-receiver mode (20 minutes)
+
+# Database Query Constants
+MAX_INTERSECTS_PER_AOI = 25000            # Maximum intersections to load per AOI for clustering
+AUTOEPS_SAMPLE_SIZE = 2000                # Sample size for automatic epsilon calculation
+
+# Processing Constants
+AUTOEPS_SLOPE_THRESHOLD = 0.003           # Slope threshold for epsilon auto-calculation
+GAUSSIAN_ELLIPSE_SIGMA = 3.0              # Standard deviations for confidence ellipse (3-sigma = 99.7%)
+
+# Legacy variable names (for backwards compatibility)
+d = LOB_DRAW_DISTANCE_METERS
+heading_d = HEADING_DRAW_DISTANCE_METERS
+max_age = MAX_TIME_DIFF_MS
+
 receivers = []
 
 
@@ -226,7 +251,7 @@ def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
 #####################################################
 # Find line of intersection between two great circles
 #####################################################
-def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=100000):
+def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_INTERSECTION_DISTANCE_METERS):
     # plot another point on the lob
     # v.direct(lat_a, lon_a, doa_a, d)
     # returns (lat_a2, lon_a2)
@@ -285,7 +310,7 @@ def do_dbscan(X, epsilon, minsamp):
 ####################################
 def autoeps_calc(X):
     # only use a sample of the data to speed up calculation.
-    X = X[:min(2000, len(X)):2]
+    X = X[:min(AUTOEPS_SAMPLE_SIZE, len(X)):2]
     min_distances = []
     for x in X:
         distances = []
@@ -305,7 +330,7 @@ def autoeps_calc(X):
             m = (y2 - y1) / (x2 - x1)
 
             # once the slope starts getting steeper, use that as the eps value
-            if m > 0.003:
+            if m > AUTOEPS_SLOPE_THRESHOLD:
                 # print(f"Slope: {round(m, 3)}, eps: {y1}")
                 return y1
     except IndexError:
@@ -317,7 +342,7 @@ def autoeps_calc(X):
 # finds the mean of a cluster of intersections.
 ###############################################
 def process_data(database_name, epsilon, min_samp):
-    n_std = 3.0
+    n_std = GAUSSIAN_ELLIPSE_SIGMA
     intersect_list = []
     likely_location = []
     ellipsedata = []
@@ -333,7 +358,7 @@ def process_data(database_name, epsilon, min_samp):
     for aoi in aoi_list:
         print(f"Checking AOI {aoi}.")
         curs.execute('''SELECT longitude, latitude, time FROM intersects
-            WHERE aoi_id=? ORDER BY confidence DESC LIMIT 25000''', [aoi])
+            WHERE aoi_id=? ORDER BY confidence DESC LIMIT ?''', [aoi, MAX_INTERSECTS_PER_AOI])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
             if epsilon != "0":
@@ -1103,10 +1128,10 @@ def run_receiver(receivers):
                 if (rx.isSingle and rx.isMobile and rx.isActive and
                     rx.confidence >= ms.min_conf and
                     rx.power >= ms.min_power and
-                        rx.doa_time >= rx.previous_doa_time + 10000):
+                        rx.doa_time >= rx.previous_doa_time + SINGLE_RX_MIN_TIME_DIFF_MS):
                     current_doa = [rx.doa_time, rx.station_id, rx.latitude,
                                    rx.longitude, rx.confidence, rx.doa]
-                    min_time = rx.doa_time - 1200000  # 15 Minutes
+                    min_time = rx.doa_time - HISTORICAL_LOB_WINDOW_MS
                     c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
                      WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
                     lob_array = c.fetchall()
@@ -1124,7 +1149,7 @@ def run_receiver(receivers):
                             doa_rxb = previous[3]
                             spacial_diversity, z = v.inverse(
                                 (lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
-                            min_diversity = 500
+                            min_diversity = MIN_SPATIAL_DIVERSITY_METERS
                             if (spacial_diversity > min_diversity and
                                     abs(doa_rxa - doa_rxb) > 5):
                                 intersection = plot_intersects(lat_rxa, lon_rxa,
