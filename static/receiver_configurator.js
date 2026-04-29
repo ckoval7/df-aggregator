@@ -85,9 +85,7 @@ function editReceivers(rx_json, id) {
 
         isMobileCheck = document.getElementById(`mobilerx_toggle_${id}`);
         if (isMobileCheck.checked) {
-            if (isMobileCheck.checked) {
-                singlespan.innerHTML = singleModeHtml;
-            }
+            singlespan.innerHTML = singleModeHtml;
         }
         isMobileCheck.onchange = function() {
             if (isMobileCheck.checked) {

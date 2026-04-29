@@ -192,16 +192,6 @@ function createAois(aoi_json, id) {
 }
 
 // ****************************************************
-// * Refreshes info on Aoi UI Cards (Refresh button)
-// ****************************************************
-function refreshAoi(aoi_json, id) {
-    const interest_areas = aoi_json['interest_areas'];
-    for (let i = 0; i < Object.keys(interest_areas).length; i++) {
-        showAois(aoi_json, interest_areas[i].uid);
-    }
-}
-
-// ****************************************************
 // * Main function - Loads all Receivers
 // ****************************************************
 function loadAoi(action) {

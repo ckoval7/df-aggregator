@@ -18,7 +18,6 @@ from math import degrees
 from math import sin, asin
 from math import sqrt
 from math import tan
-from math import pow
 
 a=6378137.0                             # radius at equator in meters (WGS-84)
 f=1/298.257223563                       # flattening of the ellipsoid (WGS-84)
@@ -126,17 +125,17 @@ def direct(phi1, lembda1, alpha12, s): #lat, lon, bearing, distance
         two_sigma_m = 2 * sigma1 + sigma
         delta_sigma = B * sin(sigma) * ( cos(two_sigma_m) \
                 + (B/4) * (cos(sigma) * \
-                (-1 + 2 * pow( cos(two_sigma_m), 2 ) -  \
+                (-1 + 2 * cos(two_sigma_m) ** 2 -  \
                 (B/6) * cos(two_sigma_m) * \
-                (-3 + 4 * pow(sin(sigma), 2 )) *  \
-                (-3 + 4 * pow( cos (two_sigma_m), 2 )))))
+                (-3 + 4 * sin(sigma) ** 2) *  \
+                (-3 + 4 * cos(two_sigma_m) ** 2))))
         last_sigma = sigma
         sigma = (s / (b * A)) + delta_sigma
     phi2 = atan2 ( (sin(U1) * cos(sigma) +\
         cos(U1) * sin(sigma) * cos(alpha12) ), \
-        ((1-f) * sqrt( pow(Sinalpha, 2) +  \
-        pow(sin(U1) * sin(sigma) - cos(U1) * \
-        cos(sigma) * cos(alpha12), 2))))
+        ((1-f) * sqrt( Sinalpha ** 2 +  \
+        (sin(U1) * sin(sigma) - cos(U1) * \
+        cos(sigma) * cos(alpha12)) ** 2)))
     lembda = atan2( (sin(sigma) * sin(alpha12 )),\
         (cos(U1) * cos(sigma) -  \
         sin(U1) *  sin(sigma) * cos(alpha12)))
@@ -144,7 +143,7 @@ def direct(phi1, lembda1, alpha12, s): #lat, lon, bearing, distance
     omega = lembda - (1-C) * f * Sinalpha *  \
         (sigma + C * sin(sigma) * (cos(two_sigma_m) + \
         C * cos(sigma) * (-1 + 2 *\
-        pow(cos(two_sigma_m), 2) )))
+        cos(two_sigma_m) ** 2)))
     lembda2 = lembda1 + omega
     alpha21 = atan2 ( Sinalpha, (-sin(U1) * \
         sin(sigma) +

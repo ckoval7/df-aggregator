@@ -343,7 +343,6 @@ def process_data(database_name, epsilon, min_samp):
     # weighted_location = []
     conn = sqlite3.connect(database_name)
     curs = conn.cursor()
-    curs.execute("SELECT DISTINCT aoi_id FROM intersects")
     curs.execute('SELECT uid FROM interest_areas WHERE aoi_type="aoi"')
     aoi_list = [item for sublist in curs.fetchall() for item in sublist]
     # aoi_list = [-1] if len(aoi_list) == 0 else aoi_list
@@ -365,7 +364,7 @@ def process_data(database_name, epsilon, min_samp):
                     elif min_samp.isnumeric():
                         aoi_min_samp = max(3, int(min_samp))
                     else:
-                        break
+                        continue
                 else:
                     aoi_min_samp = max(3, int(min_samp))
 
@@ -379,7 +378,7 @@ def process_data(database_name, epsilon, min_samp):
                     try:
                         aoi_eps = float(epsilon)
                     except (ValueError, TypeError):
-                        break
+                        continue
 
                 # size_x = sys.getsizeof(X)/1024
                 # print(f"The dataset is {size_x} kilobytes")
@@ -430,7 +429,7 @@ def process_data(database_name, epsilon, min_samp):
                     if (cov_deg[0, 0] == 0.0 and cov_deg[1, 1] == 0.0):
                         if debugging:
                             print("Unable to resolve ellipse.")
-                        break
+                        continue
 
                     center_latlon = clustermean.tolist()[::-1]
                     m_per_deg_lon = v.inverse(center_latlon,
@@ -500,7 +499,6 @@ def purge_database(type, lat, lon, radius):
 def run_aoi_rules():
     purged = 0
     sorted = 0
-    in_aoi = None
     aoi_list = fetch_aoi_data()
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
@@ -520,6 +518,7 @@ def run_aoi_rules():
     else:
         for point in intersect_list:
             keep_me = []
+            in_aoi = None
             id, lat, lon = point
             for x in aoi_list:
                 # aoi = {
@@ -1050,6 +1049,7 @@ def run_receiver(receivers):
 
         intersect_list = np.array([]).reshape(0, 3)
         latest_doa_time = 0
+        d2_accum = {i: [] for i, _ in rx_snapshot}
 
         for x, rx_x in rx_snapshot:
             for y, rx_y in rx_snapshot[:x]:
@@ -1064,9 +1064,9 @@ def run_receiver(receivers):
                     if intersection:
                         print(intersection)
                         latest_doa_time = max(latest_doa_time, rx_x.doa_time, rx_y.doa_time)
-                        rx_x.d_2_last_intersection.append(v.haversine(
+                        d2_accum[x].append(v.haversine(
                             rx_x.latitude, rx_x.longitude, *intersection))
-                        rx_y.d_2_last_intersection.append(v.haversine(
+                        d2_accum[y].append(v.haversine(
                             rx_y.latitude, rx_y.longitude, *intersection))
                         intersection = list(intersection)
                         avg_conf = np.mean(
@@ -1076,6 +1076,10 @@ def run_receiver(receivers):
                         if intersection.any() is not None:
                             intersect_list = np.concatenate(
                                 (intersect_list, intersection), axis=0)
+
+        with rx_lock:
+            for i, rx in rx_snapshot:
+                rx.d_2_last_intersection = d2_accum[i]
 
         if intersect_list.size != 0:
             avg_coord = np.average(
@@ -1199,7 +1203,8 @@ def add_receiver(receiver_url):
             command = "INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)"
             DATABASE_EDIT_Q.put((command, [to_table, ], True))
             DATABASE_RETURN.get(timeout=1)
-            DATABASE_EDIT_Q.put(("done", None, False))
+            DATABASE_EDIT_Q.put(("done", None, True))
+            DATABASE_RETURN.get(timeout=1)
             mobile = c.execute("SELECT isMobile FROM receivers WHERE station_id = ?",
                                [new_rx['station_id']]).fetchone()[0]
             single = c.execute("SELECT isSingle FROM receivers WHERE station_id = ?",
@@ -1361,6 +1366,8 @@ def database_writer():
         command, items, reply = DATABASE_EDIT_Q.get()
         if command == "done":
             conn.commit()
+            if reply:
+                DATABASE_RETURN.put(True)
         elif command == "close":
             conn.commit()
             conn.close()
