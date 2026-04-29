@@ -376,12 +376,13 @@ def process_data(database_name, epsilon, min_samp):
                 X = StandardScaler().fit_transform(intersect_array[:, 0:2])
                 n_points = len(X)
 
-                if min_samp == "auto":
-                    min_samp = round(0.05 * n_points)
-                elif not min_samp.isnumeric():
-                    break
-                else:
-                    min_samp = int(min_samp)
+                if isinstance(min_samp, str):
+                    if min_samp == "auto":
+                        min_samp = round(0.05 * n_points)
+                    elif not min_samp.isnumeric():
+                        break
+                    else:
+                        min_samp = int(min_samp)
 
                 min_samp = max(3, min_samp)
 
@@ -436,40 +437,28 @@ def process_data(database_name, epsilon, min_samp):
                     # weighted_location.append(np.average(cluster[:,0:2], weights=cluster[:,2], axis=0).tolist())
                     clustermean = np.mean(cluster[:, 0:2], axis=0)
                     likely_location.append(clustermean.tolist())
-                    cov = np.cov(cluster[:, 0], cluster[:, 1])
-                    a = cov[0, 0]
-                    b = cov[0, 1]
-                    c = cov[1, 1]
-                    if (a == 0.0 or b == 0.0 or c == 0.0):
+                    cov_deg = np.cov(cluster[:, 0], cluster[:, 1])
+                    if (cov_deg[0, 0] == 0.0 and cov_deg[1, 1] == 0.0):
                         if debugging:
-                            print(f"A: {a} B: {b} C: {c}")
                             print("Unable to resolve ellipse.")
                         break
-                    lam1 = a + c / 2 + np.sqrt((a - c / 2)**2 + b**2)
-                    # lam2 = a+c/2 - np.sqrt((a-c/2)**2 + b**2)
-                    # print([lam1, lam2, a, c])
-                    pearson = b / np.sqrt(a * c)
-                    if (1 + pearson < 0.0 or 1 - pearson < 0.0):
-                        if debugging:
-                            print(f"Pearson Value: {pearson}")
-                            print("Unable to resolve ellipse.")
-                        break
-                    print(f"A: {a} B: {b} C: {c} pearson: {pearson}")
-                    ell_radius_x = np.sqrt(1 + pearson) * np.sqrt(a) * n_std
-                    ell_radius_y = np.sqrt(1 - pearson) * np.sqrt(c) * n_std
-                    axis_x = v.inverse(clustermean.tolist()[
-                        ::-1], (ell_radius_x + clustermean[1], clustermean[0]))[0]
-                    axis_y = v.inverse(clustermean.tolist()[
-                        ::-1], (clustermean[1], ell_radius_y + clustermean[0]))[0]
-                    if b == 0 and a >= c:
-                        rotation = 0
-                    elif b == 0 and a < c:
-                        rotation = np.pi / 2
-                    else:
-                        rotation = math.atan2(lam1 - a, b)
+
+                    center_latlon = clustermean.tolist()[::-1]
+                    m_per_deg_lon = v.inverse(center_latlon,
+                        (clustermean[1], clustermean[0] + 1))[0]
+                    m_per_deg_lat = v.inverse(center_latlon,
+                        (clustermean[1] + 1, clustermean[0]))[0]
+                    S = np.diag([m_per_deg_lon, m_per_deg_lat])
+                    cov_m = S @ cov_deg @ S
+
+                    eigenvalues, eigenvectors = np.linalg.eigh(cov_m)
+                    semi_major_m = np.sqrt(eigenvalues[1]) * n_std
+                    semi_minor_m = np.sqrt(eigenvalues[0]) * n_std
+                    major_vec = eigenvectors[:, 1]
+                    rotation = math.atan2(major_vec[1], major_vec[0])
 
                     ellipsedata.append(
-                        [axis_x, axis_y, rotation, *clustermean.tolist()])
+                        [semi_major_m, semi_minor_m, rotation, *clustermean.tolist()])
 
                 for x in likely_location:
                     print(x[::-1])
@@ -668,26 +657,8 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
 
     if len(ellipsedata) > 0:
         for x in ellipsedata:
-            # rotation = 2 * np.pi - x[2]
-            if x[0] >= x[1]:
-                # rotation = x[2]
-                semiMajorAxis = x[0]
-                semiMinorAxis = x[1]
-                rotation = 2 * np.pi - x[2]
-                rotation += np.pi / 2
-                # print(f"{x[2]} Inverted to: {rotation}")
-                # print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
-                # print(f"{x[4], x[3]} is inveted")
-            else:
-                rotation = x[2]
-                semiMajorAxis = x[1]
-                semiMinorAxis = x[0]
-                # print(f"Not inverted: {rotation}")
-                # print(f"SemiMajor: {semiMajorAxis}, Semiminor: {semiMinorAxis}")
-                # print(f"{x[4], x[3]} is NOT inveted")
-
-            ellipse_info = {"semiMajorAxis": semiMajorAxis,
-                            "semiMinorAxis": semiMinorAxis, "rotation": rotation}
+            ellipse_info = {"semiMajorAxis": x[0],
+                            "semiMinorAxis": x[1], "rotation": x[2]}
             ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
                                           ellipse={
                                               **ellipse_properties, **ellipse_info},
