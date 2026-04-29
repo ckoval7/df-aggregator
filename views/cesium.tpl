@@ -87,14 +87,29 @@
     // Disable/enable object selection as needed.
     //************************************************
     var noSelect = false;
-    var defaultClickHandler = viewer.screenSpaceEventHandler.getInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
     var myClickFunction = function(event) {
-      if (!noSelect) {
-        defaultClickHandler(event);
-      } else {
+      if (noSelect) {
         viewer.selectedEntity = undefined;
         viewer.trackedEntity = undefined;
+        return;
       }
+      var pickedObjects = scene.drillPick(event.position);
+      if (pickedObjects.length === 0) {
+        viewer.selectedEntity = undefined;
+        return;
+      }
+      var bestEntity = null;
+      for (var i = 0; i < pickedObjects.length; i++) {
+        var entity = pickedObjects[i].id;
+        if (entity && entity.point) {
+          bestEntity = entity;
+          break;
+        }
+      }
+      if (!bestEntity) {
+        bestEntity = pickedObjects[0].id;
+      }
+      viewer.selectedEntity = bestEntity;
     };
     viewer.screenSpaceEventHandler.setInputAction(myClickFunction, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
