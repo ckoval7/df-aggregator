@@ -32,7 +32,8 @@ import argparse
 from os import kill, getpid
 from lxml import etree
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler, minmax_scale
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
 from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
@@ -63,26 +64,12 @@ except RuntimeError:
 # Creates a secure XML parser to prevent XXE
 # (XML External Entity) attacks.
 ###############################################
-def create_secure_parser():
-    """
-    Create an XML parser with security protections against XXE attacks.
-
-    This parser configuration:
-    - Disables external entity resolution (primary XXE protection)
-    - Disables DTD loading and validation
-    - Removes XML comments
-    - Allows network access for fetching receiver XML from remote URLs
-
-    Returns:
-        lxml.etree.XMLParser: A configured secure parser
-    """
-    parser = etree.XMLParser(
-        resolve_entities=False,  # Disable external entity resolution (PRIMARY XXE protection)
-        remove_comments=True,    # Remove comments from XML
-        dtd_validation=False,    # Disable DTD validation
-        load_dtd=False          # Don't load DTD at all
-    )
-    return parser
+_secure_parser = etree.XMLParser(
+    resolve_entities=False,
+    remove_comments=True,
+    dtd_validation=False,
+    load_dtd=False
+)
 
 
 DBSCAN_Q = Queue()
@@ -158,7 +145,7 @@ class receiver:
             # Fetch XML from remote URL, then parse with secure parser to prevent XXE attacks
             with urllib.request.urlopen(self.station_url) as response:
                 xml_data = response.read()
-            xml_contents = etree.fromstring(xml_data, parser=create_secure_parser())
+            xml_contents = etree.fromstring(xml_data, parser=_secure_parser)
             xml_station_id = xml_contents.find('STATION_ID')
             self.station_id = xml_station_id.text
             xml_doa_time = xml_contents.find('TIME')
@@ -468,7 +455,7 @@ def process_data(database_name, epsilon, min_samp):
 # Checks interesections stored in the database against a lat/lon/radius
 # and removes items inside exclusion areas.
 #######################################################################
-def purge_database(type, lat, lon, radius):
+def purge_database(area_type, lat, lon, radius):
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
     c.execute("SELECT latitude, longitude, id FROM intersects")
@@ -477,7 +464,7 @@ def purge_database(type, lat, lon, radius):
     delete_these = []
     purge_count = 0
     for x in intersect_list:
-        if type == "exclusion":
+        if area_type == "exclusion":
             distance = v.inverse(x[0:2], (lat, lon))[0]
             if distance < radius:
                 delete_these.append((x[2],))
@@ -575,11 +562,8 @@ def write_geojson(best_point, all_the_points):
             properties=all_pt_style, geometry=MultiPoint(tuple(all_the_points)))
         with open(geofile, "w") as file1:
             if best_point is not None:
-                reversed_best_point = []
-                for x in best_point:
-                    reversed_best_point.append(x)
                 best_point = Feature(properties=best_pt_style, geometry=MultiPoint(
-                    tuple(reversed_best_point)))
+                    tuple(best_point)))
                 file1.write(str(FeatureCollection(
                     [best_point, all_the_points])))
             else:
@@ -878,10 +862,11 @@ def update_cesium():
 @get('/rx_params')
 def rx_params():
 
+    # No rx.update() here — run_receiver() already polls every ~1s.
+    # This endpoint just returns cached state for the UI cards.
     all_rx = {'receivers': {}}
     rx_properties = []
     for index, x in enumerate(receivers):
-        x.update()
         rx = x.receiver_dict()
         rx['uid'] = index
         rx_properties.append(rx)
@@ -1025,6 +1010,8 @@ def run_receiver(receivers):
     clear(debugging)
     dots = 0
 
+    # Read-only connection for LOB queries in single-receiver mode below.
+    # Writes go through DATABASE_EDIT_Q; this conn just reads committed data.
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
 
@@ -1073,9 +1060,8 @@ def run_receiver(receivers):
                             [rx_x.confidence, rx_y.confidence])
                         intersection.append(avg_conf)
                         intersection = np.array([intersection])
-                        if intersection.any() is not None:
-                            intersect_list = np.concatenate(
-                                (intersect_list, intersection), axis=0)
+                        intersect_list = np.concatenate(
+                            (intersect_list, intersection), axis=0)
 
         with rx_lock:
             for i, rx in rx_snapshot:
@@ -1189,8 +1175,6 @@ def check_aoi(lat, lon):
 # in the database.
 ###############################################
 def add_receiver(receiver_url):
-    conn = sqlite3.connect(database_name)
-    c = conn.cursor()
     try:
         if any(x.station_url == receiver_url for x in receivers):
             print("Duplicate receiver, ignoring.")
@@ -1205,17 +1189,18 @@ def add_receiver(receiver_url):
             DATABASE_RETURN.get(timeout=1)
             DATABASE_EDIT_Q.put(("done", None, True))
             DATABASE_RETURN.get(timeout=1)
+            conn = sqlite3.connect(database_name)
+            c = conn.cursor()
             mobile = c.execute("SELECT isMobile FROM receivers WHERE station_id = ?",
                                [new_rx['station_id']]).fetchone()[0]
             single = c.execute("SELECT isSingle FROM receivers WHERE station_id = ?",
                                [new_rx['station_id']]).fetchone()[0]
+            conn.close()
             receivers[-1].isMobile = bool(mobile)
             receivers[-1].isSingle = bool(single)
             print("Created new DF Station at " + receiver_url)
     except AttributeError:
         pass
-
-    conn.close()
 
 
 ###############################################
@@ -1443,7 +1428,7 @@ if __name__ == '__main__':
     geofile = options.geofile
     rx_file = options.rx_file
     database_name = options.database_name
-    debugging = False if not options.debugging else True
+    debugging = options.debugging
     ms.receiving = options.disable
     ms.plotintersects = options.plotintersects
 
