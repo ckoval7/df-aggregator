@@ -185,10 +185,7 @@ class receiver:
                 self.doa = self.heading + (180 + self.raw_doa)
             else:
                 self.doa = self.heading + self.raw_doa
-            if self.doa < 0:
-                self.doa += 360
-            elif self.doa > 359:
-                self.doa -= 360
+            self.doa = self.doa % 360
             xml_power = xml_contents.find('PWR')
             self.power = float(xml_power.text)
             xml_conf = xml_contents.find('CONF')
