@@ -46,9 +46,6 @@ def get_heading(coord1, coord2):
      return heading
 
 def inverse(coord1,coord2,maxIter=200,tol=10**-12):
-    global a
-    global f
-    global b
 
     phi_1,L_1,=coord1
     phi_2,L_2,=coord2
@@ -100,9 +97,6 @@ def inverse(coord1,coord2,maxIter=200,tol=10**-12):
 
 
 def direct(phi1, lembda1, alpha12, s): #lat, lon, bearing, distance
-    global a
-    global f
-    global b
 
     piD4 = atan( 1.0 )
     two_pi = piD4 * 8.0
@@ -189,5 +183,5 @@ if __name__ == '__main__':
         else:
             output = help
         print(output)
-    except:
+    except (IndexError, ValueError):
         print(help)
