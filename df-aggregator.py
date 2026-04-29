@@ -206,6 +206,8 @@ class receiver:
         else:
             return LOB_DRAW_DISTANCE_METERS
 
+    # Class-level defaults — safe because update() and run_receiver() reassign
+    # per-instance before any shared-state read can occur.
     latitude = 0.0
     longitude = 0.0
     heading = 0.0
@@ -328,6 +330,8 @@ def process_data(database_name, epsilon, min_samp):
     likely_location = []
     ellipsedata = []
     # weighted_location = []
+    # Short-lived read-only connection; opened per-request intentionally to avoid
+    # holding a connection across the long-lived web server thread.
     conn = sqlite3.connect(database_name)
     curs = conn.cursor()
     curs.execute('SELECT uid FROM interest_areas WHERE aoi_type="aoi"')
@@ -738,7 +742,6 @@ def wr_aoi_czml():
     area_of_interest_properties = {
         "granularity": 0.008722222,
         "height": 0,
-        # "zIndex": 1,
         "material": {
             "solidColor": {
                 "color": {
@@ -748,13 +751,12 @@ def wr_aoi_czml():
         },
         "outline": True,
         "outlineWidth": 2,
-        "outlineColor": {"rgba": [53, 184, 240, 255], },
-    },
+        "outlineColor": {"rgba": [53, 184, 240, 255]},
+    }
 
     exclusion_area_properties = {
         "granularity": 0.008722222,
         "height": 0,
-        # "zIndex": 0,
         "material": {
             "solidColor": {
                 "color": {
@@ -764,8 +766,8 @@ def wr_aoi_czml():
         },
         "outline": True,
         "outlineWidth": 2,
-        "outlineColor": {"rgba": [224, 142, 0, 255], },
-    },
+        "outlineColor": {"rgba": [224, 142, 0, 255]},
+    }
 
     for x in fetch_aoi_data():
         aoi = {
@@ -776,9 +778,9 @@ def wr_aoi_czml():
             'radius': x[4]
         }
         if aoi['aoi_type'] == "aoi":
-            aoi_properties = area_of_interest_properties[0]
+            aoi_properties = area_of_interest_properties
         elif aoi['aoi_type'] == "exclusion":
-            aoi_properties = exclusion_area_properties[0]
+            aoi_properties = exclusion_area_properties
         aoi_info = {"semiMajorAxis": aoi['radius'],
                     "semiMinorAxis": aoi['radius'], "rotation": 0}
         aoi_packets.append(Packet(id=aoi['aoi_type'] + str(aoi['uid']),
@@ -1006,7 +1008,7 @@ def start_server(ipaddr="127.0.0.1", port=8080):
 # if the receiver is enabled. Writes the
 # intersections to the database.
 ###############################################
-def run_receiver(receivers):
+def run_receiver():
     clear(debugging)
     dots = 0
 
@@ -1034,7 +1036,7 @@ def run_receiver(receivers):
                 rx.d_2_last_intersection = []
             rx_snapshot = [(i, rx) for i, rx in enumerate(receivers)]
 
-        intersect_list = np.array([]).reshape(0, 3)
+        intersect_list = []
         latest_doa_time = 0
         d2_accum = {i: [] for i, _ in rx_snapshot}
 
@@ -1055,21 +1057,17 @@ def run_receiver(receivers):
                             rx_x.latitude, rx_x.longitude, *intersection))
                         d2_accum[y].append(v.haversine(
                             rx_y.latitude, rx_y.longitude, *intersection))
-                        intersection = list(intersection)
-                        avg_conf = np.mean(
-                            [rx_x.confidence, rx_y.confidence])
-                        intersection.append(avg_conf)
-                        intersection = np.array([intersection])
-                        intersect_list = np.concatenate(
-                            (intersect_list, intersection), axis=0)
+                        avg_conf = (rx_x.confidence + rx_y.confidence) / 2.0
+                        intersect_list.append([intersection[0], intersection[1], avg_conf])
 
         with rx_lock:
             for i, rx in rx_snapshot:
                 rx.d_2_last_intersection = d2_accum[i]
 
-        if intersect_list.size != 0:
+        if intersect_list:
+            intersect_array = np.array(intersect_list)
             avg_coord = np.average(
-                intersect_list[:, 0:3], weights=intersect_list[:, 2], axis=0)
+                intersect_array[:, 0:3], weights=intersect_array[:, 2], axis=0)
             keep, in_aoi = check_aoi(*avg_coord[0:2])
             if keep:
                 to_table = [latest_doa_time, round(avg_coord[0], 6), round(avg_coord[1], 6),
@@ -1376,7 +1374,7 @@ def finish():
     DATABASE_EDIT_Q.put(("close", None, True))
     DATABASE_RETURN.get(timeout=1)
     if geofile is not None:
-        write_geojson(*process_data(database_name)[:2])
+        write_geojson(*process_data(database_name, ms.eps, ms.min_samp)[:2])
     kill(getpid(), signal.SIGTERM)
 
 
@@ -1467,7 +1465,7 @@ if __name__ == '__main__':
         ###############################################
         while True:
             if ms.receiving:
-                run_receiver(receivers)
+                run_receiver()
             clear(debugging)
             if not debugging:
                 print("Receiver Paused")
