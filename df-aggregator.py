@@ -1295,14 +1295,13 @@ def fetch_aoi_data():
     with _aoi_cache_lock:
         if _aoi_cache is not None:
             return _aoi_cache
-    conn = sqlite3.connect(database_name)
-    c = conn.cursor()
-    c.execute('SELECT * FROM interest_areas')
-    aoi_list = c.fetchall()
-    conn.close()
-    with _aoi_cache_lock:
+        conn = sqlite3.connect(database_name)
+        c = conn.cursor()
+        c.execute('SELECT * FROM interest_areas')
+        aoi_list = c.fetchall()
+        conn.close()
         _aoi_cache = aoi_list
-    return aoi_list
+        return aoi_list
 
 
 ###############################################
