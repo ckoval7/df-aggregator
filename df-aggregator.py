@@ -18,6 +18,7 @@
 
 import vincenty as v
 import numpy as np
+from scipy.spatial.distance import cdist
 import math
 import time
 import sqlite3
@@ -319,32 +320,21 @@ def do_dbscan(X, epsilon, minsamp, result_queue):
 # Autocalculate the best eps value.
 ####################################
 def autoeps_calc(X):
-    # only use a sample of the data to speed up calculation.
     X = X[:min(AUTOEPS_SAMPLE_SIZE, len(X)):2]
-    min_distances = []
-    for x in X:
-        distances = []
-        for y in X:
-            # calculate euclidian distance
-            distance = math.sqrt(sum([(a - b) ** 2 for a, b in zip(x, y)]))
-            if distance > 0:
-                distances.append(distance)
-        min_distances.extend(np.sort(distances)[0:3].tolist())
-
-    sorted_distances = np.sort(min_distances).tolist()
-    try:
-        for x1, y1 in enumerate(sorted_distances):
-            x2 = x1 + 1
-            y2 = sorted_distances[x2]
-            # calculate slope
-            m = (y2 - y1) / (x2 - x1)
-
-            # once the slope starts getting steeper, use that as the eps value
-            if m > AUTOEPS_SLOPE_THRESHOLD:
-                # print(f"Slope: {round(m, 3)}, eps: {y1}")
-                return y1
-    except IndexError:
+    if len(X) < 2:
         return 0
+
+    dist_matrix = cdist(X, X)
+    np.fill_diagonal(dist_matrix, np.inf)
+    k = min(3, len(X) - 1)
+    nearest_k = np.sort(dist_matrix, axis=1)[:, :k]
+    sorted_distances = np.sort(nearest_k.ravel())
+
+    slopes = np.diff(sorted_distances)
+    steep = np.where(slopes > AUTOEPS_SLOPE_THRESHOLD)[0]
+    if len(steep) > 0:
+        return sorted_distances[steep[0]]
+    return 0
 
 
 ###############################################
