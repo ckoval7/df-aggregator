@@ -83,9 +83,10 @@ def create_secure_parser():
 
 
 DBSCAN_Q = Queue()
-DBSCAN_WAIT_Q = Queue()
 DATABASE_EDIT_Q = Queue()
 DATABASE_RETURN = Queue()
+
+dbscan_lock = threading.Lock()
 
 ###############################################
 # Thread synchronization lock for receiver data
@@ -308,12 +309,9 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_I
 # We start this in it's own process do it doesn't eat all of your RAM.
 # This becomes noticable at over 10k intersections.
 #######################################################################
-def do_dbscan(X, epsilon, minsamp, result_queue, wait_queue):
-    wait_queue.put(True)
+def do_dbscan(X, epsilon, minsamp, result_queue):
     db = DBSCAN(eps=epsilon, min_samples=minsamp).fit(X)
     result_queue.put(db.labels_)
-    if not wait_queue.empty():
-        wait_queue.get()
 
 
 ####################################
@@ -377,42 +375,47 @@ def process_data(database_name, epsilon, min_samp):
                 n_points = len(X)
 
                 if min_samp == "auto":
-                    min_samp = round(0.05 * n_points)
-                elif not min_samp.isnumeric():
-                    break
+                    aoi_min_samp = max(3, round(0.05 * n_points))
+                elif isinstance(min_samp, str) and min_samp.isnumeric():
+                    aoi_min_samp = max(3, int(min_samp))
                 else:
-                    min_samp = int(min_samp)
-
-                min_samp = max(3, min_samp)
+                    break
 
                 if epsilon == "auto":
-                    epsilon = autoeps_calc(X)
-                    print(f"min_samp: {min_samp}, eps: {epsilon}")
+                    aoi_eps = autoeps_calc(X)
+                    print(f"min_samp: {aoi_min_samp}, eps: {aoi_eps}")
                 else:
                     try:
-                        epsilon = float(epsilon)
-                    except ValueError:
+                        aoi_eps = float(epsilon)
+                    except (ValueError, TypeError):
                         break
 
                 # size_x = sys.getsizeof(X)/1024
                 # print(f"The dataset is {size_x} kilobytes")
                 print(f"Computing Clusters from {n_points} intersections.")
-                while not DBSCAN_WAIT_Q.empty():
-                    print("Waiting for my turn...")
-                    time.sleep(1)
-                starttime = time.time()
-                db = Process(target=do_dbscan, args=(X, epsilon, min_samp, DBSCAN_Q, DBSCAN_WAIT_Q))
-                db.daemon = True
-                db.start()
-                try:
-                    labels = DBSCAN_Q.get(timeout=10)
-                    db.join()
-                except:
-                    print("DBSCAN took took long, terminated.")
-                    if not DBSCAN_WAIT_Q.empty():
-                        DBSCAN_WAIT_Q.get()
-                    db.terminate()
-                    return likely_location, intersect_list, ellipsedata
+                with dbscan_lock:
+                    while not DBSCAN_Q.empty():
+                        try:
+                            DBSCAN_Q.get_nowait()
+                        except Exception:
+                            break
+                    starttime = time.time()
+                    db = Process(target=do_dbscan, args=(X, aoi_eps, aoi_min_samp, DBSCAN_Q))
+                    db.daemon = True
+                    db.start()
+                    try:
+                        labels = DBSCAN_Q.get(timeout=10)
+                    except Exception:
+                        print("DBSCAN took too long, terminated.")
+                        db.terminate()
+                        db.join(timeout=5)
+                        db.close()
+                        return likely_location, intersect_list, ellipsedata
+                    db.join(timeout=5)
+                    if db.is_alive():
+                        db.terminate()
+                        db.join(timeout=5)
+                    db.close()
 
                 stoptime = time.time()
                 print(
