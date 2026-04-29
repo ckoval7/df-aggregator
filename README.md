@@ -1,19 +1,34 @@
 # DF Aggregator
 
-## Recent Changes:
-- Update to czml3 3.0.0 (January 2025)
-  - **Breaking Change**: Replaced deprecated `Preamble` class with `Packet(id="document")`
-  - Fixed incorrect use of `Material` class for polyline materials
-  - Changed to use `PolylineMaterial` for polyline-specific materials
-  - Updated requirements to czml3 >= 1.0.0 (now maintained by Stoops-ML)
-- Update to CesiumJS 1.135 (November 2025)
-  - Updated to use modern async imagery provider API
-  - Migrated from deprecated `imageryProvider` to `baseLayer` option
-  - Using official Cesium CDN for latest version
+## Recent Changes (April 2026):
 
-- Power and Confidence range sliders have been updated to reflect data output by the KrakenSDR software.
-- Ellipse parameters are now automatically calculated. You can still adjust them
-if you want, but the auto-calculation works exceptionally well.
+### Map & UI
+- **AOI circle drawing rewritten** — smooth real-time preview while dragging, circles persist correctly after saving
+- **Fixed clicking on intersection points inside AOIs** — points are no longer hidden behind AOI polygons
+- **LOB lines no longer disappear** when an individual receiver goes inactive; only that receiver's LOBs are affected
+- **Confidence ellipses now display correct size and orientation** — fixed rotation and axis scaling errors
+
+### Stability & Reliability
+- **Fixed DBSCAN process deadlock** — clustering no longer hangs under load; fixed associated semaphore leak
+- **Fixed multiprocessing crashes** — switched to forkserver mode, resolving fork-after-thread deprecation warnings and forkserver argument passing
+- **Eliminated race conditions** in receiver data access and AOI data fetching (proper locking throughout)
+- **Fixed DOA angle normalization** — bearings near 0°/360° boundary are now handled correctly in all cases
+- **Clustering skipped gracefully** when auto-epsilon computes zero (e.g., insufficient data points)
+
+### Performance
+- **Auto-epsilon calculation is dramatically faster** — replaced O(n²) Python distance loops with scipy `cdist`
+- **Cluster extraction optimized** with numpy boolean masks instead of Python loops
+- **AOI data cached** — eliminated redundant SQLite connections on every intersection computation
+- **Thread-safe queues** replace shared mutable state for inter-thread communication
+
+### Security
+- **Fixed XML External Entity (XXE) vulnerability** in receiver XML parsing
+
+### Housekeeping
+- Migrated CLI argument parsing from deprecated `optparse` to `argparse` (same options, same behavior)
+- Added database indexes for query performance
+- Replaced magic numbers with named constants
+- Removed substantial amount of dead/commented-out code across Python and JS
 - For previous changes see the [Change Log](CHANGELOG.md).
 
 ## Installing:
