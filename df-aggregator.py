@@ -732,8 +732,6 @@ def write_rx_czml():
                                               positions=PositionList(cartographicDegrees=[
                                                   heading_start_lon, heading_start_lat, height, heading_stop_lon, heading_stop_lat, height])
                                           )))
-            else:
-                lob_packets = []
 
             if x.isMobile is True:
                 rx_icon = {"image": {"uri": "/static/flipped_car.svg"}}
