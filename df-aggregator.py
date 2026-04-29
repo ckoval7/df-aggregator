@@ -378,6 +378,9 @@ def process_data(database_name, epsilon, min_samp):
                 if epsilon == "auto":
                     aoi_eps = autoeps_calc(X)
                     print(f"min_samp: {aoi_min_samp}, eps: {aoi_eps}")
+                    if aoi_eps <= 0:
+                        print("Could not determine a valid epsilon, skipping clustering for this AOI.")
+                        continue
                 else:
                     try:
                         aoi_eps = float(epsilon)
