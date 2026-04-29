@@ -34,6 +34,7 @@ from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
 from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
+import queue
 from multiprocessing import Process, Queue, set_start_method
 from bottle import route, run, request, get, put, response, redirect, template, static_file
 from bottle.ext.websocket import GeventWebSocketServer, websocket
@@ -83,8 +84,8 @@ def create_secure_parser():
 
 
 DBSCAN_Q = Queue()
-DATABASE_EDIT_Q = Queue()
-DATABASE_RETURN = Queue()
+DATABASE_EDIT_Q = queue.Queue()
+DATABASE_RETURN = queue.Queue()
 
 dbscan_lock = threading.Lock()
 
