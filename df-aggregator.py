@@ -27,7 +27,7 @@ import signal
 import json
 import urllib.request
 from colorsys import hsv_to_rgb
-from optparse import OptionParser
+import argparse
 from os import system, name, kill, getpid
 from lxml import etree
 from sklearn.cluster import DBSCAN
@@ -1404,42 +1404,44 @@ if __name__ == '__main__':
     ###############################################
     # Help info printed when calling the program
     ###############################################
-    usage = "usage: %prog -d FILE [options]"
-    parser = OptionParser(usage=usage)
-    parser.add_option("-d", "--database", dest="database_name",
-                      help="REQUIRED Database File", metavar="FILE")
-    parser.add_option("-r", "--receivers", dest="rx_file",
-                      help="List of receiver URLs", metavar="FILE")
-    parser.add_option("-g", "--geofile", dest="geofile",
-                      help="GeoJSON Output File", metavar="FILE")
-    parser.add_option("-e", "--epsilon", dest="eps", help="Max Clustering Distance, Default \"auto\".",
-                      metavar="NUMBER or \"auto\"", default="auto")
-    parser.add_option("-c", "--confidence", dest="conf", help="Minimum confidence value, default 10",
-                      metavar="NUMBER", type="int", default=10)
-    parser.add_option("-p", "--power", dest="pwr", help="Minimum power value, default 10",
-                      metavar="NUMBER", type="int", default=10)
-    parser.add_option("-m", "--min-samples", dest="minsamp", help="Minimum samples per cluster. Default: \"auto\"",
-                      metavar="NUMBER or \"auto\"", default="auto")
-    parser.add_option("--plot_intersects", dest="plotintersects", help="""Plots all the intersect points in a cluster.
-     Only applies when clustering is turned on. This creates larger CZML files.""", action="store_true")
-    parser.add_option("-o", "--offline", dest="disable", help="Starts program with receiver turned off.",
-                      action="store_false", default=True)
-    parser.add_option("--access_token", dest="token_file",
-                      help="Cesium Access Token File", metavar="FILE")
-    parser.add_option("--ip", dest="ipaddr", help="IP Address to serve from. Default 127.0.0.1",
-                      metavar="IP ADDRESS", type="str", default="127.0.0.1")
-    parser.add_option("--port", dest="port", help="Port number to serve from. Default 8080",
-                      metavar="NUMBER", type="int", default=8080)
-    parser.add_option("--debug", dest="debugging", help="Does not clear the screen. Useful for seeing errors and warnings.",
-                      action="store_true")
-    (options, args) = parser.parse_args()
-
-    mandatories = ['database_name']
-    for m in mandatories:
-        if options.__dict__[m] is None:
-            print("You forgot an arguement")
-            parser.print_help()
-            exit(-1)
+    parser = argparse.ArgumentParser(
+        description="DF Aggregator — networked radio direction finding")
+    parser.add_argument("-d", "--database", dest="database_name",
+                        help="Database file", metavar="FILE", required=True)
+    parser.add_argument("-r", "--receivers", dest="rx_file",
+                        help="List of receiver URLs", metavar="FILE")
+    parser.add_argument("-g", "--geofile", dest="geofile",
+                        help="GeoJSON output file", metavar="FILE")
+    parser.add_argument("-e", "--epsilon", dest="eps",
+                        help="Max clustering distance (default: auto)",
+                        metavar="NUMBER", default="auto")
+    parser.add_argument("-c", "--confidence", dest="conf",
+                        help="Minimum confidence value (default: 10)",
+                        metavar="NUMBER", type=int, default=10)
+    parser.add_argument("-p", "--power", dest="pwr",
+                        help="Minimum power value (default: 10)",
+                        metavar="NUMBER", type=int, default=10)
+    parser.add_argument("-m", "--min-samples", dest="minsamp",
+                        help="Minimum samples per cluster (default: auto)",
+                        metavar="NUMBER", default="auto")
+    parser.add_argument("--plot_intersects", dest="plotintersects",
+                        help="Plot all intersect points in clusters",
+                        action="store_true")
+    parser.add_argument("-o", "--offline", dest="disable",
+                        help="Start with receiver turned off",
+                        action="store_false", default=True)
+    parser.add_argument("--access_token", dest="token_file",
+                        help="Cesium access token file", metavar="FILE")
+    parser.add_argument("--ip", dest="ipaddr",
+                        help="IP address to serve from (default: 127.0.0.1)",
+                        metavar="IP_ADDRESS", type=str, default="127.0.0.1")
+    parser.add_argument("--port", dest="port",
+                        help="Port number to serve from (default: 8080)",
+                        metavar="NUMBER", type=int, default=8080)
+    parser.add_argument("--debug", dest="debugging",
+                        help="Don't clear screen; show errors and warnings",
+                        action="store_true")
+    options = parser.parse_args()
 
     ms = math_settings(options.eps, options.minsamp, options.conf, options.pwr)
 
