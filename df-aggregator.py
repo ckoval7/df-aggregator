@@ -425,12 +425,8 @@ def process_data(database_name, epsilon, min_samp):
                 print('Outliers Removed: %d' % n_noise_)
 
                 for x in range(n_clusters_):
-                    cluster = np.array([]).reshape(0, 3)
-                    for y in range(len(intersect_array)):
-                        if intersect_array[y][-1] == x:
-                            cluster = np.concatenate(
-                                (cluster, [intersect_array[y][0:-1]]), axis=0)
-                    # weighted_location.append(np.average(cluster[:,0:2], weights=cluster[:,2], axis=0).tolist())
+                    mask = labels == x
+                    cluster = intersect_array[mask, 0:3]
                     clustermean = np.mean(cluster[:, 0:2], axis=0)
                     likely_location.append(clustermean.tolist())
                     cov_deg = np.cov(cluster[:, 0], cluster[:, 1])
