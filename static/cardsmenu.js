@@ -85,7 +85,6 @@ add_aoi.onchange = function() {
     document.getElementById("new_aoi_div").style.padding = "0";
     document.getElementById("add_aoi_icon").innerHTML = "add_circle_outline";
     makeNewAoi("aoi", aoi_lat.value, aoi_lon.value, aoi_radius.value);
-    scene.primitives.remove(area);
     clearHover();
   }
 }
@@ -146,7 +145,6 @@ add_exclusion.onchange = function() {
     document.getElementById("new_exclusion_div").style.padding = "0";
     document.getElementById("add_exclusion_icon").innerHTML = "add_circle_outline";
     makeNewAoi("exclusion", exclusion_lat.value, exclusion_lon.value, exclusion_radius.value);
-    scene.primitives.remove(area);
     clearHover();
   }
 }

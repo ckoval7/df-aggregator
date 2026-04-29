@@ -102,6 +102,7 @@
     // Pick the center point of a circle
     function pickCenter(lat_element_id, lon_element_id, radius_element_id, outlineColor) {
       noSelect = true;
+      scene.canvas.style.cursor = "crosshair";
       var entity = viewer.entities.add({
         label: {
           show: false,
@@ -113,14 +114,13 @@
         },
       });
       handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
-      // Mouse over the globe to see the cartographic position
       handler.setInputAction(function (movement) {
         cartesian = viewer.camera.pickEllipsoid(
           movement.endPosition,
           scene.globe.ellipsoid
         );
-        cartographic = Cesium.Cartographic.fromCartesian(cartesian);
         if (cartesian) {
+          cartographic = Cesium.Cartographic.fromCartesian(cartesian);
           var center_lon = Cesium.Math.toDegrees(
             cartographic.longitude
           ).toFixed(5);
@@ -143,22 +143,40 @@
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
       handler.setInputAction(function () {
-        clearHover();
+        handler = handler && handler.destroy();
+        viewer.entities.remove(entity);
         pickRadius(radius_element_id, cartographic, outlineColor);
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     }
 
-    var area;
-    //Stop pickng things
     function clearHover() {
       noSelect = false;
+      scene.canvas.style.cursor = "default";
       viewer.entities.removeAll();
       handler = handler && handler.destroy();
     };
 
-    //Pick the outside edge, radius, of a circle.
     function pickRadius(radius_element_id, center_carto, outlineColor) {
-      var entity = viewer.entities.add({
+      noSelect = true;
+      var currentRadius = 0;
+      var centerPosition = Cesium.Cartesian3.fromRadians(
+        center_carto.longitude, center_carto.latitude
+      );
+
+      var circleEntity = viewer.entities.add({
+        position: centerPosition,
+        ellipse: {
+          semiMajorAxis: new Cesium.CallbackProperty(function () { return currentRadius; }, false),
+          semiMinorAxis: new Cesium.CallbackProperty(function () { return currentRadius; }, false),
+          fill: false,
+          outline: true,
+          outlineColor: outlineColor,
+          outlineWidth: 3,
+          height: 0,
+        },
+      });
+
+      var labelEntity = viewer.entities.add({
         label: {
           show: false,
           showBackground: true,
@@ -168,65 +186,34 @@
           pixelOffset: new Cesium.Cartesian2(15, 0),
         },
       });
+
       handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
       handler.setInputAction(function (movement) {
         rad_cartesian = viewer.camera.pickEllipsoid(
           movement.endPosition,
           scene.globe.ellipsoid
         );
-        var center_lon = Cesium.Math.toDegrees(
-          center_carto.longitude
-        ).toFixed(5);
-        var center_lat = Cesium.Math.toDegrees(
-          center_carto.latitude
-        ).toFixed(5);
-        cartographic = Cesium.Cartographic.fromCartesian(rad_cartesian);
         if (rad_cartesian) {
+          cartographic = Cesium.Cartographic.fromCartesian(rad_cartesian);
           var ellipsoidGeodesic = new Cesium.EllipsoidGeodesic(center_carto, cartographic);
-          var distance = ellipsoidGeodesic.surfaceDistance.toFixed(0);
+          currentRadius = Math.max(1, Number(ellipsoidGeodesic.surfaceDistance.toFixed(0)));
 
-          radius_element_id.value = distance;
-          entity.position = rad_cartesian;
-          entity.label.show = true;
-          entity.label.text = distance + " m";
-          circleGeometry = new Cesium.CircleOutlineGeometry({
-            center: Cesium.Cartesian3.fromDegrees(center_lon, center_lat),
-            radius: distance,
-            height: 0,
-          });
-          // Create a geometry instance using the circle geometry
-          // created above. Set the color attribute to a solid blue.
-          var areaSelectorInstance = new Cesium.GeometryInstance({
-            geometry: circleGeometry,
-            attributes: {
-              color: Cesium.ColorGeometryInstanceAttribute.fromColor(
-                outlineColor
-              ),
-            },
-          });
-          // Add the geometry instance to primitives.
-          scene.primitives.remove(area);
-          area = scene.primitives.add(
-            new Cesium.Primitive({
-              geometryInstances: areaSelectorInstance,
-              appearance: new Cesium.PerInstanceColorAppearance({
-                flat: true,
-                closed: true,
-                translucent: false,
-                renderState: {
-                  lineWidth: Math.min(3.0, scene.maximumAliasedLineWidth),
-                },
-              }),
-            })
-          );
+          radius_element_id.value = currentRadius;
+          labelEntity.position = rad_cartesian;
+          labelEntity.label.show = true;
+          labelEntity.label.text = currentRadius + " m";
         } else {
-          entity.label.show = false;
+          labelEntity.label.show = false;
         }
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
       handler.setInputAction(function () {
-        clearHover();
-
+        circleEntity.ellipse.semiMajorAxis = currentRadius;
+        circleEntity.ellipse.semiMinorAxis = currentRadius;
+        viewer.entities.remove(labelEntity);
+        noSelect = false;
+        scene.canvas.style.cursor = "default";
+        handler = handler && handler.destroy();
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     }
 
