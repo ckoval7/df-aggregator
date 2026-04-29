@@ -97,6 +97,9 @@ dbscan_lock = threading.Lock()
 ###############################################
 rx_lock = threading.Lock()
 
+_aoi_cache = None
+_aoi_cache_lock = threading.Lock()
+
 ###############################################
 # Application Constants
 ###############################################
@@ -1002,6 +1005,7 @@ def handle_interest_areas(action):
         DATABASE_EDIT_Q.put((command, [to_table, ], True))
         DATABASE_RETURN.get(timeout=1)
         DATABASE_EDIT_Q.put(("done", None, False))
+        invalidate_aoi_cache()
     elif action == "purge":
         conn = sqlite3.connect(database_name)
         c = conn.cursor()
@@ -1168,36 +1172,25 @@ def run_receiver(receivers):
 def check_aoi(lat, lon):
     keep_list = []
     in_aoi = None
-    conn = sqlite3.connect(database_name)
-    c = conn.cursor()
-    c.execute('SELECT COUNT(*) FROM interest_areas WHERE aoi_type="aoi"')
-    n_aoi = c.fetchone()[0]
-    conn.close()
+    aoi_data = fetch_aoi_data()
+    n_aoi = sum(1 for x in aoi_data if x[1] == "aoi")
     if n_aoi == 0:
         keep_list.append(True)
         in_aoi = -1
-    for x in fetch_aoi_data():
-        aoi = {
-            'uid': x[0],
-            'aoi_type': x[1],
-            'latitude': x[2],
-            'longitude': x[3],
-            'radius': x[4]
-        }
-        distance = v.haversine(aoi['latitude'], aoi['longitude'], lat, lon)
-        if aoi['aoi_type'] == "exclusion":
-            if distance < aoi['radius']:
-                keep = False
-                return keep, in_aoi
-        elif aoi['aoi_type'] == "aoi":
-            if distance < aoi['radius']:
+    for x in aoi_data:
+        aoi_type = x[1]
+        distance = v.haversine(x[2], x[3], lat, lon)
+        if aoi_type == "exclusion":
+            if distance < x[4]:
+                return False, in_aoi
+        elif aoi_type == "aoi":
+            if distance < x[4]:
                 keep_list.append(True)
-                in_aoi = aoi['uid']
+                in_aoi = x[0]
             else:
                 keep_list.append(False)
 
-    keep = any(keep_list)
-    return keep, in_aoi
+    return any(keep_list), in_aoi
 
 
 ###############################################
@@ -1290,17 +1283,30 @@ def add_aoi(aoi_type, lat, lon, radius):
     DATABASE_EDIT_Q.put((command, [to_table, ], True))
     DATABASE_RETURN.get(timeout=1)
     DATABASE_EDIT_Q.put(("done", None, False))
+    invalidate_aoi_cache()
 
 
 #########################################
 # Read all the AOIs from the DB
 #########################################
+def invalidate_aoi_cache():
+    global _aoi_cache
+    with _aoi_cache_lock:
+        _aoi_cache = None
+
+
 def fetch_aoi_data():
+    global _aoi_cache
+    with _aoi_cache_lock:
+        if _aoi_cache is not None:
+            return _aoi_cache
     conn = sqlite3.connect(database_name)
     c = conn.cursor()
     c.execute('SELECT * FROM interest_areas')
     aoi_list = c.fetchall()
     conn.close()
+    with _aoi_cache_lock:
+        _aoi_cache = aoi_list
     return aoi_list
 
 
