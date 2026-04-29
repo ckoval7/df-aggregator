@@ -34,7 +34,6 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
       "longitude": longitude,
       "radius": radius
     };
-    // console.log(new_rx);
     const otherParams = {
         headers: {
             "content-type": "application/json"
@@ -42,7 +41,6 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
         body: JSON.stringify(new_aoi),
         method: "PUT"
     };
-    // clearOld();
     fetch("/interest_areas/new", otherParams)
         .then(res => {
           updateAoi(createAois, true);
@@ -55,7 +53,6 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
 // *******************************************
 function deleteAoi(uid) {
     const del_aoi = { "uid": uid };
-    // console.log(new_rx);
     const otherParams = {
         headers: {
             "content-type": "application/json"
@@ -63,10 +60,8 @@ function deleteAoi(uid) {
         body: JSON.stringify(del_aoi),
         method: "PUT"
     };
-    // clearOld();
     fetch("/interest_areas/del", otherParams)
         .then(res => {
-          // removerx(uid);
           loadAoi(createAois);
           reloadAoi();
         })
@@ -77,7 +72,6 @@ function deleteAoi(uid) {
 // *******************************************
 function purgeAoi(uid) {
     const del_aoi = { "uid": uid };
-    // console.log(new_rx);
     const otherParams = {
         headers: {
             "content-type": "application/json"
@@ -85,10 +79,8 @@ function purgeAoi(uid) {
         body: JSON.stringify(del_aoi),
         method: "PUT"
     };
-    // clearOld();
     fetch("/interest_areas/purge", otherParams)
         .then(res => {
-          // removerx(uid);
           loadAoi(createAois);
           reloadAoi();
         })
@@ -98,10 +90,8 @@ function purgeAoi(uid) {
 // * Runs all AOI rules on the backend and Reloads Map
 // *******************************************
 function runAoi(uid) {
-    // clearOld();
     fetch("/run_all_aoi_rules")
         .then(res => {
-          // removerx(uid);
           loadAoi(createAois);
           reloadAoi();
         })
@@ -141,7 +131,6 @@ function showAois(aoi_json, index, uid) {
 function createAois(aoi_json, id) {
     destroyAoiCards();
     let interest_areas = aoi_json['aois'];
-    // console.log(interest_areas);
     for (let i = 0; i < Object.keys(interest_areas).length; i++) {
 
         const aoicard = document.createElement('div');

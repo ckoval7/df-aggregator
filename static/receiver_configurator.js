@@ -24,10 +24,7 @@ var autoRefresh = setInterval(function () { reloadRX(); }, refreshrate);
 function updateRx(callBack, id) {
     fetch("/rx_params")
         .then(data => { return data.json() })
-        .then(res => { callBack(res, id);
-        // console.log("updateRx Complete");
-        // console.log(res);
-      })
+        .then(res => { callBack(res, id); })
 }
 
 // ******************************************************
@@ -128,7 +125,6 @@ function editReceivers(rx_json, id) {
             body: JSON.stringify(receivers[id]),
             method: "PUT"
         };
-        // clearOld();
         fetch(`/rx_params/${id}`, otherParams)
             .then(res => {
               updateRx(showReceivers, id);
@@ -142,7 +138,6 @@ function editReceivers(rx_json, id) {
 // ****************************************************
 function makeNewRx(url) {
     const new_rx = { "station_url": url };
-    // console.log(new_rx);
     const otherParams = {
         headers: {
             "content-type": "application/json"
@@ -150,20 +145,11 @@ function makeNewRx(url) {
         body: JSON.stringify(new_rx),
         method: "PUT"
     };
-    // clearOld();
     fetch("/rx_params/new", otherParams)
         .then(res => {
           updateRx(createReceivers, true);
           reloadRX();
         })
-}
-
-// *****************************************
-// * Removes the Rx UI Card
-// *****************************************
-function removerx(uid) {
-    const rxcard = document.getElementById(`rx-${uid}`);
-    rxcard.remove();
 }
 
 // *****************************************
@@ -178,7 +164,6 @@ function destroyRxCards() {
 // *******************************************
 function deleteReceiver(uid) {
     const del_rx = { "uid": uid };
-    // console.log(new_rx);
     const otherParams = {
         headers: {
             "content-type": "application/json"
@@ -186,10 +171,8 @@ function deleteReceiver(uid) {
         body: JSON.stringify(del_rx),
         method: "PUT"
     };
-    // clearOld();
     fetch("/rx_params/del", otherParams)
         .then(res => {
-          // removerx(uid);
           loadRx(createReceivers);
           reloadRX();
         })
@@ -207,7 +190,6 @@ function activateReceiver(uid, state) {
         body: JSON.stringify(activate_rx),
         method: "PUT"
     };
-    // clearOld();
     fetch("/rx_params/activate", otherParams)
         .then(res => {
           loadRx(refreshRx);
@@ -272,7 +254,6 @@ function showReceivers(rx_json, id) {
 function createReceivers(rx_json, id) {
     destroyRxCards();
     let receivers = rx_json['receivers'];
-    // console.log(receivers);
     for (let i = 0; i < Object.keys(receivers).length; i++) {
 
         const rxcard = document.createElement('div');
@@ -327,11 +308,9 @@ function createReceivers(rx_json, id) {
 
         document.getElementById("rxcards").insertBefore(rxcard, document.getElementById("add_station"));
 
-        // rxcard.appendChild(urlspan);
         rxcard.appendChild(mobilespan);
         rxcard.appendChild(singlespan);
         rxcard.appendChild(invertspan);
-        // rxcard.appendChild(manualspan);
         rxcard.appendChild(idspan);
         rxcard.appendChild(locationspan);
         rxcard.appendChild(headingspan);

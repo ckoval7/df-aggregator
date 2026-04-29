@@ -329,14 +329,12 @@ def process_data(database_name, epsilon, min_samp):
     intersect_list = []
     likely_location = []
     ellipsedata = []
-    # weighted_location = []
     # Short-lived read-only connection; opened per-request intentionally to avoid
     # holding a connection across the long-lived web server thread.
     conn = sqlite3.connect(database_name)
     curs = conn.cursor()
     curs.execute('SELECT uid FROM interest_areas WHERE aoi_type="aoi"')
     aoi_list = [item for sublist in curs.fetchall() for item in sublist]
-    # aoi_list = [-1] if len(aoi_list) == 0 else aoi_list
     aoi_list.append(-1)
 
     for aoi in aoi_list:
@@ -371,8 +369,6 @@ def process_data(database_name, epsilon, min_samp):
                     except (ValueError, TypeError):
                         continue
 
-                # size_x = sys.getsizeof(X)/1024
-                # print(f"The dataset is {size_x} kilobytes")
                 print(f"Computing Clusters from {n_points} intersections.")
                 with dbscan_lock:
                     while not DBSCAN_Q.empty():
@@ -476,7 +472,6 @@ def purge_database(area_type, lat, lon, radius):
 
     command = "DELETE FROM intersects WHERE id=?"
     DATABASE_EDIT_Q.put((command, delete_these, False))
-    # DATABASE_RETURN.get(timeout=1)
     DATABASE_EDIT_Q.put(("done", None, False))
     print(f"I purged {purge_count} intersects.")
 
@@ -512,13 +507,6 @@ def run_aoi_rules():
             in_aoi = None
             id, lat, lon = point
             for x in aoi_list:
-                # aoi = {
-                # 'uid': x[0],
-                # 'aoi_type': x[1],
-                # 'latitude': x[2],
-                # 'longitude': x[3],
-                # 'radius': x[4]
-                # }
                 distance = v.haversine(x[2], x[3], lat, lon)
                 if x[1] == "exclusion":
                     if distance < x[4]:
@@ -531,7 +519,6 @@ def run_aoi_rules():
                         in_aoi = x[0]
                     else:
                         keep_me.append(False)
-                        # del_list.append(id)
 
             if not any(keep_me):
                 del_list.append((id,))
@@ -613,7 +600,6 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
         scaled_time = minmax_scale(all_the_points[:, -1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
         for x in all_the_points:
-            # rgb = hsvtorgb(x[-1]/3, 0.9, 0.9)
             rgb = map(lambda x: int(x * 255), hsv_to_rgb(x[-1] / 3, 0.9, 0.9))
             color_property = {"color": {"rgba": [*rgb, 255]}}
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
@@ -716,10 +702,6 @@ def write_rx_czml():
 
             if x.isMobile is True:
                 rx_icon = {"image": {"uri": "/static/flipped_car.svg"}}
-                # if x.heading > 0 or x.heading < 180:
-                #     rx_icon = {"image":{"uri":"/static/flipped_car.svg"}, "rotation":math.radians(360 - x.heading + 90)}
-                # elif x.heading < 0 or x.heading > 180:
-                #     rx_icon = {"image":{"uri":"/static/car.svg"}, "rotation":math.radians(360 - x.heading - 90)}
             else:
                 rx_icon = {"image": {"uri": "/static/tower.svg"}}
             receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
@@ -837,8 +819,6 @@ def cesium():
 ###############################################
 @get('/update')
 def update_cesium():
-    # eps = float(request.query.eps) if request.query.eps else ms.eps
-    # min_samp = float(request.query.minpts) if request.query.minpts else ms.min_samp
     ms.min_conf = float(
         request.query.minconf) if request.query.minconf else ms.min_conf
     ms.min_power = float(
@@ -848,11 +828,6 @@ def update_cesium():
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
-
-    # if request.query.plotpts == "true":
-    #     ms.plotintersects = True
-    # elif request.query.plotpts == "false":
-    #     ms.plotintersects = False
 
     return "OK"
 
@@ -916,7 +891,6 @@ def update_rx(action):
             (command, [(receivers[index].station_id,), ], True))
         DATABASE_RETURN.get(timeout=1)
         DATABASE_EDIT_Q.put(("done", None, False))
-        # del_receiver(receivers[index].station_id)
         del receivers[index]
     elif action == "activate":
         index = int(data['uid'])
@@ -927,7 +901,6 @@ def update_rx(action):
             receivers[action].isMobile = data['mobile']
             receivers[action].inverted = data['inverted']
             receivers[action].isSingle = data['single']
-            # receivers[action].station_url = data['station_url']
             receivers[action].update()
             update_rx_table()
         except IndexError:

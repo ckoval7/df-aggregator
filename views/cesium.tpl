@@ -28,7 +28,6 @@
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.135/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <script src="/static/receiver_configurator.js"></script>
   <script src="/static/interest_areas.js"></script>
-  <!-- <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> -->
   <link href="/static/style.css" rel="stylesheet">
   <link href="/static/menu.css" rel="stylesheet">
 </head>
@@ -69,7 +68,6 @@
     viewer.clock.shouldAnimate = true;
 
     var hpr = new Cesium.HeadingPitchRange(0.0, -1.57, 0.0);
-    // viewer.zoomTo(loadAllCzml(), hpr);
     viewer.flyTo(loadAllCzml(), {'offset':hpr});
 
     var scene = viewer.scene;
@@ -195,7 +193,6 @@
             center: Cesium.Cartesian3.fromDegrees(center_lon, center_lat),
             radius: distance,
             height: 0,
-            // vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT,
           });
           // Create a geometry instance using the circle geometry
           // created above. Set the color attribute to a solid blue.
@@ -272,9 +269,6 @@
           parameter += "eps=0&";
         }
       }
-      // if(epsslider !== null) {
-      //   parameter += "eps="+epsslider.value+"&";
-      // }
       if (intersect_en !== null) {
         if (intersect_en.checked) {
           parameter += "plotpts=true"+"&";
@@ -320,8 +314,6 @@
       viewer.dataSources.remove(receiversDataSource, true);
       viewer.dataSources.remove(aoiDataSource, true);
       viewer.dataSources.remove(transmittersDataSource, true);
-      // viewer.dataSources.removeAll(true);
-      // console.log("Cleared old");
     }
 
     function reloadRX() {
@@ -481,7 +473,6 @@
     var rx_enable = document.getElementById("rx_en");
 
     var intersect_en = document.getElementById("intersect_en");
-    // var clustering_en = document.getElementById("clustering_en");
 
     // Update the current slider value (each time you drag the slider handle)
     epsslider.oninput = function() {
