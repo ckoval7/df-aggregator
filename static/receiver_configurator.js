@@ -1,344 +1,239 @@
-// df-aggregator, networked radio direction finding software.
-//     Copyright (C) 2020 Corey Koval
-//
-//     This program is free software: you can redistribute it and/or modify
-//     it under the terms of the GNU General Public License as published by
-//     the Free Software Foundation, either version 3 of the License, or
-//     (at your option) any later version.
-//
-//     This program is distributed in the hope that it will be useful,
-//     but WITHOUT ANY WARRANTY; without even the implied warranty of
-//     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//     GNU General Public License for more details.
-//
-//     You should have received a copy of the GNU General Public License
-//     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-// Update Map every n milliseconds
 var refreshrate = 2500;
-var autoRefresh = setInterval(function () { reloadRX(); }, refreshrate);
+var autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
 
-// *************************************************
-// * Gets Rx data from backend
-// *************************************************
 function updateRx(callBack, id) {
-    fetch("/rx_params")
-        .then(data => { return data.json() })
-        .then(res => { callBack(res, id); })
+  fetch("/rx_params")
+    .then(function(data) { return data.json(); })
+    .then(function(res) { callBack(res, id); });
 }
 
-// ******************************************************
-// * Makes Changes to Receiver, Saves, & Refreshes Cards
-// ******************************************************
-function editReceivers(rx_json, id) {
-    const receivers = rx_json['receivers'];
-
-    let isSingle = "";
-    if (receivers[id].single) isSingle = "checked";
-
-    var stationIDhtml =
-        `Station ID: <a href="${receivers[id].station_url}" target="_blank">${receivers[id].station_id}</a>`;
-
-    var singleModeHtml = `&emsp;Single Receiver Mode: <input ${isSingle} id="singlerx_toggle_${id}" type="checkbox" />`;
-
-    var locationHtml = `Location: ${receivers[id].latitude}&#176;, ${receivers[id].longitude}&#176;`;
-
-    var heading = `Heading: ${receivers[id].heading}&#176;`;
-
-    var freqHtml = `Tuned to ${receivers[id].frequency} MHz`;
-
-    var edit_stationIDhtml =
-        `Station ID:<input style="width: 105px;" type="text" value="${receivers[id].station_id}" name="station_id_${id}" />`;
-
-    var edit_locationHtml =
-        `Latitude:<input style="width: 105px;" type="text" value="${receivers[id].latitude}" name="station_lat_${id}" />
-        Longitude:<input style="width: 105px;" type="text" value="${receivers[id].longitude}" name="station_lon_${id}" />`;
-
-    var edit_heading =
-        `Heading:<input style="width: 105px;" type="text" value="${receivers[id].heading}" name="station_heading_${id}" />`;
-
-    var edit_freqHtml =
-        `Frequency:<input style="width: 105px;" type="text" value="${receivers[id].frequency}" name="frequency_${id}" />`;
-
-    const mobilespan = document.getElementById(`${id}-mobile`);
-    const singlespan = document.getElementById(`${id}-single`);
-    var isMobileCheck;
-    var isInvertedCheck;
-    var isSingleCheck;
-    var editButton = document.getElementById(`${id}-edit`);
-    if (editButton.checked) {
-        clearInterval(autoRefresh);
-        let isMobile = "";
-        if (receivers[id].mobile) isMobile = "checked";
-        let isInverted = "";
-        if (receivers[id].inverted) isInverted = "checked";
-        document.getElementById(`${id}-editicon`).innerHTML = "save";
-        mobilespan.innerHTML =
-            `Mobile Receiver: <input ${isMobile} id="mobilerx_toggle_${id}" type="checkbox" />`;
-        document.getElementById(`${id}-invert`).innerHTML =
-            `Inverted DOA: <input ${isInverted} id="invert_toggle_${id}" type="checkbox" />`;
-        isInvertedCheck = document.getElementById(`invert_toggle_${id}`);
-        isInvertedCheck.setAttribute("title", "KerberosSDR users keep this checked.");
-
-        isMobileCheck = document.getElementById(`mobilerx_toggle_${id}`);
-        if (isMobileCheck.checked) {
-            singlespan.innerHTML = singleModeHtml;
-        }
-        isMobileCheck.onchange = function() {
-            if (isMobileCheck.checked) {
-                singlespan.innerHTML = singleModeHtml;
-            } else {
-                singlespan.innerHTML = "";
-            }
-          }
-    } else {
-        autoRefresh = setInterval(function () { reloadRX(); }, refreshrate);
-        isMobileCheck = document.getElementById(`mobilerx_toggle_${id}`);
-        if (isMobileCheck.checked) {
-            receivers[id].mobile = true;
-        } else {
-            receivers[id].mobile = false;
-        }
-
-        isInvertedCheck = document.getElementById(`invert_toggle_${id}`);
-        if (isInvertedCheck.checked) {
-            receivers[id].inverted = true;
-        } else {
-            receivers[id].inverted = false;
-        }
-
-        try {
-          isSingleCheck = document.getElementById(`singlerx_toggle_${id}`);
-          if (isSingleCheck.checked) {
-              receivers[id].single = true;
-          } else {
-              receivers[id].single = false;
-          }
-        } catch {
-            receivers[id].single = false;
-        }
-
-        const otherParams = {
-            headers: {
-                "content-type": "application/json"
-            },
-            body: JSON.stringify(receivers[id]),
-            method: "PUT"
-        };
-        fetch(`/rx_params/${id}`, otherParams)
-            .then(res => {
-              updateRx(showReceivers, id);
-              reloadRX();
-            })
-    }
-}
-
-// ****************************************************
-// * Sends Rx station URL to backend and refreshes map
-// ****************************************************
 function makeNewRx(url) {
-    const new_rx = { "station_url": url };
-    const otherParams = {
-        headers: {
-            "content-type": "application/json"
-        },
-        body: JSON.stringify(new_rx),
-        method: "PUT"
-    };
-    fetch("/rx_params/new", otherParams)
-        .then(res => {
-          updateRx(createReceivers, true);
-          reloadRX();
-        })
+  var otherParams = {
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ station_url: url }),
+    method: "PUT"
+  };
+  fetch("/rx_params/new", otherParams)
+    .then(function() {
+      loadRx(function(rx_json) {
+        createReceivers(rx_json);
+        statusBar.updateReceiverStats(rx_json);
+      });
+      reloadRX();
+    });
 }
 
-// *****************************************
-// * Removes ALL of the RX Cards
-// *****************************************
 function destroyRxCards() {
-  document.querySelectorAll('.receiver').forEach(e => e.remove());
+  document.querySelectorAll('.rx-card').forEach(function(e) { e.remove(); });
 }
 
-// *******************************************
-// * Removes Rx from Backend and Reloads Map
-// *******************************************
 function deleteReceiver(uid) {
-    const del_rx = { "uid": uid };
-    const otherParams = {
-        headers: {
-            "content-type": "application/json"
-        },
-        body: JSON.stringify(del_rx),
-        method: "PUT"
-    };
-    fetch("/rx_params/del", otherParams)
-        .then(res => {
-          loadRx(createReceivers);
-          reloadRX();
-        })
+  var otherParams = {
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ uid: uid }),
+    method: "PUT"
+  };
+  fetch("/rx_params/del", otherParams)
+    .then(function() {
+      loadRx(function(rx_json) {
+        createReceivers(rx_json);
+        statusBar.updateReceiverStats(rx_json);
+      });
+      reloadRX();
+    });
 }
 
-// *******************************************************
-// * Updates Rx active state from Backend and Reloads Map
-// *******************************************************
 function activateReceiver(uid, state) {
-    const activate_rx = { "uid": uid, "state": state };
-    const otherParams = {
-        headers: {
-            "content-type": "application/json"
-        },
-        body: JSON.stringify(activate_rx),
-        method: "PUT"
-    };
-    fetch("/rx_params/activate", otherParams)
-        .then(res => {
-          loadRx(refreshRx);
-          reloadRX();
-        })
+  var otherParams = {
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ uid: uid, state: state }),
+    method: "PUT"
+  };
+  fetch("/rx_params/activate", otherParams)
+    .then(function() {
+      loadRx(function(rx_json) {
+        refreshRx(rx_json);
+        statusBar.updateReceiverStats(rx_json);
+      });
+      reloadRX();
+    });
 }
 
-// *******************************************
-// * Fills in Rx UI cards with Rx info
-// *******************************************
-function showReceivers(rx_json, id) {
-    const receivers = rx_json['receivers'];
+function buildRxCardHtml(rx) {
+  var isActive = rx.active;
+  var stateClass = isActive ? 'active' : 'inactive';
+  var dotClass = isActive ? 'dot-good' : 'dot-bad';
+  var pillClass = isActive ? 'pill-good' : 'pill-mute';
+  var pillText = isActive ? 'ONLINE' : 'OFFLINE';
+  var powerTitle = isActive ? 'Disable' : 'Enable';
 
-    var stationIDhtml =
-        `Station ID: <a href="${receivers[id].station_url}" target="_blank">${receivers[id].station_id}</a>`;
+  var html = '<div class="rx-head">';
+  html += '<span class="dot ' + dotClass + '"></span>';
+  html += '<span class="rx-id">' + rx.station_id + '</span>';
+  html += '<span class="status-pill ' + pillClass + '">' + pillText + '</span>';
+  html += '<div class="rx-actions">';
+  html += '<button class="icon-btn-sm" title="' + powerTitle + '" data-action="activate" data-uid="' + rx.uid + '">';
+  html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>';
+  html += '</button>';
+  html += '<button class="icon-btn-sm" title="Edit" data-action="edit" data-uid="' + rx.uid + '">';
+  html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>';
+  html += '</button>';
+  html += '<button class="icon-btn-sm icon-btn-danger" title="Delete" data-action="delete" data-uid="' + rx.uid + '">';
+  html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+  html += '</button>';
+  html += '</div></div>';
 
-    var locationHtml =
-        `Location: ${receivers[id].latitude}&#176;, ${receivers[id].longitude}&#176;`;
+  html += '<div id="rx-body-' + rx.uid + '">';
+  html += '<div class="rx-grid">';
+  html += '<div class="kv"><span class="k">LAT</span><span class="v">' + parseFloat(rx.latitude).toFixed(6) + '°</span></div>';
+  html += '<div class="kv"><span class="k">LON</span><span class="v">' + parseFloat(rx.longitude).toFixed(6) + '°</span></div>';
+  html += '<div class="kv"><span class="k">HDG</span><span class="v">' + rx.heading + '°</span></div>';
+  html += '<div class="kv"><span class="k">FREQ</span><span class="v accent">' + rx.frequency + ' MHz</span></div>';
+  html += '</div>';
 
-    var heading =
-        `Heading: ${receivers[id].heading}&#176;`;
+  if (isActive) {
+    var sig = rx.signal || 0;
+    var conf = rx.conf || 0;
+    html += '<div class="signal-bar">';
+    html += '<div class="signal-label">SIG</div>';
+    html += '<div class="signal-track"><div class="signal-fill" style="width:' + sig + '%"></div></div>';
+    html += '<div class="signal-val">' + sig + '</div>';
+    html += '<div class="signal-label">CONF</div>';
+    html += '<div class="signal-track"><div class="signal-fill alt" style="width:' + Math.min(conf, 100) + '%"></div></div>';
+    html += '<div class="signal-val">' + conf + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
 
-    var freqHtml =
-        `Tuned to ${receivers[id].frequency} MHz`;
-
-    const urlspan = document.getElementById(`${id}-url`);
-    const mobilespan = document.getElementById(`${id}-mobile`);
-    const invertspan = document.getElementById(`${id}-invert`);
-    const singlespan = document.getElementById(`${id}-single`);
-    const idspan = document.getElementById(`${id}-id`);
-    const locationspan = document.getElementById(`${id}-location`);
-    const headingspan = document.getElementById(`${id}-heading`);
-    const freqspan = document.getElementById(`${id}-freq`);
-    document.getElementById(`${id}-activate`)
-      .setAttribute('onclick', `activateReceiver(${receivers[id].uid}, ${!receivers[id].active})`);
-
-    if (receivers[id].active == true) {
-      document.getElementById(`${id}-activate`)
-        .setAttribute("title", "Click to disable this receiver.");
-      document.getElementById(`${id}-activateicon`).style.color = "black";
-    } else {
-      document.getElementById(`${id}-activateicon`).style.color = "red";
-      document.getElementById(`${id}-activate`)
-        .setAttribute("title", "Click to enable this receiver.");
-    }
-
-    mobilespan.innerHTML = "";
-    invertspan.innerHTML = "";
-    singlespan.innerHTML = "";
-    document.getElementById(`${id}-editicon`).innerHTML = "edit";
-    document.getElementById(`${id}-id`).innerHTML = stationIDhtml;
-    document.getElementById(`${id}-location`).innerHTML = locationHtml;
-    document.getElementById(`${id}-heading`).innerHTML = heading;
-    document.getElementById(`${id}-freq`).innerHTML = freqHtml;
-
+  return { stateClass: stateClass, html: html };
 }
 
-// ****************************************************
-// * Creates cards on UI for Receiver information.
-// * Iterates through Rx objects on page load/Rx add.
-// ****************************************************
 function createReceivers(rx_json, id) {
-    destroyRxCards();
-    let receivers = rx_json['receivers'];
-    for (let i = 0; i < Object.keys(receivers).length; i++) {
+  destroyRxCards();
+  var receivers = rx_json.receivers;
+  var container = document.getElementById("rx-cards");
+  var count = Object.keys(receivers).length;
+  document.getElementById("rx-count-pill").textContent = count;
 
-        const rxcard = document.createElement('div');
-        rxcard.className = "receiver";
-        rxcard.id = `rx-${receivers[i].uid}`;
-
-        const mobilespan = document.createElement('span');
-        const invertspan = document.createElement('span');
-        const singlespan = document.createElement('span');
-        const idspan = document.createElement('span');
-        const locationspan = document.createElement('span');
-        const headingspan = document.createElement('span');
-        const freqspan = document.createElement('span');
-
-        const editiconspan = document.createElement('span');
-        editiconspan.classList.add("material-icons", "edit-icon", "no-select");
-        editiconspan.innerHTML = "edit";
-        editiconspan.id = `${receivers[i].uid}-editicon`;
-
-        const editcheck = document.createElement('input');
-        editcheck.classList.add("edit-checkbox", "edit-icon");
-        editcheck.type = 'checkbox';
-        editcheck.id = `${receivers[i].uid}-edit`;
-        editcheck.setAttribute('onclick', `updateRx(editReceivers, ${receivers[i].uid})`);
-
-        const deleteiconspan = document.createElement('span');
-        deleteiconspan.classList.add("material-icons", "delete-icon", "no-select");
-        deleteiconspan.innerHTML = "delete";
-
-        const deletecheck = document.createElement('input');
-        deletecheck.classList.add("edit-checkbox", "delete-icon");
-        deletecheck.type = 'checkbox';
-        deletecheck.id = `${receivers[i].uid}-delete`;
-        deletecheck.setAttribute('onclick', `deleteReceiver(${receivers[i].uid})`);
-
-        const activateiconspan = document.createElement('span');
-        activateiconspan.classList.add("material-icons", "activate-icon", "no-select");
-        activateiconspan.innerHTML = "power_settings_new";
-        activateiconspan.id = `${receivers[i].uid}-activateicon`;
-
-        const activatecheck = document.createElement('input');
-        activatecheck.classList.add("edit-checkbox", "activate-icon");
-        activatecheck.type = 'checkbox';
-        activatecheck.id = `${receivers[i].uid}-activate`;
-        mobilespan.id = `${receivers[i].uid}-mobile`;
-        invertspan.id = `${receivers[i].uid}-invert`;
-        singlespan.id = `${receivers[i].uid}-single`;
-        idspan.id = `${receivers[i].uid}-id`;
-        locationspan.id = `${receivers[i].uid}-location`;
-        headingspan.id = `${receivers[i].uid}-heading`;
-        freqspan.id = `${receivers[i].uid}-freq`;
-
-        document.getElementById("rxcards").insertBefore(rxcard, document.getElementById("add_station"));
-
-        rxcard.appendChild(mobilespan);
-        rxcard.appendChild(singlespan);
-        rxcard.appendChild(invertspan);
-        rxcard.appendChild(idspan);
-        rxcard.appendChild(locationspan);
-        rxcard.appendChild(headingspan);
-        rxcard.appendChild(freqspan);
-        rxcard.appendChild(editiconspan);
-        rxcard.appendChild(deleteiconspan);
-        rxcard.appendChild(activateiconspan);
-        rxcard.appendChild(editcheck);
-        rxcard.appendChild(deletecheck);
-        rxcard.appendChild(activatecheck);
-
-        showReceivers(rx_json, i);
-    }
+  for (var i = 0; i < count; i++) {
+    var rx = receivers[i];
+    var result = buildRxCardHtml(rx);
+    var card = document.createElement('div');
+    card.className = 'card rx-card ' + result.stateClass;
+    card.id = 'rx-' + rx.uid;
+    card.innerHTML = result.html;
+    container.appendChild(card);
+  }
+  wireRxCardActions();
 }
 
-// ****************************************************
-// * Refreshes info on Rx UI Cards (Refresh button)
-// ****************************************************
+function wireRxCardActions() {
+  document.getElementById("rx-cards").querySelectorAll('[data-action]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var uid = parseInt(btn.getAttribute('data-uid'));
+      var action = btn.getAttribute('data-action');
+      if (action === 'delete') {
+        deleteReceiver(uid);
+      } else if (action === 'activate') {
+        updateRx(function(rx_json) {
+          var rx = rx_json.receivers[uid];
+          activateReceiver(uid, !rx.active);
+        }, uid);
+      } else if (action === 'edit') {
+        updateRx(editReceivers, uid);
+      }
+    });
+  });
+}
+
+function editReceivers(rx_json, uid) {
+  var receivers = rx_json.receivers;
+  var rx = receivers[uid];
+  var card = document.getElementById('rx-' + uid);
+  var body = document.getElementById('rx-body-' + uid);
+
+  if (card.classList.contains('editing')) {
+    var isMobile = document.getElementById('edit-mobile-' + uid);
+    var isInverted = document.getElementById('edit-invert-' + uid);
+    var isSingle = document.getElementById('edit-single-' + uid);
+
+    rx.mobile = isMobile ? isMobile.checked : rx.mobile;
+    rx.inverted = isInverted ? isInverted.checked : rx.inverted;
+    rx.single = isSingle ? isSingle.checked : false;
+
+    var otherParams = {
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(rx),
+      method: "PUT"
+    };
+    fetch('/rx_params/' + uid, otherParams)
+      .then(function() {
+        card.classList.remove('editing');
+        autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+        loadRx(function(rx_json) {
+          createReceivers(rx_json);
+          statusBar.updateReceiverStats(rx_json);
+        });
+        reloadRX();
+      });
+    return;
+  }
+
+  clearInterval(autoRefresh);
+  card.classList.add('editing');
+
+  var isMobileChecked = rx.mobile ? 'checked' : '';
+  var isInvertedChecked = rx.inverted ? 'checked' : '';
+  var isSingleChecked = rx.single ? 'checked' : '';
+
+  var editHtml = '<div class="rx-edit-grid">';
+  editHtml += '<label><span>STATION ID</span>';
+  editHtml += '<input type="text" id="edit-id-' + uid + '" value="' + rx.station_id + '"></label>';
+  editHtml += '<label><span>LATITUDE</span>';
+  editHtml += '<input type="text" id="edit-lat-' + uid + '" value="' + rx.latitude + '"></label>';
+  editHtml += '<label><span>LONGITUDE</span>';
+  editHtml += '<input type="text" id="edit-lon-' + uid + '" value="' + rx.longitude + '"></label>';
+  editHtml += '<label><span>HEADING</span>';
+  editHtml += '<input type="text" id="edit-hdg-' + uid + '" value="' + rx.heading + '"></label>';
+  editHtml += '<label><span>FREQUENCY</span>';
+  editHtml += '<input type="text" id="edit-freq-' + uid + '" value="' + rx.frequency + '"></label>';
+  editHtml += '</div>';
+  editHtml += '<div class="rx-edit-toggles">';
+  editHtml += '<label><input type="checkbox" id="edit-mobile-' + uid + '" ' + isMobileChecked + '> Mobile</label>';
+  editHtml += '<label><input type="checkbox" id="edit-invert-' + uid + '" ' + isInvertedChecked + '> Inverted DOA</label>';
+  if (rx.mobile) {
+    editHtml += '<label><input type="checkbox" id="edit-single-' + uid + '" ' + isSingleChecked + '> Single Rx</label>';
+  }
+  editHtml += '</div>';
+  editHtml += '<div style="margin-top:8px; display:flex; gap:6px;">';
+  editHtml += '<button class="btn btn-primary" style="flex:1" data-action="edit" data-uid="' + uid + '">Save</button>';
+  editHtml += '<button class="btn btn-ghost" style="flex:0" onclick="autoRefresh=setInterval(function(){reloadRX()},refreshrate);loadRx(function(r){createReceivers(r);statusBar.updateReceiverStats(r)})">Cancel</button>';
+  editHtml += '</div>';
+
+  body.innerHTML = editHtml;
+  wireRxCardActions();
+}
+
+function showReceivers(rx_json, uid) {
+  var receivers = rx_json.receivers;
+  var rx = receivers[uid];
+  var card = document.getElementById('rx-' + uid);
+  if (!card || card.classList.contains('editing')) return;
+
+  var result = buildRxCardHtml(rx);
+  card.className = 'card rx-card ' + result.stateClass;
+  card.innerHTML = result.html;
+  wireRxCardActions();
+}
+
 function refreshRx(rx_json, id) {
-    const receivers = rx_json['receivers'];
-    for (let i = 0; i < Object.keys(receivers).length; i++) {
-        showReceivers(rx_json, receivers[i].uid);
-    }
+  var receivers = rx_json.receivers;
+  for (var i = 0; i < Object.keys(receivers).length; i++) {
+    showReceivers(rx_json, receivers[i].uid);
+  }
+  document.getElementById("rx-count-pill").textContent = Object.keys(receivers).length;
 }
 
-// ****************************************************
-// * Main function - Loads all Receivers
-// ****************************************************
 function loadRx(action) {
-    updateRx(action, null);
+  updateRx(action, null);
 }
