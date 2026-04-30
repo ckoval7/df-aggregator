@@ -376,6 +376,7 @@
   </div>
   </div>
   <script src="/static/cardsmenu.js"></script>
+  <script src="/static/lob_history.js"></script>
 
   <div class="slidecontainer">
     <div class="tooltip">
@@ -447,6 +448,45 @@
     </div>
     <div>
       <span><input id="refreshbutton" class="slider" type="button" value="Refresh" onclick="updateParams()"></span>
+    </div>
+    <hr style="border-color: rgba(255,255,255,0.3); margin: 10px 0;">
+    <h4>LOB History</h4>
+    <div class="tooltip">
+      <span class="slidetitle"><h4>Record History:</h4></span>
+      <span class="slidespan" style="text-align:left; width: 100px; margin: 5px;">
+      <label class="switch">
+      <input id="lob_history_en" name="lob_history_en" {{lob_history_state}} type="checkbox">
+      <span class="switchslider round"></span>
+      </label></span>
+      <span class="tooltiptext">Enable or disable recording LOB history to the database.</span>
+    </div>
+    <div>
+      <span class="slidetitle"><h4>Time Range:</h4></span>
+      <span class="history-presets">
+        <input type="button" class="history-preset-btn" value="30 min" data-minutes="30">
+        <input type="button" class="history-preset-btn" value="1 hour" data-minutes="60">
+        <input type="button" class="history-preset-btn" value="4 hours" data-minutes="240">
+      </span>
+    </div>
+    <div>
+      <span class="slidetitle">Start:</span>
+      <input type="datetime-local" id="history_start" step="1" style="width: 250px;">
+      <br>
+      <span class="slidetitle">End:</span>
+      <input type="datetime-local" id="history_end" step="1" style="width: 250px;">
+    </div>
+    <div>
+      <span class="slidetitle"><h4>Mode:</h4></span>
+      <label style="margin-right: 15px;"><input type="radio" name="history_mode" value="flash" checked> Flash</label>
+      <label><input type="radio" name="history_mode" value="accumulate"> Accumulate</label>
+    </div>
+    <div>
+      <span class="slidetitle"><h4>Frequency (Hz):</h4></span>
+      <input type="number" id="history_frequency" placeholder="All frequencies" style="width: 180px;">
+    </div>
+    <div style="margin-top: 8px;">
+      <input id="loadHistoryBtn" class="slider" type="button" value="Load History" style="padding: 10px; font-size: inherit; font-family: inherit; font-weight: 600;">
+      <input id="liveBtn" class="slider" type="button" value="⏺ LIVE" style="padding: 10px; font-size: inherit; font-family: inherit; font-weight: 600; background: #c62828; color: white; display: none;">
     </div>
   </div>
   <script>
