@@ -57,7 +57,9 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   spinner.style.zIndex = "10";
 
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
-    viewer.dataSources.add(lobHistoryDataSource);
+    if (!isHistoryMode) {
+      viewer.dataSources.add(lobHistoryDataSource);
+    }
     enterHistoryMode();
     spinner.style.visibility = "hidden";
     spinner.style.zIndex = "0";

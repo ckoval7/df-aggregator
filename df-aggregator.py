@@ -1131,6 +1131,7 @@ def run_receiver():
                     VALUES (?,?,?,?,?,?,?,?)'''
                 DATABASE_EDIT_Q.put((command, (to_lobs,), True))
                 DATABASE_RETURN.get(timeout=1)
+                rx.previous_doa_time = rx.doa_time
 
         intersect_list = []
         latest_doa_time = 0

@@ -376,7 +376,6 @@
   </div>
   </div>
   <script src="/static/cardsmenu.js"></script>
-  <script src="/static/lob_history.js"></script>
 
   <div class="slidecontainer">
     <div class="tooltip">
@@ -489,6 +488,7 @@
       <input id="liveBtn" class="slider" type="button" value="⏺ LIVE" style="padding: 10px; font-size: inherit; font-family: inherit; font-weight: 600; background: #c62828; color: white; display: none;">
     </div>
   </div>
+  <script src="/static/lob_history.js"></script>
   <script>
     var powerslider = document.getElementById("powerRange");
     var poweroutput = document.getElementById("power");
