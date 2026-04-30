@@ -362,6 +362,16 @@ input:checked + .switchslider:before {
     margin: 0;
 }
 
+.cesium-viewer-animationContainer,
+.cesium-viewer-timelineContainer {
+    display: none !important;
+}
+
+.cesium-viewer-animationContainer.history-visible,
+.cesium-viewer-timelineContainer.history-visible {
+    display: block !important;
+}
+
 #cesiumContainer {
     position: fixed;
     height: 100%;

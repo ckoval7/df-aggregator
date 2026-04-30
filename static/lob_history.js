@@ -1,3 +1,67 @@
+var HIGHLIGHT_GAP_THRESHOLD_MS = 10000;
+var highlightRanges = [];
+
+function extractIntervals(dataSource) {
+  var intervals = [];
+  var entities = dataSource.entities.values;
+  for (var i = 0; i < entities.length; i++) {
+    var entity = entities[i];
+    if (entity.availability) {
+      for (var j = 0; j < entity.availability.length; j++) {
+        var interval = entity.availability.get(j);
+        var startMs = Cesium.JulianDate.toDate(interval.start).getTime();
+        var stopMs = Cesium.JulianDate.toDate(interval.stop).getTime();
+        intervals.push([startMs, stopMs]);
+      }
+    }
+  }
+  intervals.sort(function(a, b) { return a[0] - b[0]; });
+  return intervals;
+}
+
+function mergeIntervals(intervals) {
+  if (intervals.length === 0) return [];
+  var merged = [[intervals[0][0], intervals[0][1]]];
+  for (var i = 1; i < intervals.length; i++) {
+    var last = merged[merged.length - 1];
+    if (intervals[i][0] - last[1] <= HIGHLIGHT_GAP_THRESHOLD_MS) {
+      last[1] = Math.max(last[1], intervals[i][1]);
+    } else {
+      merged.push([intervals[i][0], intervals[i][1]]);
+    }
+  }
+  return merged;
+}
+
+function renderTimelineHighlights(dataSource) {
+  clearTimelineHighlights();
+  var intervals = extractIntervals(dataSource);
+  var merged = mergeIntervals(intervals);
+  var color = Cesium.Color.GREEN.withAlpha(0.4);
+  for (var i = 0; i < merged.length; i++) {
+    var range = viewer.timeline.addHighlightRange(color, 5);
+    range.setRange(
+      Cesium.JulianDate.fromDate(new Date(merged[i][0])),
+      Cesium.JulianDate.fromDate(new Date(merged[i][1]))
+    );
+    highlightRanges.push(range);
+  }
+  viewer.timeline.updateFromClock();
+}
+
+function clearTimelineHighlights() {
+  if (highlightRanges.length === 0) return;
+  var allRanges = viewer.timeline._highlightRanges;
+  for (var i = 0; i < highlightRanges.length; i++) {
+    var idx = allRanges.indexOf(highlightRanges[i]);
+    if (idx !== -1) {
+      allRanges.splice(idx, 1);
+    }
+  }
+  highlightRanges = [];
+  viewer.timeline.updateFromClock();
+}
+
 var isHistoryMode = false;
 
 var lobHistoryEn = document.getElementById("lob_history_en");
@@ -64,6 +128,7 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
     viewer.dataSources.add(lobHistoryDataSource);
     enterHistoryMode();
+    renderTimelineHighlights(lobHistoryDataSource);
     spinner.style.visibility = "hidden";
     spinner.style.zIndex = "0";
   }).catch(function(error) {
@@ -80,11 +145,14 @@ document.getElementById("liveBtn").addEventListener("click", function() {
 function enterHistoryMode() {
   isHistoryMode = true;
   clearInterval(autoRefresh);
+  document.querySelector(".cesium-viewer-animationContainer").classList.add("history-visible");
+  document.querySelector(".cesium-viewer-timelineContainer").classList.add("history-visible");
   document.getElementById("liveBtn").style.display = "inline-block";
   document.getElementById("loadHistoryBtn").value = "Reload History";
 }
 
 function exitHistoryMode() {
+  clearTimelineHighlights();
   isHistoryMode = false;
   viewer.dataSources.remove(lobHistoryDataSource, true);
   lobHistoryDataSource = new Cesium.CzmlDataSource();
@@ -92,6 +160,9 @@ function exitHistoryMode() {
   viewer.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER;
   viewer.clock.currentTime = Cesium.JulianDate.now();
   viewer.clock.shouldAnimate = true;
+
+  document.querySelector(".cesium-viewer-animationContainer").classList.remove("history-visible");
+  document.querySelector(".cesium-viewer-timelineContainer").classList.remove("history-visible");
 
   autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
   reloadRX();
