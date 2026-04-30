@@ -811,6 +811,7 @@ def cesium():
                      'minpoints': ms.min_samp,
                      'rx_state': "checked" if ms.receiving is True else "",
                      'intersect_state': "checked" if ms.plotintersects is True else "",
+                     'lob_history_state': "checked" if ms.lob_history_enabled is True else "",
                      'receivers': receivers})
 
 
@@ -829,6 +830,11 @@ def update_cesium():
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
+
+    if request.query.lob_history == "true":
+        ms.lob_history_enabled = True
+    elif request.query.lob_history == "false":
+        ms.lob_history_enabled = False
 
     return "OK"
 
@@ -1415,6 +1421,9 @@ if __name__ == '__main__':
     parser.add_argument("--debug", dest="debugging",
                         help="Don't clear screen; show errors and warnings",
                         action="store_true")
+    parser.add_argument("--no-lob-history", dest="no_lob_history",
+                        help="Disable LOB history recording",
+                        action="store_true")
     options = parser.parse_args()
 
     ms = math_settings(options.eps, options.minsamp, options.conf, options.pwr)
@@ -1425,6 +1434,7 @@ if __name__ == '__main__':
     debugging = options.debugging
     ms.receiving = options.disable
     ms.plotintersects = options.plotintersects
+    ms.lob_history_enabled = not options.no_lob_history
 
     if options.token_file:
         tokenfile = options.token_file
