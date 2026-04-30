@@ -124,6 +124,7 @@ class math_settings:
     min_power: float
     receiving: bool = True
     plotintersects: bool = False
+    lob_history_enabled: bool = True
 
 
 ################################################
@@ -1288,12 +1289,22 @@ def database_writer():
         num_parents INTEGER,
         confidence INTEGER,
         aoi_id INTEGER)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS lobs (time INTEGER,
+    c.execute('''CREATE TABLE IF NOT EXISTS lobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        time INTEGER,
         station_id TEXT,
         latitude REAL,
         longitude REAL,
         confidence INTEGER,
+        power REAL,
+        frequency REAL,
         lob REAL)''')
+
+    for col, col_type in [("power", "REAL"), ("frequency", "REAL")]:
+        try:
+            c.execute(f"ALTER TABLE lobs ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass
 
     # Create indexes for performance optimization
     # Index on intersects table for filtering by AOI and sorting by confidence
@@ -1307,6 +1318,9 @@ def database_writer():
     # Index on lobs table for single-receiver mode queries
     c.execute('''CREATE INDEX IF NOT EXISTS idx_lobs_station_time
         ON lobs(station_id, time)''')
+
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_lobs_time
+        ON lobs(time)''')
 
     # Index on interest_areas table for UID lookups
     c.execute('''CREATE INDEX IF NOT EXISTS idx_interest_areas_uid
