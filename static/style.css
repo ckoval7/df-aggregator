@@ -370,22 +370,3 @@ input:checked + .switchslider:before {
     overflow: hidden;
 }
 
-.history-preset-btn {
-  padding: 5px 10px;
-  font-size: inherit;
-  font-family: inherit;
-  font-weight: 600;
-  background: #eee;
-  border: none;
-  cursor: pointer;
-  margin-right: 5px;
-  height: auto;
-}
-
-.history-preset-btn:hover {
-  background: #ccc;
-}
-
-.history-presets {
-  vertical-align: middle;
-}

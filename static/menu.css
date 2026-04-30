@@ -203,3 +203,26 @@ body {
   /* border: 1px solid #CCC; */
   margin-top: 26px;
 }
+
+.lob-history-card {
+  position: relative;
+  background: #d4d4d4;
+  color: #111;
+  font-weight: bold;
+  padding: 8px;
+  margin: 5px;
+}
+
+.history-card-btn {
+  padding: 4px 10px;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 600;
+  background: #eee;
+  border: 1px solid #aaa;
+  cursor: pointer;
+}
+
+.history-card-btn:hover {
+  background: #ccc;
+}

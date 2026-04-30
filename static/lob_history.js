@@ -9,7 +9,7 @@ lobHistoryEn.onchange = function() {
   }
 };
 
-var presetButtons = document.querySelectorAll(".history-preset-btn");
+var presetButtons = document.querySelectorAll(".history-card-btn[data-minutes]");
 presetButtons.forEach(function(btn) {
   btn.addEventListener("click", function() {
     var minutes = parseInt(btn.getAttribute("data-minutes"));
