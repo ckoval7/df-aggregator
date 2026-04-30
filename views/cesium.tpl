@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- df-aggregator, networked radio direction finding software. =
+<!-- df-aggregator, networked radio direction finding software.
     Copyright (C) 2020 Corey Koval
 
     This program is free software: you can redistribute it and/or modify
@@ -18,24 +18,321 @@
 
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, height=device-height">
   <meta charset="utf-8">
-  <!-- Include the CesiumJS JavaScript and CSS files -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.135/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.135/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-  <script src="/static/receiver_configurator.js"></script>
-  <script src="/static/interest_areas.js"></script>
-  <link href="/static/style.css" rel="stylesheet">
-  <link href="/static/menu.css" rel="stylesheet">
+  <link href="/static/ui.css" rel="stylesheet">
 </head>
-<body onload="loadRx(createReceivers); loadAoi(createAois);">
+<body>
   <div id="loader" class="loader"></div>
-  <div id="cesiumContainer">
+  <div id="cesiumContainer"></div>
 
+  <!-- ===== Status Bar ===== -->
+  <header class="statusbar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">DF AGGREGATOR</div>
+        <div class="brand-sub">Networked Direction Finding</div>
+      </div>
+    </div>
+
+    <div class="stat-group">
+      <div class="stat">
+        <div class="stat-label">RECEIVERS</div>
+        <div class="stat-value"><span class="dot dot-good"></span><span id="stat-rx-count">0</span><span class="muted" id="stat-rx-total">/0</span></div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">AOI</div>
+        <div class="stat-value" id="stat-aoi-count">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">EXCLUSIONS</div>
+        <div class="stat-value" id="stat-ex-count">0</div>
+      </div>
+      <div class="stat" id="stat-freq">
+        <div class="stat-label">FREQUENCY</div>
+        <div class="stat-value mono" id="stat-freq-value">&mdash; <span class="unit" id="stat-freq-unit">no active rx</span></div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">MODE</div>
+        <div class="stat-value">
+          <span class="mode-pill live" id="stat-mode-pill"><span class="rec-dot"></span>LIVE</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="topbar-btn" title="Layers" id="btn-layers">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      </button>
+      <div class="clock">
+        <div class="clock-time" id="clock-time">--:--:-- UTC</div>
+        <div class="clock-date" id="clock-date">-- --- ----</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Signal Filters ===== -->
+  <div class="filters-host" id="filters-host">
+    <div class="filters-card" id="filters-card">
+      <div class="filters-head">
+        <div class="filters-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Signal Filters
+        </div>
+        <button class="icon-btn-sm" id="filters-collapse" title="Collapse">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </div>
+
+      <div class="filt-section">
+        <label class="filt-toggle">
+          <span class="filt-toggle-text">
+            <span class="filt-label">Capture Receivers</span>
+            <span class="filt-hint">Enable intersection capture from active receivers</span>
+          </span>
+          <span class="toggle {{'on' if rx_state else ''}}" id="rx-en-toggle" role="switch">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+      </div>
+
+      <div class="filt-section">
+        <div class="filt-row">
+          <div class="filt-label">Min Power</div>
+          <input type="range" min="0" max="100" value="{{minpower}}" class="filt-slider" id="powerRange">
+          <div class="filt-val" id="power-val">{{minpower}}</div>
+        </div>
+        <div class="filt-row">
+          <div class="filt-label">Min Confidence</div>
+          <input type="range" min="0" max="300" value="{{minconf}}" class="filt-slider" id="confRange">
+          <div class="filt-val" id="conf-val">{{minconf}}</div>
+        </div>
+      </div>
+
+      <div class="filt-section">
+        <label class="filt-toggle">
+          <span class="filt-toggle-text">
+            <span class="filt-label">Clustering</span>
+            <span class="filt-hint">Draw confidence ellipses around clusters</span>
+          </span>
+          <span class="toggle {{'on' if epsilon == 'auto' else ''}}" id="clustering-toggle" role="switch">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+        <div class="filt-row">
+          <div class="filt-label">Epsilon</div>
+          <input type="range" min="0" max="2" step="0.01" value="{{0 if epsilon == 'auto' else epsilon}}" class="filt-slider" id="epsilonRange">
+          <div class="filt-val {{'filt-val-auto' if epsilon == 'auto' else ''}}" id="eps-val">{{'AUTO' if epsilon == 'auto' else epsilon}}</div>
+        </div>
+        <div class="filt-row">
+          <div class="filt-label">Min Samples</div>
+          <input type="range" min="0" max="300" step="5" value="{{0 if minpoints == 'auto' else minpoints}}" class="filt-slider" id="minpointRange">
+          <div class="filt-val {{'filt-val-auto' if minpoints == 'auto' else ''}}" id="minpoint-val">{{'AUTO' if minpoints == 'auto' else minpoints}}</div>
+        </div>
+      </div>
+
+      <div class="filt-section">
+        <label class="filt-toggle">
+          <span class="filt-toggle-text">
+            <span class="filt-label">Plot All Intersect Points</span>
+          </span>
+          <span class="toggle {{'on' if intersect_state else ''}}" id="intersect-toggle" role="switch">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+      </div>
+
+      <div class="filt-foot">
+        <button class="btn btn-primary" id="refreshbutton">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Apply &amp; Refresh
+        </button>
+      </div>
+    </div>
+    <button class="filt-fab hidden" id="filters-fab" title="Show signal filters">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span>Filters</span>
+    </button>
   </div>
+
+  <!-- ===== Side Panel ===== -->
+  <aside class="sidepanel" id="sidepanel">
+    <button class="sidepanel-close" id="sidepanel-close" title="Close panel">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <!-- Receivers Section -->
+    <div class="panel-section">
+      <div class="section-head">
+        <div class="section-title">
+          <span>Receivers</span>
+          <span class="count-pill" id="rx-count-pill">0</span>
+        </div>
+        <div class="section-actions">
+          <button class="icon-btn" id="add-rx-btn" title="Add Receiver">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="new-item-form hidden" id="new-rx-form">
+        <label>
+          Station URL
+          <input type="text" id="new-rx-url" placeholder="http://receiver:8081/doa">
+        </label>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-primary" id="save-new-rx" style="flex:1">Save</button>
+          <button class="btn btn-ghost" id="cancel-new-rx" style="flex:0">Cancel</button>
+        </div>
+      </div>
+      <div class="cards" id="rx-cards"></div>
+    </div>
+
+    <!-- Areas of Interest Section -->
+    <div class="panel-section">
+      <div class="section-head">
+        <div class="section-title">
+          <span>Areas of Interest</span>
+          <span class="count-pill" id="aoi-count-pill">0</span>
+        </div>
+        <div class="section-actions">
+          <button class="icon-btn" id="run-aoi-rules-btn" title="Apply AOI rules">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </button>
+          <button class="icon-btn" id="add-aoi-btn" title="Add Area of Interest">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="new-item-form hidden" id="new-aoi-form">
+        <label>Lat <input type="text" id="aoi-new-lat" readonly></label>
+        <label>Lon <input type="text" id="aoi-new-lon" readonly></label>
+        <label>Radius (m) <input type="text" id="aoi-new-radius" readonly></label>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-primary" id="save-new-aoi" style="flex:1">Save</button>
+          <button class="btn btn-ghost" id="cancel-new-aoi" style="flex:0">Cancel</button>
+        </div>
+      </div>
+      <div class="cards" id="aoi-cards"></div>
+    </div>
+
+    <!-- Exclusion Areas Section -->
+    <div class="panel-section">
+      <div class="section-head">
+        <div class="section-title">
+          <span>Exclusion Areas</span>
+          <span class="count-pill" id="ex-count-pill">0</span>
+        </div>
+        <div class="section-actions">
+          <button class="icon-btn" id="add-exclusion-btn" title="Add Exclusion Area">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="new-item-form hidden" id="new-exclusion-form">
+        <label>Lat <input type="text" id="exclusion-new-lat" readonly></label>
+        <label>Lon <input type="text" id="exclusion-new-lon" readonly></label>
+        <label>Radius (m) <input type="text" id="exclusion-new-radius" readonly></label>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-primary" id="save-new-exclusion" style="flex:1">Save</button>
+          <button class="btn btn-ghost" id="cancel-new-exclusion" style="flex:0">Cancel</button>
+        </div>
+      </div>
+      <div class="cards" id="exclusion-cards"></div>
+    </div>
+
+    <!-- LOB History Section -->
+    <div class="panel-section">
+      <div class="section-head">
+        <div class="section-title">
+          <span>LOB History</span>
+          <span class="rec-pill" id="rec-pill" style="display:none"><span class="rec-dot"></span>REC</span>
+        </div>
+      </div>
+      <div class="card timeline-card">
+        <label class="filt-toggle">
+          <span class="filt-toggle-text">
+            <span class="filt-label">Record History</span>
+            <span class="filt-hint">Persist LOB data to database</span>
+          </span>
+          <span class="toggle {{'on' if lob_history_state else ''}}" id="lob-history-toggle" role="switch">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+
+        <div class="tl-row">
+          <div class="tl-row-label">Time Range</div>
+          <div class="seg-group" id="time-presets">
+            <button class="seg-btn" data-minutes="30">30 min</button>
+            <button class="seg-btn active" data-minutes="60">1 hour</button>
+            <button class="seg-btn" data-minutes="240">4 hours</button>
+            <button class="seg-btn" data-minutes="1440">24 hours</button>
+          </div>
+        </div>
+
+        <div class="tl-row">
+          <div class="tl-row-label">Start</div>
+          <input type="datetime-local" class="tl-input" id="history_start" step="1">
+        </div>
+        <div class="tl-row">
+          <div class="tl-row-label">End</div>
+          <input type="datetime-local" class="tl-input" id="history_end" step="1">
+        </div>
+
+        <div class="tl-row">
+          <div class="tl-row-label">Mode</div>
+          <div class="seg-group" id="history-mode-group">
+            <button class="seg-btn active" data-mode="flash">Flash</button>
+            <button class="seg-btn" data-mode="accumulate">Accumulate</button>
+          </div>
+        </div>
+
+        <div class="tl-row">
+          <div class="tl-row-label">Frequency</div>
+          <div class="tl-input-group">
+            <input type="text" class="tl-input" id="history_frequency" placeholder="All frequencies">
+            <span class="tl-input-suffix">Hz</span>
+          </div>
+        </div>
+
+        <div class="scrub" id="scrub-container">
+          <div class="scrub-track" id="scrub-track"></div>
+          <div class="scrub-axis" id="scrub-axis"></div>
+        </div>
+
+        <div class="tl-foot">
+          <button class="btn btn-primary" id="loadHistoryBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Load History
+          </button>
+          <button class="btn btn-ghost" id="liveBtn" style="display:none">
+            <span class="live-dot"></span>Go Live
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Panel Toggle (shown when side panel is collapsed) -->
+  <button class="panel-toggle" id="panel-toggle" style="display:none" title="Open panel">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+
+  <!-- ===== CesiumJS Init ===== -->
   <script>
     var transmittersDataSource = new Cesium.CzmlDataSource();
     var receiversDataSource = new Cesium.CzmlDataSource();
@@ -43,12 +340,10 @@
     var lobHistoryDataSource = new Cesium.CzmlDataSource();
 
     % if access_token:
-    // Your access token can be found at: https://cesium.com/ion/tokens.
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     % end
 
-    // Set default map to ESRI using the modern async pattern
-    const esriProvider = Cesium.ArcGisMapServerImageryProvider.fromUrl(
+    var esriProvider = Cesium.ArcGisMapServerImageryProvider.fromUrl(
       'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
     );
 
@@ -58,19 +353,19 @@
       homeButton: false,
       timeline: true,
       animation: true,
-      mapProjection : new Cesium.WebMercatorProjection(),
+      mapProjection: new Cesium.WebMercatorProjection(),
     });
 
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
     viewer.infoBox.frame.src = "about:blank";
 
     var clock = new Cesium.Clock({
-       clockStep : Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
+      clockStep: Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
     });
     viewer.clock.shouldAnimate = true;
 
     var hpr = new Cesium.HeadingPitchRange(0.0, -1.57, 0.0);
-    viewer.flyTo(loadAllCzml(), {'offset':hpr});
+    viewer.flyTo(loadAllCzml(), {'offset': hpr});
 
     var scene = viewer.scene;
     if (!scene.pickPositionSupported) {
@@ -79,15 +374,12 @@
 
     var handler;
     var cartesian;
-    var cartographic
+    var cartographic;
     var rad_cartesian;
     var center_lat;
     var center_lon;
     var radius;
 
-    // ***********************************************
-    // Disable/enable object selection as needed.
-    //************************************************
     var noSelect = false;
     var myClickFunction = function(event) {
       if (noSelect) {
@@ -115,51 +407,34 @@
     };
     viewer.screenSpaceEventHandler.setInputAction(myClickFunction, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-
-    // Pick the center point of a circle
     function pickCenter(lat_element_id, lon_element_id, radius_element_id, outlineColor) {
       noSelect = true;
       scene.canvas.style.cursor = "crosshair";
       var entity = viewer.entities.add({
         label: {
-          show: false,
-          showBackground: true,
-          font: "14px monospace",
+          show: false, showBackground: true, font: "14px monospace",
           horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
           pixelOffset: new Cesium.Cartesian2(15, 0),
         },
       });
       handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
-      handler.setInputAction(function (movement) {
-        cartesian = viewer.camera.pickEllipsoid(
-          movement.endPosition,
-          scene.globe.ellipsoid
-        );
+      handler.setInputAction(function(movement) {
+        cartesian = viewer.camera.pickEllipsoid(movement.endPosition, scene.globe.ellipsoid);
         if (cartesian) {
           cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-          var center_lon = Cesium.Math.toDegrees(
-            cartographic.longitude
-          ).toFixed(5);
-          var center_lat = Cesium.Math.toDegrees(
-            cartographic.latitude
-          ).toFixed(5);
-
+          var center_lon = Cesium.Math.toDegrees(cartographic.longitude).toFixed(5);
+          var center_lat = Cesium.Math.toDegrees(cartographic.latitude).toFixed(5);
           lat_element_id.value = center_lat;
           lon_element_id.value = center_lon;
           entity.position = cartesian;
           entity.label.show = true;
-          entity.label.text =
-            "Lat: " +
-            ("   " + center_lat).slice(-10) +
-            "\nLon: " +
-            ("   " + center_lon).slice(-10);
+          entity.label.text = "Lat: " + ("   " + center_lat).slice(-10) + "\nLon: " + ("   " + center_lon).slice(-10);
         } else {
           entity.label.show = false;
         }
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
-      handler.setInputAction(function () {
+      handler.setInputAction(function() {
         handler = handler && handler.destroy();
         viewer.entities.remove(entity);
         pickRadius(radius_element_id, cartographic, outlineColor);
@@ -171,50 +446,35 @@
       scene.canvas.style.cursor = "default";
       viewer.entities.removeAll();
       handler = handler && handler.destroy();
-    };
+    }
 
     function pickRadius(radius_element_id, center_carto, outlineColor) {
       noSelect = true;
       var currentRadius = 0;
-      var centerPosition = Cesium.Cartesian3.fromRadians(
-        center_carto.longitude, center_carto.latitude
-      );
-
+      var centerPosition = Cesium.Cartesian3.fromRadians(center_carto.longitude, center_carto.latitude);
       var circleEntity = viewer.entities.add({
         position: centerPosition,
         ellipse: {
-          semiMajorAxis: new Cesium.CallbackProperty(function () { return currentRadius; }, false),
-          semiMinorAxis: new Cesium.CallbackProperty(function () { return currentRadius; }, false),
-          fill: false,
-          outline: true,
-          outlineColor: outlineColor,
-          outlineWidth: 3,
-          height: 0,
+          semiMajorAxis: new Cesium.CallbackProperty(function() { return currentRadius; }, false),
+          semiMinorAxis: new Cesium.CallbackProperty(function() { return currentRadius; }, false),
+          fill: false, outline: true, outlineColor: outlineColor, outlineWidth: 3, height: 0,
         },
       });
-
       var labelEntity = viewer.entities.add({
         label: {
-          show: false,
-          showBackground: true,
-          font: "14px monospace",
+          show: false, showBackground: true, font: "14px monospace",
           horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
           pixelOffset: new Cesium.Cartesian2(15, 0),
         },
       });
-
       handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
-      handler.setInputAction(function (movement) {
-        rad_cartesian = viewer.camera.pickEllipsoid(
-          movement.endPosition,
-          scene.globe.ellipsoid
-        );
+      handler.setInputAction(function(movement) {
+        rad_cartesian = viewer.camera.pickEllipsoid(movement.endPosition, scene.globe.ellipsoid);
         if (rad_cartesian) {
           cartographic = Cesium.Cartographic.fromCartesian(rad_cartesian);
           var ellipsoidGeodesic = new Cesium.EllipsoidGeodesic(center_carto, cartographic);
           currentRadius = Math.max(1, Number(ellipsoidGeodesic.surfaceDistance.toFixed(0)));
-
           radius_element_id.value = currentRadius;
           labelEntity.position = rad_cartesian;
           labelEntity.label.show = true;
@@ -223,8 +483,7 @@
           labelEntity.label.show = false;
         }
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
-      handler.setInputAction(function () {
+      handler.setInputAction(function() {
         circleEntity.ellipse.semiMajorAxis = currentRadius;
         circleEntity.ellipse.semiMinorAxis = currentRadius;
         viewer.entities.remove(labelEntity);
@@ -235,62 +494,58 @@
     }
 
     function updateParams(parameter) {
-        clearOld();
-        fetch("/update?"+parameter)
-            .then(function(response) {
-                loadRx(refreshRx);
-                loadAllCzml();
-            })
+      clearOld();
+      fetch("/update?" + (parameter || ""))
+        .then(function() {
+          loadRx(refreshRx);
+          loadAllCzml();
+        });
     }
 
     function loadTxCzml() {
-      let parameter = "";
-
-      let spinner = document.getElementById("loader");
+      var parameter = "";
+      var spinner = document.getElementById("loader");
       spinner.style.visibility = "visible";
       spinner.style.zIndex = "10";
 
-      const epsslider = document.getElementById("epsilonRange");
-      const minpointslider = document.getElementById("minpointRange");
-      const intersect_en = document.getElementById("intersect_en");
-      const clustering_en = document.getElementById("clustering_en");
+      var epsslider = document.getElementById("epsilonRange");
+      var minpointslider = document.getElementById("minpointRange");
+      var intersect_en = document.getElementById("intersect-toggle");
+      var clustering_en = document.getElementById("clustering-toggle");
 
-      if(minpointslider !== null) {
-        if (minpointslider.value > 0) {
-          parameter += "minpts="+minpointslider.value+"&";
+      if (minpointslider !== null) {
+        if (parseInt(minpointslider.value) > 0) {
+          parameter += "minpts=" + minpointslider.value + "&";
         } else {
           parameter += "minpts=auto&";
         }
       }
       if (clustering_en !== null) {
-        if (clustering_en.checked) {
-          if (epsslider.value == 0) {
+        if (clustering_en.classList.contains('on')) {
+          if (parseFloat(epsslider.value) === 0) {
             parameter += "eps=auto&";
           } else {
-            parameter += "eps="+epsslider.value+"&";
+            parameter += "eps=" + epsslider.value + "&";
           }
         } else {
           parameter += "eps=0&";
         }
       }
       if (intersect_en !== null) {
-        if (intersect_en.checked) {
-          parameter += "plotpts=true"+"&";
+        if (intersect_en.classList.contains('on')) {
+          parameter += "plotpts=true&";
         } else {
-          parameter += "plotpts=false"+"&";
+          parameter += "plotpts=false&";
         }
       }
-      console.log(parameter);
-      let promise1 = transmittersDataSource.load('/output.czml?'+parameter);
-      promise1.then(
-        function(dataSource1) {
-          spinner.style.visibility = "hidden";
-          spinner.style.zIndex = "0";
-      }).catch(
-        function(error) {
-          console.error('Error loading transmitters CZML:', error);
-          spinner.style.visibility = "hidden";
-          spinner.style.zIndex = "0";
+      var promise1 = transmittersDataSource.load('/output.czml?' + parameter);
+      promise1.then(function(dataSource1) {
+        spinner.style.visibility = "hidden";
+        spinner.style.zIndex = "0";
+      }).catch(function(error) {
+        console.error('Error loading transmitters CZML:', error);
+        spinner.style.visibility = "hidden";
+        spinner.style.zIndex = "0";
       });
       viewer.dataSources.add(transmittersDataSource);
       return transmittersDataSource;
@@ -329,240 +584,120 @@
       viewer.dataSources.remove(aoiDataSource, true);
       loadAoiCzml();
     }
-
   </script>
-  <div id="cardsmenu">
-  <div id="menuToggle">
 
-    <input id="burgerbars" type="checkbox" />
-
-    <span class="borger"></span>
-    <span class="borger"></span>
-    <span class="borger"></span>
-
-    <ul id="menu">
-      <div id="rxcards" class="menusections">
-        <h2 style="color: #eee; padding-left: 5px;">Receivers</h2>
-
-        <input id="add_station" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
-        <span id="add_station_icon" class="material-icons add-icon no-select">add_circle_outline</span>
-        <div style="visibility: hidden; height: 0;" id="new_rx_div" style="padding: 0;">
-          <span id="new-url">Station URL:</span>
-        </div>
-      </div>
-      <hr>
-      <div id="aoicards" class="menusections">
-        <h2 style="color: #eee; padding-left: 5px;">Areas of Interest</h2>
-        <input id="add_aoi" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
-        <span id="add_aoi_icon" class="material-icons add-icon no-select">add_circle_outline</span>
-        <input id="run_aoi_rules" class="edit-checkbox aoi-rule-icon" type="checkbox"
-        title="Apply All AOI Rules. Do not click this before defining all off your AOIs.
-        It will permanently delete intersections!" style="width: 23px; height: 23px;"/>
-        <span id="run_aoi_icon" class="material-icons aoi-rule-icon no-select">rule</span>
-        <div style="visibility: hidden; height: 0;" id="new_aoi_div" style="padding: 0;">
-          <span id="new-aoi"></span>
-        </div>
-      </div>
-      <hr>
-      <div id="exclusioncards" class="menusections">
-        <h2 style="color: #eee; padding-left: 5px;">Exclusion Areas</h2>
-        <input id="add_exclusion" class="edit-checkbox add-icon" type="checkbox" style="width: 23px; height: 23px;"/>
-        <span id="add_exclusion_icon" class="material-icons add-icon no-select">add_circle_outline</span>
-        <div style="visibility: hidden; height: 0;" id="new_exclusion_div" style="padding: 0;">
-          <span id="new-exclusion"></span>
-        </div>
-      </div>
-      <hr>
-      <div id="lobhistory" class="menusections">
-        <h2 style="color: #eee; padding-left: 5px;">LOB History</h2>
-        <div class="lob-history-card">
-          <span style="display: block; margin-bottom: 5px;">
-            Record History:
-            <label class="switch" style="vertical-align: middle; margin-left: 5px;">
-            <input id="lob_history_en" name="lob_history_en" {{lob_history_state}} type="checkbox">
-            <span class="switchslider round"></span>
-            </label>
-          </span>
-          <span style="display: block; margin-bottom: 5px;">
-            Time Range:
-            <input type="button" class="history-card-btn" value="30 min" data-minutes="30">
-            <input type="button" class="history-card-btn" value="1 hour" data-minutes="60">
-            <input type="button" class="history-card-btn" value="4 hours" data-minutes="240">
-          </span>
-          <span style="display: block;">Start:
-            <input type="datetime-local" id="history_start" step="1" style="width: 220px;">
-          </span>
-          <span style="display: block;">End:
-            <input type="datetime-local" id="history_end" step="1" style="width: 220px;">
-          </span>
-          <span style="display: block; margin-top: 5px;">
-            Mode:
-            <label style="margin-left: 5px; margin-right: 10px;"><input type="radio" name="history_mode" value="flash" checked> Flash</label>
-            <label><input type="radio" name="history_mode" value="accumulate"> Accumulate</label>
-          </span>
-          <span style="display: block; margin-top: 5px;">
-            Frequency (Hz):
-            <input type="number" id="history_frequency" placeholder="All frequencies" style="width: 150px;">
-          </span>
-          <span style="display: block; margin-top: 8px;">
-            <input id="loadHistoryBtn" class="history-card-btn" type="button" value="Load History" style="padding: 8px 12px; font-weight: 600;">
-            <input id="liveBtn" class="history-card-btn" type="button" value="⏺ LIVE" style="padding: 8px 12px; font-weight: 600; background: #c62828; color: white; display: none;">
-          </span>
-        </div>
-      </div>
-    </ul>
-  </div>
-  </div>
+  <!-- ===== Component Scripts ===== -->
+  <script src="/static/statusbar.js"></script>
+  <script src="/static/receiver_configurator.js"></script>
+  <script src="/static/interest_areas.js"></script>
   <script src="/static/cardsmenu.js"></script>
   <script src="/static/lob_history.js"></script>
 
-  <div class="slidecontainer">
-    <div class="tooltip">
-      <span>
-      <span class="slidetitle"><h4>Enable Receiver:</h4></span>
-      <span class="slidespan" style="text-align:left;width: 100px;margin: 5px;">
-      <label class="switch">
-      <input id="rx_en" name="rx_en" {{rx_state}} type="checkbox">
-      <span class="switchslider round"></span>
-      </label></span>
-      </span>
-      <span class="tooltiptext">Enables or disables capturing intersections.</span>
-    </div>
-    <div class="tooltip">
-      <span class="tooltiptext">Minimum Power: <br>
-        Minimun power level to record an intersection.Does not affect historical data.</span>
-      <span class="slidespan">
-        <input name="powerValue" type="range" min="0" max="100" value="{{minpower}}" class="slider" id="powerRange">
-      </span>
-      <span class="slidevalue" id="power"></span>
-    </div>
-    <div class="tooltip">
-      <span class="tooltiptext">Minimum Confidence:<br>
-        Minimum confidence level to record an intersection. Does not affect historical data.</span>
-      <span class="slidespan">
-        <input name="confValue" type="range" min="0" max="300" value="{{minconf}}" class="slider" id="confRange">
-      </span>
-      <span class="slidevalue" id="confidence"></span>
-    </div>
-    <div class="tooltip">
-      <span class="tooltiptext">Epsilon:<br>
-        Maximum distance between neighboring points in a cluster.<br>
-        </span>
-      <span class="slidespan">
-        <input name="epsilonValue" type="range" min="0" max="2" step="0.01" value="{{0 if epsilon == "auto" else epsilon}}" class="slider" id="epsilonRange">
-      </span>
-      <span class="slidevalue" id="epsilon"></span>
-    </div>
-    <div class="tooltip">
-      <span class="tooltiptext">Minimum points per sample in a cluster.</span>
-      <span class="slidespan">
-        <input name="minpointValue" type="range" min="0" max="300" step="5" value="{{0 if minpoints == "auto" else minpoints}}" class="slider" id="minpointRange">
-      </span>
-      <span class="slidevalue" id="minpoints"></span>
-    </div>
-    <div style="width: 600px">
-      <span class="tooltip">
-        <span class="slidetitle"><h4>Clustering:</h4></span>
-        <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
-        <label class="switch">
-          <input id="clustering_en" name="clustering_en" {{"checked" if epsilon == "auto" else ""}} type="checkbox" onchange="updateParams()">
-          <span class="switchslider round"></span>
-        </label></span>
-        <span class="tooltiptext">Turns clustering on or off. Clustering On will draw ellipses.
-        Disabling clustering will plot all intersections and may cause longer load times.</span>
-      </span>
-    </div>
-    <div style="width: 600px">
-      <span class="tooltip">
-        <span class="slidetitle"><h4>Plot All Intersect Points:</h4></span>
-        <span class="slidespan" style="text-align:left; width: 100px;margin: 5px;">
-        <label class="switch">
-          <input id="intersect_en" name="intersect_en" {{intersect_state}} type="checkbox">
-          <span class="switchslider round"></span>
-        </label></span>
-        <span class="tooltiptext">This setting does not apply if clustering is turned off (epsilon = 0).<br>
-          Enabling this can cause longer load times.</span>
-      </span>
-    </div>
-    <div>
-      <span><input id="refreshbutton" class="slider" type="button" value="Refresh" onclick="updateParams()"></span>
-    </div>
-  </div>
+  <!-- ===== Init & Filter Wiring ===== -->
   <script>
-    var powerslider = document.getElementById("powerRange");
-    var poweroutput = document.getElementById("power");
-    poweroutput.innerHTML = powerslider.value;
+    statusBar.init();
+    statusBar.setMode(true);
 
-    var confslider = document.getElementById("confRange");
-    var confoutput = document.getElementById("confidence");
-    confoutput.innerHTML = confslider.value;
+    loadRx(function(rx_json, id) {
+      createReceivers(rx_json, id);
+      statusBar.updateReceiverStats(rx_json);
+    });
+    loadAoi(function(aoi_json, id) {
+      createAois(aoi_json, id);
+      statusBar.updateAoiStats(aoi_json);
+    });
 
-    var epsslider = document.getElementById("epsilonRange");
-    var epsoutput = document.getElementById("epsilon");
-    if (epsslider.value == 0) {
-      epsoutput.innerHTML = "Auto";
-    } else {
-      epsoutput.innerHTML = epsslider.value;
+    function wireToggle(id, onChange) {
+      var el = document.getElementById(id);
+      el.addEventListener('click', function() {
+        el.classList.toggle('on');
+        if (onChange) onChange(el.classList.contains('on'));
+      });
     }
 
-    var minpointslider = document.getElementById("minpointRange");
-    var minpointoutput = document.getElementById("minpoints");
-    if (minpointslider.value == 0) {
-      minpointoutput.innerHTML = "Auto";
-    } else {
-      minpointoutput.innerHTML = minpointslider.value;
-    }
-
-    var rx_enable = document.getElementById("rx_en");
-
-    var intersect_en = document.getElementById("intersect_en");
-
-    // Update the current slider value (each time you drag the slider handle)
-    epsslider.oninput = function() {
-      if (this.value > 0) {
-        epsoutput.innerHTML = this.value;
-      } else {
-        epsoutput.innerHTML = "Auto";
-      }
-    }
-    epsslider.onpointerup = function() {
+    wireToggle('rx-en-toggle', function(on) {
+      updateParams("rx=" + (on ? "true" : "false"));
+    });
+    wireToggle('clustering-toggle', function() {
       updateParams("");
-    }
-    powerslider.oninput = function() {
-      poweroutput.innerHTML = this.value;
-    }
-    powerslider.onpointerup = function() {
-      updateParams("minpower="+this.value);
-    }
-    confslider.oninput = function() {
-      confoutput.innerHTML = this.value;
-    }
-    confslider.onpointerup = function() {
-      updateParams("minconf="+this.value);
-    }
-    minpointslider.oninput = function() {
-      if (this.value > 0) {
-        minpointoutput.innerHTML = this.value;
-      } else {
-        minpointoutput.innerHTML = "Auto";
-      }
-    }
-    minpointslider.onpointerup = function() {
+    });
+    wireToggle('intersect-toggle', function() {
       updateParams("");
-    }
+    });
 
-    rx_enable.onchange = function() {
-      if (rx_enable.checked) {
-        updateParams("rx=true");
+    var powerSlider = document.getElementById("powerRange");
+    var powerVal = document.getElementById("power-val");
+    powerSlider.oninput = function() { powerVal.textContent = this.value; };
+    powerSlider.onpointerup = function() { updateParams("minpower=" + this.value); };
+
+    var confSlider = document.getElementById("confRange");
+    var confVal = document.getElementById("conf-val");
+    confSlider.oninput = function() { confVal.textContent = this.value; };
+    confSlider.onpointerup = function() { updateParams("minconf=" + this.value); };
+
+    var epsSlider = document.getElementById("epsilonRange");
+    var epsVal = document.getElementById("eps-val");
+    epsSlider.oninput = function() {
+      if (parseFloat(this.value) > 0) {
+        epsVal.textContent = this.value;
+        epsVal.className = 'filt-val';
       } else {
-        updateParams("rx=false");
+        epsVal.textContent = 'AUTO';
+        epsVal.className = 'filt-val filt-val-auto';
       }
-    }
+    };
+    epsSlider.onpointerup = function() { updateParams(""); };
 
-    intersect_en.onchange = function() {
+    var minpointSlider = document.getElementById("minpointRange");
+    var minpointVal = document.getElementById("minpoint-val");
+    minpointSlider.oninput = function() {
+      if (parseInt(this.value) > 0) {
+        minpointVal.textContent = this.value;
+        minpointVal.className = 'filt-val';
+      } else {
+        minpointVal.textContent = 'AUTO';
+        minpointVal.className = 'filt-val filt-val-auto';
+      }
+    };
+    minpointSlider.onpointerup = function() { updateParams(""); };
+
+    document.getElementById("refreshbutton").addEventListener("click", function() {
       updateParams("");
-    }
+    });
 
+    var filtersCard = document.getElementById("filters-card");
+    var filtersFab = document.getElementById("filters-fab");
+    document.getElementById("filters-collapse").addEventListener("click", function() {
+      filtersCard.style.display = "none";
+      filtersFab.classList.remove("hidden");
+      localStorage.setItem('df-filters-collapsed', 'true');
+    });
+    filtersFab.addEventListener("click", function() {
+      filtersCard.style.display = "";
+      filtersFab.classList.add("hidden");
+      localStorage.setItem('df-filters-collapsed', 'false');
+    });
+
+    var sidepanel = document.getElementById("sidepanel");
+    var panelToggle = document.getElementById("panel-toggle");
+    document.getElementById("sidepanel-close").addEventListener("click", function() {
+      sidepanel.classList.add("collapsed");
+      panelToggle.style.display = "";
+      localStorage.setItem('df-panel-collapsed', 'true');
+    });
+    panelToggle.addEventListener("click", function() {
+      sidepanel.classList.remove("collapsed");
+      panelToggle.style.display = "none";
+      localStorage.setItem('df-panel-collapsed', 'false');
+    });
+    if (localStorage.getItem('df-panel-collapsed') === 'true') {
+      sidepanel.classList.add("collapsed");
+      panelToggle.style.display = "";
+    }
+    if (localStorage.getItem('df-filters-collapsed') === 'true') {
+      filtersCard.style.display = "none";
+      filtersFab.classList.remove("hidden");
+    }
   </script>
 </body>
 </html>
