@@ -23,6 +23,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 import math
 import time
+from datetime import datetime, timezone
 import sqlite3
 import threading
 import signal
@@ -37,7 +38,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
-from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
+from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock
+from czml3.types import TimeInterval
 import queue
 from multiprocessing import Process, Queue, set_start_method
 from bottle import route, run, request, get, put, response, redirect, template, static_file, app as bottle_app
@@ -125,6 +127,7 @@ class math_settings:
     min_power: float
     receiving: bool = True
     plotintersects: bool = False
+    lob_history_enabled: bool = True
 
 
 ################################################
@@ -713,6 +716,107 @@ def write_rx_czml():
     return Document(packets=[top] + receiver_point_packets + lob_packets).dumps()
 
 
+def _epoch_ms_to_iso(epoch_ms):
+    dt = datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc)
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.') + f'{dt.microsecond // 1000:03d}Z'
+
+
+@get("/lob_history.czml")
+def lob_history_czml():
+    response.set_header(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+
+    now_ms = time.time() * 1000
+    start = int(request.query.start or (now_ms - 3600000))
+    end = int(request.query.end or now_ms)
+    min_conf = int(request.query.min_conf or ms.min_conf)
+    min_power = int(request.query.min_power or ms.min_power)
+    mode = request.query.mode or "flash"
+    freq = request.query.frequency
+
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+
+    if freq:
+        c.execute('''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
+            FROM lobs
+            WHERE time BETWEEN ? AND ?
+              AND confidence >= ?
+              AND power >= ?
+              AND frequency = ?
+            ORDER BY time''', [start, end, min_conf, min_power, float(freq)])
+    else:
+        c.execute('''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
+            FROM lobs
+            WHERE time BETWEEN ? AND ?
+              AND confidence >= ?
+              AND power >= ?
+            ORDER BY time''', [start, end, min_conf, min_power])
+
+    rows = c.fetchall()
+    conn.close()
+
+    start_iso = _epoch_ms_to_iso(start)
+    end_iso = _epoch_ms_to_iso(end)
+
+    top = Packet(
+        id="document",
+        name="LOB History",
+        version=CZML_VERSION,
+        clock=Clock(
+            interval=TimeInterval(start=start_iso, end=end_iso),
+            currentTime=start_iso,
+            multiplier=1.0
+        )
+    )
+
+    green = [0, 255, 0, 153]
+    orange = [255, 140, 0, 153]
+    red = [255, 0, 0, 153]
+    outline_color = [0, 0, 0, 153]
+    height = 50
+
+    lob_packets = []
+    for row in rows:
+        lob_time, station_id, lat, lon, conf, pwr, freq_val, doa = row
+
+        if conf > min_conf and pwr > min_power:
+            lob_color = green
+        elif conf <= min_conf and pwr > min_power:
+            lob_color = orange
+        else:
+            lob_color = red
+
+        lob_stop_lat, lob_stop_lon = v.direct(lat, lon, doa, LOB_DRAW_DISTANCE_METERS)
+
+        if mode == "accumulate":
+            avail_start_iso = _epoch_ms_to_iso(lob_time)
+            avail_end_iso = end_iso
+        else:
+            avail_start_iso = _epoch_ms_to_iso(lob_time - 2500)
+            avail_end_iso = _epoch_ms_to_iso(lob_time + 2500)
+
+        avail = TimeInterval(start=avail_start_iso, end=avail_end_iso)
+
+        lob_packets.append(Packet(
+            id=f"LOB-HIST-{station_id}-{lob_time}",
+            availability=avail,
+            polyline=Polyline(
+                material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
+                    color=Color(rgba=lob_color),
+                    outlineColor=Color(rgba=outline_color),
+                    outlineWidth=1
+                )),
+                clampToGround=True,
+                width=4,
+                positions=PositionList(cartographicDegrees=[
+                    lon, lat, height, lob_stop_lon, lob_stop_lat, height])
+            )
+        ))
+
+    return Document(packets=[top] + lob_packets).dumps()
+
+
 ###############################################
 # Writes aoi.czml used by the WebUI
 ###############################################
@@ -811,6 +915,7 @@ def cesium():
                      'minpoints': ms.min_samp,
                      'rx_state': "checked" if ms.receiving is True else "",
                      'intersect_state': "checked" if ms.plotintersects is True else "",
+                     'lob_history_state': "checked" if ms.lob_history_enabled is True else "",
                      'receivers': receivers})
 
 
@@ -829,6 +934,11 @@ def update_cesium():
         ms.receiving = True
     elif request.query.rx == "false":
         ms.receiving = False
+
+    if request.query.lob_history == "true":
+        ms.lob_history_enabled = True
+    elif request.query.lob_history == "false":
+        ms.lob_history_enabled = False
 
     return "OK"
 
@@ -1085,6 +1195,20 @@ def run_receiver():
                 rx.d_2_last_intersection = []
             rx_snapshot = [(i, rx) for i, rx in enumerate(receivers)]
 
+        # Record LOBs for history replay (and single-receiver triangulation)
+        for rx in receivers:
+            is_single_rx = rx.isSingle and rx.isMobile
+            if rx.isActive and rx.doa_time > rx.previous_doa_time and (ms.lob_history_enabled or is_single_rx):
+                to_lobs = [rx.doa_time, rx.station_id, rx.latitude,
+                           rx.longitude, rx.confidence, rx.power,
+                           rx.frequency, rx.doa]
+                command = '''INSERT INTO lobs
+                    (time, station_id, latitude, longitude, confidence, power, frequency, lob)
+                    VALUES (?,?,?,?,?,?,?,?)'''
+                DATABASE_EDIT_Q.put((command, (to_lobs,), True))
+                DATABASE_RETURN.get(timeout=1)
+                rx.previous_doa_time = rx.doa_time
+
         intersect_list = []
         latest_doa_time = 0
         d2_accum = {i: [] for i, _ in rx_snapshot}
@@ -1174,10 +1298,6 @@ def run_receiver():
                                         (command, (to_table,), True))
                                     DATABASE_RETURN.get(timeout=1)
                 print(f"Computed and kept {keep_count} intersections.")
-
-                command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
-                DATABASE_EDIT_Q.put((command, [current_doa, ], True))
-                DATABASE_RETURN.get(timeout=1)
 
         DATABASE_EDIT_Q.put(("done", None, False))
         time.sleep(1)
@@ -1364,12 +1484,22 @@ def database_writer():
         num_parents INTEGER,
         confidence INTEGER,
         aoi_id INTEGER)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS lobs (time INTEGER,
+    c.execute('''CREATE TABLE IF NOT EXISTS lobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        time INTEGER,
         station_id TEXT,
         latitude REAL,
         longitude REAL,
         confidence INTEGER,
+        power REAL,
+        frequency REAL,
         lob REAL)''')
+
+    for col, col_type in [("power", "REAL"), ("frequency", "REAL")]:
+        try:
+            c.execute(f"ALTER TABLE lobs ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass
 
     # Create indexes for performance optimization
     # Index on intersects table for filtering by AOI and sorting by confidence
@@ -1383,6 +1513,9 @@ def database_writer():
     # Index on lobs table for single-receiver mode queries
     c.execute('''CREATE INDEX IF NOT EXISTS idx_lobs_station_time
         ON lobs(station_id, time)''')
+
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_lobs_time
+        ON lobs(time)''')
 
     # Index on interest_areas table for UID lookups
     c.execute('''CREATE INDEX IF NOT EXISTS idx_interest_areas_uid
@@ -1468,6 +1601,9 @@ if __name__ == '__main__':
     parser.add_argument("--debug", dest="debugging",
                         help="Don't clear screen; show errors and warnings",
                         action="store_true")
+    parser.add_argument("--no-lob-history", dest="no_lob_history",
+                        help="Disable LOB history recording",
+                        action="store_true")
     options = parser.parse_args()
 
     ms = math_settings(options.eps, options.minsamp, options.conf, options.pwr)
@@ -1478,6 +1614,7 @@ if __name__ == '__main__':
     debugging = options.debugging
     ms.receiving = options.disable
     ms.plotintersects = options.plotintersects
+    ms.lob_history_enabled = not options.no_lob_history
 
     if options.token_file:
         tokenfile = options.token_file

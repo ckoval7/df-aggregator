@@ -40,6 +40,7 @@
     var transmittersDataSource = new Cesium.CzmlDataSource();
     var receiversDataSource = new Cesium.CzmlDataSource();
     var aoiDataSource = new Cesium.CzmlDataSource();
+    var lobHistoryDataSource = new Cesium.CzmlDataSource();
 
     % if access_token:
     // Your access token can be found at: https://cesium.com/ion/tokens.
@@ -55,7 +56,8 @@
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(esriProvider),
       sceneModePicker: true,
       homeButton: false,
-      timeline: false,
+      timeline: true,
+      animation: true,
       mapProjection : new Cesium.WebMercatorProjection(),
     });
 
@@ -370,10 +372,49 @@
           <span id="new-exclusion"></span>
         </div>
       </div>
+      <hr>
+      <div id="lobhistory" class="menusections">
+        <h2 style="color: #eee; padding-left: 5px;">LOB History</h2>
+        <div class="lob-history-card">
+          <span style="display: block; margin-bottom: 5px;">
+            Record History:
+            <label class="switch" style="vertical-align: middle; margin-left: 5px;">
+            <input id="lob_history_en" name="lob_history_en" {{lob_history_state}} type="checkbox">
+            <span class="switchslider round"></span>
+            </label>
+          </span>
+          <span style="display: block; margin-bottom: 5px;">
+            Time Range:
+            <input type="button" class="history-card-btn" value="30 min" data-minutes="30">
+            <input type="button" class="history-card-btn" value="1 hour" data-minutes="60">
+            <input type="button" class="history-card-btn" value="4 hours" data-minutes="240">
+          </span>
+          <span style="display: block;">Start:
+            <input type="datetime-local" id="history_start" step="1" style="width: 220px;">
+          </span>
+          <span style="display: block;">End:
+            <input type="datetime-local" id="history_end" step="1" style="width: 220px;">
+          </span>
+          <span style="display: block; margin-top: 5px;">
+            Mode:
+            <label style="margin-left: 5px; margin-right: 10px;"><input type="radio" name="history_mode" value="flash" checked> Flash</label>
+            <label><input type="radio" name="history_mode" value="accumulate"> Accumulate</label>
+          </span>
+          <span style="display: block; margin-top: 5px;">
+            Frequency (Hz):
+            <input type="number" id="history_frequency" placeholder="All frequencies" style="width: 150px;">
+          </span>
+          <span style="display: block; margin-top: 8px;">
+            <input id="loadHistoryBtn" class="history-card-btn" type="button" value="Load History" style="padding: 8px 12px; font-weight: 600;">
+            <input id="liveBtn" class="history-card-btn" type="button" value="⏺ LIVE" style="padding: 8px 12px; font-weight: 600; background: #c62828; color: white; display: none;">
+          </span>
+        </div>
+      </div>
     </ul>
   </div>
   </div>
   <script src="/static/cardsmenu.js"></script>
+  <script src="/static/lob_history.js"></script>
 
   <div class="slidecontainer">
     <div class="tooltip">
