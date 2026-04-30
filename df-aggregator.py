@@ -1010,6 +1010,19 @@ def run_receiver():
                 rx.d_2_last_intersection = []
             rx_snapshot = [(i, rx) for i, rx in enumerate(receivers)]
 
+        # Record LOBs for history replay (and single-receiver triangulation)
+        for rx in receivers:
+            is_single_rx = rx.isSingle and rx.isMobile
+            if rx.isActive and rx.doa_time > rx.previous_doa_time and (ms.lob_history_enabled or is_single_rx):
+                to_lobs = [rx.doa_time, rx.station_id, rx.latitude,
+                           rx.longitude, rx.confidence, rx.power,
+                           rx.frequency, rx.doa]
+                command = '''INSERT INTO lobs
+                    (time, station_id, latitude, longitude, confidence, power, frequency, lob)
+                    VALUES (?,?,?,?,?,?,?,?)'''
+                DATABASE_EDIT_Q.put((command, (to_lobs,), True))
+                DATABASE_RETURN.get(timeout=1)
+
         intersect_list = []
         latest_doa_time = 0
         d2_accum = {i: [] for i, _ in rx_snapshot}
@@ -1099,10 +1112,6 @@ def run_receiver():
                                         (command, (to_table,), True))
                                     DATABASE_RETURN.get(timeout=1)
                 print(f"Computed and kept {keep_count} intersections.")
-
-                command = "INSERT INTO lobs VALUES (?,?,?,?,?,?)"
-                DATABASE_EDIT_Q.put((command, [current_doa, ], True))
-                DATABASE_RETURN.get(timeout=1)
 
         DATABASE_EDIT_Q.put(("done", None, False))
         time.sleep(1)
