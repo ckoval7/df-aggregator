@@ -40,6 +40,7 @@
     var transmittersDataSource = new Cesium.CzmlDataSource();
     var receiversDataSource = new Cesium.CzmlDataSource();
     var aoiDataSource = new Cesium.CzmlDataSource();
+    var lobHistoryDataSource = new Cesium.CzmlDataSource();
 
     % if access_token:
     // Your access token can be found at: https://cesium.com/ion/tokens.
@@ -55,7 +56,8 @@
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(esriProvider),
       sceneModePicker: true,
       homeButton: false,
-      timeline: false,
+      timeline: true,
+      animation: true,
       mapProjection : new Cesium.WebMercatorProjection(),
     });
 
