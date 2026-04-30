@@ -66,6 +66,7 @@ input, select { font-family: inherit; }
 }
 
 .brand { display: flex; align-items: center; gap: 12px; min-width: 220px; }
+.brand-text { display: flex; flex-direction: column; }
 .brand-logo {
   width: 36px; height: 36px; border-radius: var(--r-sm);
   background: var(--accent-soft); color: var(--accent);

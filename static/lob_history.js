@@ -89,6 +89,15 @@ function renderScrubHighlights(merged) {
     track.appendChild(el);
   }
 
+  var nowMs = Date.now();
+  if (nowMs >= startMs && nowMs <= endMs) {
+    var headPct = ((nowMs - startMs) / totalSpan) * 100;
+    var head = document.createElement('div');
+    head.className = 'scrub-head';
+    head.style.left = headPct + '%';
+    track.appendChild(head);
+  }
+
   axis.innerHTML = '';
   for (var t = 0; t < 4; t++) {
     var tickMs = startMs + (totalSpan * t / 3);

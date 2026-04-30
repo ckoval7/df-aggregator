@@ -157,6 +157,11 @@ function editReceivers(rx_json, uid) {
     var isInverted = document.getElementById('edit-invert-' + uid);
     var isSingle = document.getElementById('edit-single-' + uid);
 
+    rx.station_id = document.getElementById('edit-id-' + uid).value;
+    rx.latitude = document.getElementById('edit-lat-' + uid).value;
+    rx.longitude = document.getElementById('edit-lon-' + uid).value;
+    rx.heading = document.getElementById('edit-hdg-' + uid).value;
+    rx.frequency = document.getElementById('edit-freq-' + uid).value;
     rx.mobile = isMobile ? isMobile.checked : rx.mobile;
     rx.inverted = isInverted ? isInverted.checked : rx.inverted;
     rx.single = isSingle ? isSingle.checked : false;

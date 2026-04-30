@@ -497,7 +497,10 @@
       clearOld();
       fetch("/update?" + (parameter || ""))
         .then(function() {
-          loadRx(refreshRx);
+          loadRx(function(rx_json) {
+            refreshRx(rx_json);
+            statusBar.updateReceiverStats(rx_json);
+          });
           loadAllCzml();
         });
     }
