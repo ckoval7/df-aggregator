@@ -17,6 +17,7 @@
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from dataclasses import dataclass
+import gzip
 import vincenty as v
 import numpy as np
 from scipy.spatial.distance import cdist
@@ -41,7 +42,7 @@ from czml3.properties import Position, PositionList, Polyline, PolylineMaterial,
 from czml3.types import TimeInterval
 import queue
 from multiprocessing import Process, Queue, set_start_method
-from bottle import route, run, request, get, put, response, redirect, template, static_file
+from bottle import route, run, request, get, put, response, redirect, template, static_file, app as bottle_app
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 from sys import version_info
@@ -1073,11 +1074,98 @@ def handle_interest_areas(action):
 
 
 ###############################################
+# Gzip compression WSGI middleware
+###############################################
+class GzipMiddleware:
+    _COMPRESSIBLE = (
+        'text/',
+        'application/json',
+        'application/javascript',
+        'application/x-javascript',
+        'application/czml',
+    )
+    _MIN_SIZE = 512
+
+    def __init__(self, wsgi_app):
+        self.app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        if (environ.get('HTTP_UPGRADE', '').lower() == 'websocket' and
+                'upgrade' in environ.get('HTTP_CONNECTION', '').lower()):
+            return self.app(environ, start_response)
+
+        if 'gzip' not in environ.get('HTTP_ACCEPT_ENCODING', ''):
+            return self.app(environ, start_response)
+
+        captured_status = []
+        captured_headers = []
+
+        def _start_response(status, headers, exc_info=None):
+            if exc_info:
+                try:
+                    if captured_status:
+                        raise exc_info[1].with_traceback(exc_info[2])
+                finally:
+                    exc_info = None
+            captured_status[:] = [status]
+            captured_headers[:] = [headers]
+
+        result = self.app(environ, _start_response)
+
+        if not captured_status:
+            return result
+
+        status = captured_status[0]
+        headers = captured_headers[0]
+
+        content_type = ''
+        already_encoded = False
+        for name, value in headers:
+            name_lower = name.lower()
+            if name_lower == 'content-type':
+                content_type = value.lower()
+            elif name_lower == 'content-encoding':
+                already_encoded = True
+
+        compressible = (
+            not already_encoded and
+            any(ct in content_type for ct in self._COMPRESSIBLE)
+        )
+
+        if not compressible:
+            start_response(status, headers)
+            return result
+
+        try:
+            body = b''.join(result)
+        finally:
+            if hasattr(result, 'close'):
+                result.close()
+
+        if len(body) < self._MIN_SIZE:
+            start_response(status, headers)
+            return [body]
+
+        compressed = gzip.compress(body, compresslevel=6)
+
+        new_headers = [
+            (name, value) for name, value in headers
+            if name.lower() not in ('content-length', 'content-encoding', 'vary')
+        ]
+        new_headers.append(('Content-Encoding', 'gzip'))
+        new_headers.append(('Content-Length', str(len(compressed))))
+        new_headers.append(('Vary', 'Accept-Encoding'))
+
+        start_response(status, new_headers)
+        return [compressed]
+
+
+###############################################
 # Starts the Bottle webserver.
 ###############################################
 def start_server(ipaddr="127.0.0.1", port=8080):
     try:
-        run(host=ipaddr, port=port, quiet=True,
+        run(app=GzipMiddleware(bottle_app()), host=ipaddr, port=port, quiet=True,
             server=GeventWebSocketServer, debug=True)
     except OSError:
         print(f"Port {port} seems to be in use. Please select another port or " +
