@@ -1074,10 +1074,7 @@ def handle_interest_areas(action):
 
 
 ###############################################
-# WSGI middleware that gzip-compresses responses
-# for clients that advertise Accept-Encoding: gzip.
-# Skips WebSocket upgrades and already-encoded
-# or non-compressible content types.
+# Gzip compression WSGI middleware
 ###############################################
 class GzipMiddleware:
     _COMPRESSIBLE = (
@@ -1092,7 +1089,8 @@ class GzipMiddleware:
         self.app = wsgi_app
 
     def __call__(self, environ, start_response):
-        if environ.get('HTTP_UPGRADE', '').lower() == 'websocket':
+        if (environ.get('HTTP_UPGRADE', '').lower() == 'websocket' and
+                'upgrade' in environ.get('HTTP_CONNECTION', '').lower()):
             return self.app(environ, start_response)
 
         if 'gzip' not in environ.get('HTTP_ACCEPT_ENCODING', ''):
@@ -1103,11 +1101,18 @@ class GzipMiddleware:
 
         def _start_response(status, headers, exc_info=None):
             if exc_info:
-                raise exc_info[1].with_traceback(exc_info[2])
-            captured_status.append(status)
-            captured_headers.append(headers)
+                try:
+                    if captured_status:
+                        raise exc_info[1].with_traceback(exc_info[2])
+                finally:
+                    exc_info = None
+            captured_status[:] = [status]
+            captured_headers[:] = [headers]
 
         result = self.app(environ, _start_response)
+
+        if not captured_status:
+            return result
 
         status = captured_status[0]
         headers = captured_headers[0]
@@ -1130,15 +1135,17 @@ class GzipMiddleware:
             start_response(status, headers)
             return result
 
-        body = b''.join(result)
-        if hasattr(result, 'close'):
-            result.close()
+        try:
+            body = b''.join(result)
+        finally:
+            if hasattr(result, 'close'):
+                result.close()
 
         compressed = gzip.compress(body, compresslevel=6)
 
         new_headers = [
             (name, value) for name, value in headers
-            if name.lower() not in ('content-length', 'content-encoding')
+            if name.lower() not in ('content-length', 'content-encoding', 'vary')
         ]
         new_headers.append(('Content-Encoding', 'gzip'))
         new_headers.append(('Content-Length', str(len(compressed))))
