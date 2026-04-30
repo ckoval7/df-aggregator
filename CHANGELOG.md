@@ -1,6 +1,7 @@
 ## Recent Changes (April 2026):
 
 ### Map & UI
+- **LOB history timeline** — replay historical LOB data using CesiumJS timeline/animation controls with flash and accumulate display modes, preset time ranges, and timeline highlights showing when LOBs were recorded
 - **AOI circle drawing rewritten** — smooth real-time preview while dragging, circles persist correctly after saving
 - **Fixed clicking on intersection points inside AOIs** — points are no longer hidden behind AOI polygons
 - **LOB lines no longer disappear** when an individual receiver goes inactive; only that receiver's LOBs are affected
@@ -14,6 +15,7 @@
 - **Clustering skipped gracefully** when auto-epsilon computes zero (e.g., insufficient data points)
 
 ### Performance
+- **Gzip compression** — web server responses are now gzip-compressed, reducing bandwidth usage for CZML and other payloads
 - **Auto-epsilon calculation is dramatically faster** — replaced O(n²) Python distance loops with scipy `cdist`
 - **Cluster extraction optimized** with numpy boolean masks instead of Python loops
 - **AOI data cached** — eliminated redundant SQLite connections on every intersection computation
