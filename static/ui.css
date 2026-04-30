@@ -30,8 +30,8 @@
   --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  --panel-w: 360px;
-  --filters-w: 320px;
+  --panel-w: 420px;
+  --filters-w: 400px;
 }
 
 [data-density="compact"] { --pad: 8px; --gap: 6px; }
@@ -461,6 +461,7 @@ input, select { font-family: inherit; }
   box-shadow: none !important;
 }
 .cesium-baseLayerPicker-dropDown {
+  top: 56px !important;
   max-height: calc(100vh - 72px) !important;
 }
 .cesium-sceneModePicker-wrapper .cesium-sceneModePicker-dropDown-icon {
