@@ -56,10 +56,13 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   spinner.style.visibility = "visible";
   spinner.style.zIndex = "10";
 
+  if (isHistoryMode) {
+    viewer.dataSources.remove(lobHistoryDataSource, true);
+    lobHistoryDataSource = new Cesium.CzmlDataSource();
+  }
+
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
-    if (!isHistoryMode) {
-      viewer.dataSources.add(lobHistoryDataSource);
-    }
+    viewer.dataSources.add(lobHistoryDataSource);
     enterHistoryMode();
     spinner.style.visibility = "hidden";
     spinner.style.zIndex = "0";
