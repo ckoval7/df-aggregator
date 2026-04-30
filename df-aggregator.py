@@ -22,6 +22,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 import math
 import time
+from datetime import datetime, timezone
 import sqlite3
 import threading
 import signal
@@ -36,7 +37,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
-from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color
+from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock
+from czml3.types import TimeInterval
 import queue
 from multiprocessing import Process, Queue, set_start_method
 from bottle import route, run, request, get, put, response, redirect, template, static_file
@@ -711,6 +713,107 @@ def write_rx_czml():
                                                  position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
 
     return Document(packets=[top] + receiver_point_packets + lob_packets).dumps()
+
+
+def _epoch_ms_to_iso(epoch_ms):
+    dt = datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc)
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.') + f'{dt.microsecond // 1000:03d}Z'
+
+
+@get("/lob_history.czml")
+def lob_history_czml():
+    response.set_header(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+
+    now_ms = time.time() * 1000
+    start = int(request.query.start or (now_ms - 3600000))
+    end = int(request.query.end or now_ms)
+    min_conf = int(request.query.min_conf or ms.min_conf)
+    min_power = int(request.query.min_power or ms.min_power)
+    mode = request.query.mode or "flash"
+    freq = request.query.frequency
+
+    conn = sqlite3.connect(database_name)
+    c = conn.cursor()
+
+    if freq:
+        c.execute('''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
+            FROM lobs
+            WHERE time BETWEEN ? AND ?
+              AND confidence >= ?
+              AND power >= ?
+              AND frequency = ?
+            ORDER BY time''', [start, end, min_conf, min_power, float(freq)])
+    else:
+        c.execute('''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
+            FROM lobs
+            WHERE time BETWEEN ? AND ?
+              AND confidence >= ?
+              AND power >= ?
+            ORDER BY time''', [start, end, min_conf, min_power])
+
+    rows = c.fetchall()
+    conn.close()
+
+    start_iso = _epoch_ms_to_iso(start)
+    end_iso = _epoch_ms_to_iso(end)
+
+    top = Packet(
+        id="document",
+        name="LOB History",
+        version=CZML_VERSION,
+        clock=Clock(
+            interval=TimeInterval(start=start_iso, end=end_iso),
+            currentTime=start_iso,
+            multiplier=1.0
+        )
+    )
+
+    green = [0, 255, 0, 153]
+    orange = [255, 140, 0, 153]
+    red = [255, 0, 0, 153]
+    outline_color = [0, 0, 0, 153]
+    height = 50
+
+    lob_packets = []
+    for row in rows:
+        lob_time, station_id, lat, lon, conf, pwr, freq_val, doa = row
+
+        if conf > min_conf and pwr > min_power:
+            lob_color = green
+        elif conf <= min_conf and pwr > min_power:
+            lob_color = orange
+        else:
+            lob_color = red
+
+        lob_stop_lat, lob_stop_lon = v.direct(lat, lon, doa, LOB_DRAW_DISTANCE_METERS)
+
+        if mode == "accumulate":
+            avail_start_iso = _epoch_ms_to_iso(lob_time)
+            avail_end_iso = end_iso
+        else:
+            avail_start_iso = _epoch_ms_to_iso(lob_time - 2500)
+            avail_end_iso = _epoch_ms_to_iso(lob_time + 2500)
+
+        avail = TimeInterval(start=avail_start_iso, end=avail_end_iso)
+
+        lob_packets.append(Packet(
+            id=f"LOB-HIST-{station_id}-{lob_time}",
+            availability=avail,
+            polyline=Polyline(
+                material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
+                    color=Color(rgba=lob_color),
+                    outlineColor=Color(rgba=outline_color),
+                    outlineWidth=1
+                )),
+                clampToGround=True,
+                width=4,
+                positions=PositionList(cartographicDegrees=[
+                    lon, lat, height, lob_stop_lon, lob_stop_lat, height])
+            )
+        ))
+
+    return Document(packets=[top] + lob_packets).dumps()
 
 
 ###############################################
