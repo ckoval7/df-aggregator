@@ -75,15 +75,13 @@
       </div>
     </div>
 
-    <div class="topbar-actions">
-      <button class="topbar-btn" title="Layers" id="btn-layers">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-      </button>
-      <div class="clock">
-        <div class="clock-time" id="clock-time">--:--:-- UTC</div>
-        <div class="clock-date" id="clock-date">-- --- ----</div>
-      </div>
+    <div class="clock">
+      <div class="clock-time" id="clock-time">--:--:-- UTC</div>
+      <div class="clock-date" id="clock-date">-- --- ----</div>
     </div>
+    <button class="panel-toggle" id="panel-toggle" style="display:none" title="Open panel">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
   </header>
 
   <!-- ===== Signal Filters ===== -->
@@ -327,11 +325,6 @@
     </div>
   </aside>
 
-  <!-- Panel Toggle (shown when side panel is collapsed) -->
-  <button class="panel-toggle" id="panel-toggle" style="display:none" title="Open panel">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-  </button>
-
   <!-- ===== CesiumJS Init ===== -->
   <script>
     var transmittersDataSource = new Cesium.CzmlDataSource();
@@ -350,7 +343,11 @@
     var viewer = new Cesium.Viewer('cesiumContainer', {
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(esriProvider),
       sceneModePicker: true,
+      baseLayerPicker: true,
       homeButton: false,
+      geocoder: false,
+      navigationHelpButton: false,
+      fullscreenButton: false,
       timeline: true,
       animation: true,
       mapProjection: new Cesium.WebMercatorProjection(),
@@ -358,6 +355,13 @@
 
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
     viewer.infoBox.frame.src = "about:blank";
+
+    var cesiumToolbar = document.querySelector('.cesium-viewer-toolbar');
+    var statusbarEl = document.querySelector('.statusbar');
+    var clockEl = document.querySelector('.clock');
+    if (cesiumToolbar && statusbarEl && clockEl) {
+      statusbarEl.insertBefore(cesiumToolbar, clockEl);
+    }
 
     var clock = new Cesium.Clock({
       clockStep: Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
@@ -685,16 +689,19 @@
     var panelToggle = document.getElementById("panel-toggle");
     document.getElementById("sidepanel-close").addEventListener("click", function() {
       sidepanel.classList.add("collapsed");
+      document.body.classList.add("panel-collapsed");
       panelToggle.style.display = "";
       localStorage.setItem('df-panel-collapsed', 'true');
     });
     panelToggle.addEventListener("click", function() {
       sidepanel.classList.remove("collapsed");
+      document.body.classList.remove("panel-collapsed");
       panelToggle.style.display = "none";
       localStorage.setItem('df-panel-collapsed', 'false');
     });
     if (localStorage.getItem('df-panel-collapsed') === 'true') {
       sidepanel.classList.add("collapsed");
+      document.body.classList.add("panel-collapsed");
       panelToggle.style.display = "";
     }
     if (localStorage.getItem('df-filters-collapsed') === 'true') {
