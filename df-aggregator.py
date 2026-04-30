@@ -1084,6 +1084,7 @@ class GzipMiddleware:
         'application/x-javascript',
         'application/czml',
     )
+    _MIN_SIZE = 512
 
     def __init__(self, wsgi_app):
         self.app = wsgi_app
@@ -1140,6 +1141,10 @@ class GzipMiddleware:
         finally:
             if hasattr(result, 'close'):
                 result.close()
+
+        if len(body) < self._MIN_SIZE:
+            start_response(status, headers)
+            return [body]
 
         compressed = gzip.compress(body, compresslevel=6)
 
