@@ -1,5 +1,5 @@
 :root {
-  --accent-h: 195;
+  --accent-h: 150;
   --accent: oklch(78% 0.13 var(--accent-h));
   --accent-dim: oklch(60% 0.10 var(--accent-h));
   --accent-soft: oklch(78% 0.13 var(--accent-h) / 0.15);
