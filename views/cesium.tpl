@@ -100,8 +100,8 @@
       <div class="filt-section">
         <label class="filt-toggle">
           <span class="filt-toggle-text">
-            <span class="filt-label">Capture Receivers</span>
-            <span class="filt-hint">Enable intersection capture from active receivers</span>
+            <span class="filt-label">Enable Processing</span>
+            <span class="filt-hint">Process intersections from active receivers</span>
           </span>
           <span class="toggle {{'on' if rx_state else ''}}" id="rx-en-toggle" role="switch">
             <span class="toggle-thumb"></span>
