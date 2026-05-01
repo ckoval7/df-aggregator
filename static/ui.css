@@ -158,6 +158,37 @@ input, select { font-family: inherit; }
 }
 .panel-toggle:hover { background: var(--bg-2); color: var(--fg-0); border-color: var(--bd); }
 
+.hamburger-icon,
+.hamburger-icon::before,
+.hamburger-icon::after {
+  display: block;
+  width: 16px; height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+.hamburger-icon { position: relative; }
+.hamburger-icon::before,
+.hamburger-icon::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+.hamburger-icon::before { top: -5px; }
+.hamburger-icon::after  { top:  5px; }
+
+.panel-toggle.active .hamburger-icon {
+  background: transparent;
+}
+.panel-toggle.active .hamburger-icon::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+.panel-toggle.active .hamburger-icon::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
 .panel-section {
   background: var(--bg-1);
   border: 1px solid var(--bd);

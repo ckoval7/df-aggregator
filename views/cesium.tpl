@@ -79,8 +79,8 @@
       <div class="clock-time" id="clock-time">--:--:-- UTC</div>
       <div class="clock-date" id="clock-date">-- --- ----</div>
     </div>
-    <button class="panel-toggle" id="panel-toggle" style="display:none" title="Open panel">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <button class="panel-toggle" id="panel-toggle" title="Toggle panel">
+      <span class="hamburger-icon"></span>
     </button>
   </header>
 
@@ -687,22 +687,24 @@
 
     var sidepanel = document.getElementById("sidepanel");
     var panelToggle = document.getElementById("panel-toggle");
+    function setPanelOpen(open) {
+      sidepanel.classList.toggle("collapsed", !open);
+      document.body.classList.toggle("panel-collapsed", !open);
+      panelToggle.classList.toggle("active", open);
+      panelToggle.title = open ? "Close panel" : "Open panel";
+      localStorage.setItem('df-panel-collapsed', !open);
+    }
     document.getElementById("sidepanel-close").addEventListener("click", function() {
-      sidepanel.classList.add("collapsed");
-      document.body.classList.add("panel-collapsed");
-      panelToggle.style.display = "";
-      localStorage.setItem('df-panel-collapsed', 'true');
+      setPanelOpen(false);
     });
     panelToggle.addEventListener("click", function() {
-      sidepanel.classList.remove("collapsed");
-      document.body.classList.remove("panel-collapsed");
-      panelToggle.style.display = "none";
-      localStorage.setItem('df-panel-collapsed', 'false');
+      var isCollapsed = sidepanel.classList.contains("collapsed");
+      setPanelOpen(isCollapsed);
     });
     if (localStorage.getItem('df-panel-collapsed') === 'true') {
-      sidepanel.classList.add("collapsed");
-      document.body.classList.add("panel-collapsed");
-      panelToggle.style.display = "";
+      setPanelOpen(false);
+    } else {
+      setPanelOpen(true);
     }
     if (localStorage.getItem('df-filters-collapsed') === 'true') {
       filtersCard.style.display = "none";
