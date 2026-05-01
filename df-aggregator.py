@@ -29,6 +29,9 @@ import threading
 import signal
 import json
 import urllib.request
+import http.client
+import urllib.error
+import socket
 from colorsys import hsv_to_rgb
 import argparse
 from os import kill, getpid
@@ -115,6 +118,39 @@ BEARING_CHECK_TOLERANCE_DEG = 5            # Max deviation when validating inter
 AUTOEPS_SLOPE_THRESHOLD = 0.003           # Slope threshold for epsilon auto-calculation
 GAUSSIAN_ELLIPSE_SIGMA = 3.0              # Standard deviations for confidence ellipse (3-sigma = 99.7%)
 
+# Receiver Retry Constants
+RECEIVER_MAX_RETRIES_TRANSIENT = 5        # Consecutive transient failures before deactivating
+RECEIVER_MAX_RETRIES_PERSISTENT = 2       # Consecutive persistent failures before deactivating
+RECEIVER_BACKOFF_BASE_S = 2               # Backoff base in seconds (doubles each failure: 2, 4, 8, 16, 32)
+RECEIVER_PROBE_INTERVAL_S = 30            # Seconds between auto-reactivation probes
+
+
+def _classify_error(ex):
+    if isinstance(ex, urllib.error.HTTPError):
+        if ex.code >= 500:
+            return ('transient', RECEIVER_MAX_RETRIES_TRANSIENT)
+        elif 400 <= ex.code < 500:
+            return ('persistent', RECEIVER_MAX_RETRIES_PERSISTENT)
+    transient_types = (
+        http.client.IncompleteRead,
+        urllib.error.URLError,
+        TimeoutError,
+        ConnectionError,
+        socket.error,
+        OSError,
+    )
+    if isinstance(ex, transient_types):
+        return ('transient', RECEIVER_MAX_RETRIES_TRANSIENT)
+    persistent_types = (
+        etree.XMLSyntaxError,
+        ValueError,
+        TypeError,
+        AttributeError,
+    )
+    if isinstance(ex, persistent_types):
+        return ('persistent', RECEIVER_MAX_RETRIES_PERSISTENT)
+    return ('transient', RECEIVER_MAX_RETRIES_TRANSIENT)
+
 
 receivers = []
 
@@ -141,13 +177,18 @@ class receiver:
         self.isActive = True
         self.flipped = False
         self.inverted = True
+        self.error_count = 0
+        self.last_error = ""
+        self.next_retry_time = 0
+        self.next_probe_time = 0
+        self.max_retries = 0
         self.update(first_run=True)
 
     # Updates receiver from the remote URL
     def update(self, first_run=False):
         try:
             # Fetch XML from remote URL, then parse with secure parser to prevent XXE attacks
-            with urllib.request.urlopen(self.station_url) as response:
+            with urllib.request.urlopen(self.station_url, timeout=5) as response:
                 xml_data = response.read()
             xml_contents = etree.fromstring(xml_data, parser=_secure_parser)
             xml_station_id = xml_contents.find('STATION_ID')
@@ -175,25 +216,43 @@ class receiver:
             self.power = float(xml_power.text)
             xml_conf = xml_contents.find('CONF')
             self.confidence = int(xml_conf.text)
+            self.error_count = 0
+            self.last_error = ""
+            self.next_retry_time = 0
+            self.next_probe_time = 0
+            self.max_retries = 0
         except KeyboardInterrupt:
             finish()
         except Exception as ex:
-            if first_run:
-                self.station_id = "Unknown"
-            self.latitude = 0.0
-            self.longitude = 0.0
-            self.heading = 0.0
-            self.raw_doa = 0.0
-            self.doa = 0.0
-            self.frequency = 0.0
-            self.power = 0.0
-            self.confidence = 0
-            self.doa_time = 0
-            self.isActive = False
-            print(ex)
-            print(
-                f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
-            # raise IOError
+            error_type, max_retries = _classify_error(ex)
+            self.error_count += 1
+            self.last_error = f"{type(ex).__name__}: {ex}"
+            self.max_retries = max_retries
+            backoff = min(RECEIVER_BACKOFF_BASE_S ** self.error_count, 64)
+            self.next_retry_time = time.time() + backoff
+            print(f"{ex} — {self.station_url} "
+                  f"({error_type} error {self.error_count}/{max_retries}, "
+                  f"retry in {backoff}s)")
+            if first_run or self.error_count >= max_retries:
+                if first_run:
+                    self.station_id = "Unknown"
+                self.latitude = 0.0
+                self.longitude = 0.0
+                self.heading = 0.0
+                self.raw_doa = 0.0
+                self.doa = 0.0
+                self.frequency = 0.0
+                self.power = 0.0
+                self.confidence = 0
+                self.doa_time = 0
+                self.isActive = False
+                self.error_count = 0
+                self.next_retry_time = 0
+                self.next_probe_time = time.time() + RECEIVER_PROBE_INTERVAL_S
+                self.max_retries = 0
+                print(
+                    f"Problem connecting to {self.station_url}, receiver deactivated. "
+                    f"Will auto-probe in {RECEIVER_PROBE_INTERVAL_S}s.")
 
     # Returns receivers properties as a dict, useful for passing data to the WebUI
     def receiver_dict(self):
@@ -226,6 +285,10 @@ class receiver:
     previous_doa_time = 0
     last_processed_at = 0
     d_2_last_intersection = [LOB_DRAW_DISTANCE_METERS]
+    last_error = ""
+    next_retry_time = 0
+    next_probe_time = 0
+    max_retries = 0
 
 
 ###############################################
@@ -1006,6 +1069,14 @@ def update_rx(action):
     elif action == "activate":
         index = int(data['uid'])
         receivers[index].isActive = data['state']
+        if data['state']:
+            receivers[index].error_count = 0
+            receivers[index].last_error = ""
+            receivers[index].next_retry_time = 0
+            receivers[index].next_probe_time = 0
+            receivers[index].max_retries = 0
+        else:
+            receivers[index].next_probe_time = 0
     else:
         action = int(action)
         try:
@@ -1194,12 +1265,27 @@ def run_receiver():
             print("Press Control+C to process data and exit.")
 
         # Poll receivers outside the lock (network I/O)
+        now = time.time()
         for rx in receivers:
             try:
                 if rx.isActive:
+                    if rx.error_count > 0 and now < rx.next_retry_time:
+                        continue
                     rx.update()
             except IOError:
                 print("Problem connecting to receiver.")
+
+        # Auto-reactivation probe for deactivated receivers
+        for rx in receivers:
+            if not rx.isActive and rx.next_probe_time > 0 and now >= rx.next_probe_time:
+                print(f"Probing deactivated receiver {rx.station_url}...")
+                rx.update()
+                if rx.error_count == 0:
+                    rx.isActive = True
+                    rx.next_probe_time = 0
+                    print(f"Receiver {rx.station_url} reactivated successfully.")
+                else:
+                    rx.next_probe_time = now + RECEIVER_PROBE_INTERVAL_S
 
         # Snapshot receiver state under lock, then release for processing
         with rx_lock:
