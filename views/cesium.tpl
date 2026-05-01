@@ -632,6 +632,22 @@
       updateParams("");
     });
 
+    document.querySelectorAll('.filt-slider').forEach(function(slider) {
+      var wheelTimer = null;
+      slider.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var step = parseFloat(this.step) || 1;
+        var val = parseFloat(this.value) + (e.deltaY < 0 ? step : -step);
+        this.value = Math.min(parseFloat(this.max), Math.max(parseFloat(this.min), val));
+        this.dispatchEvent(new Event('input'));
+        var self = this;
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(function() {
+          self.dispatchEvent(new PointerEvent('pointerup'));
+        }, 300);
+      }, {passive: false});
+    });
+
     var powerSlider = document.getElementById("powerRange");
     var powerVal = document.getElementById("power-val");
     powerSlider.oninput = function() { powerVal.textContent = this.value; };
