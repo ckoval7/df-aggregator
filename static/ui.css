@@ -378,6 +378,7 @@ input, select { font-family: inherit; }
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   font-size: 14px;
 }
+.filt-fab.hidden { display: none; }
 
 /* ===== Timeline Panel ===== */
 .timeline-panel { display: contents; }
