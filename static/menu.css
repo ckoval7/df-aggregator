@@ -226,10 +226,3 @@ body {
 .history-card-btn:hover {
   background: #ccc;
 }
-
-.rx-error-status {
-  color: #e67e22;
-  font-weight: normal;
-  font-size: 0.85em;
-  padding-top: 2px;
-}

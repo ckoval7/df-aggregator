@@ -261,11 +261,7 @@ class receiver:
                  'doa': self.doa, 'frequency': self.frequency, 'power': self.power,
                  'confidence': self.confidence, 'doa_time': self.doa_time, 'mobile': self.isMobile,
                  'active': self.isActive, 'auto': self.isAuto, 'inverted': self.inverted,
-                 'single': self.isSingle,
-                 'error_count': self.error_count,
-                 'last_error': self.last_error,
-                 'max_retries': self.max_retries,
-                 'next_retry_in': max(0, round(self.next_retry_time - time.time()))})
+                 'single': self.isSingle})
 
     def lob_length(self):
         if self.d_2_last_intersection:

@@ -223,7 +223,6 @@ function showReceivers(rx_json, id) {
     const locationspan = document.getElementById(`${id}-location`);
     const headingspan = document.getElementById(`${id}-heading`);
     const freqspan = document.getElementById(`${id}-freq`);
-    const errorspan = document.getElementById(`${id}-error`);
     document.getElementById(`${id}-activate`)
       .setAttribute('onclick', `activateReceiver(${receivers[id].uid}, ${!receivers[id].active})`);
 
@@ -245,23 +244,6 @@ function showReceivers(rx_json, id) {
     document.getElementById(`${id}-location`).innerHTML = locationHtml;
     document.getElementById(`${id}-heading`).innerHTML = heading;
     document.getElementById(`${id}-freq`).innerHTML = freqHtml;
-
-    if (receivers[id].error_count > 0) {
-        let errorText;
-        if (receivers[id].next_retry_in > 0) {
-            errorText = `Retrying in ${receivers[id].next_retry_in}s... (${receivers[id].error_count}/${receivers[id].max_retries})`;
-        } else {
-            errorText = `Connection error (${receivers[id].error_count}/${receivers[id].max_retries})`;
-        }
-        errorspan.innerHTML = errorText;
-        errorspan.style.display = "block";
-    } else if (!receivers[id].active && receivers[id].last_error) {
-        errorspan.innerHTML = "Deactivated — will auto-retry";
-        errorspan.style.display = "block";
-    } else {
-        errorspan.innerHTML = "";
-        errorspan.style.display = "none";
-    }
 
 }
 
@@ -285,9 +267,6 @@ function createReceivers(rx_json, id) {
         const locationspan = document.createElement('span');
         const headingspan = document.createElement('span');
         const freqspan = document.createElement('span');
-        const errorspan = document.createElement('span');
-        errorspan.id = `${receivers[i].uid}-error`;
-        errorspan.className = "rx-error-status";
 
         const editiconspan = document.createElement('span');
         editiconspan.classList.add("material-icons", "edit-icon", "no-select");
@@ -336,7 +315,6 @@ function createReceivers(rx_json, id) {
         rxcard.appendChild(locationspan);
         rxcard.appendChild(headingspan);
         rxcard.appendChild(freqspan);
-        rxcard.appendChild(errorspan);
         rxcard.appendChild(editiconspan);
         rxcard.appendChild(deleteiconspan);
         rxcard.appendChild(activateiconspan);
