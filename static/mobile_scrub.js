@@ -3,7 +3,6 @@
   var timeLabel = document.getElementById('m-scrub-time');
   var startLabel = document.getElementById('m-scrub-start');
   var endLabel = document.getElementById('m-scrub-end');
-  var playBtn = document.getElementById('m-scrub-play');
   var scrubEl = document.getElementById('m-scrub');
 
   var startMs, endMs, totalSpan;
@@ -12,8 +11,6 @@
   var wasAnimating = false;
   var head;
 
-  var pauseIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-  var playIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>';
 
   function isVertical() {
     return track.clientHeight > track.clientWidth;
@@ -146,12 +143,8 @@
     if (wasAnimating) {
       viewer.clock.shouldAnimate = true;
     }
-    updatePlayBtn();
   }
 
-  function updatePlayBtn() {
-    playBtn.innerHTML = viewer.clock.shouldAnimate ? pauseIcon : playIcon;
-  }
 
   function onOrientationChange() {
     if (!scrubEl.classList.contains('active')) return;
@@ -168,10 +161,6 @@
 
   var currentMerged = [];
 
-  playBtn.addEventListener('click', function() {
-    viewer.clock.shouldAnimate = !viewer.clock.shouldAnimate;
-    updatePlayBtn();
-  });
 
   window.mScrub = {
     show: function(start, end, merged) {
@@ -195,7 +184,6 @@
       positionHead(frac);
       positionTimeLabel(frac);
       updateTimeText(now);
-      updatePlayBtn();
 
       tickListener = viewer.clock.onTick.addEventListener(onTick);
 

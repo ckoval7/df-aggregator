@@ -548,9 +548,16 @@ body.panel-collapsed .cesium-infoBox {
 .cesium-viewer-timelineContainer {
   display: none !important;
 }
-.cesium-viewer-animationContainer.history-visible,
-.cesium-viewer-timelineContainer.history-visible {
-  display: block !important;
+@media (min-width: 769px) {
+  .cesium-viewer-animationContainer.history-visible,
+  .cesium-viewer-timelineContainer.history-visible {
+    display: block !important;
+  }
+}
+@media (max-width: 768px) {
+  .cesium-viewer-animationContainer.history-visible {
+    display: block !important;
+  }
 }
 
 /* ============================================================
@@ -1107,22 +1114,6 @@ body.panel-collapsed .cesium-infoBox {
   white-space: nowrap;
   pointer-events: none;
 }
-.m-scrub-play {
-  position: fixed;
-  width: 48px; height: 48px;
-  background: var(--bg-1);
-  border: 1px solid var(--bd);
-  border-radius: 50%;
-  color: var(--fg-0);
-  display: grid; place-items: center;
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 42;
-}
-.m-scrub-play:active {
-  background: var(--bg-3);
-}
 
 @media (max-width: 768px) and (orientation: portrait) {
   .m-scrub.active {
@@ -1157,11 +1148,6 @@ body.panel-collapsed .cesium-infoBox {
   .m-scrub-end {
     top: -2px; right: 42px;
     transform: translateY(-100%);
-  }
-  .m-scrub-play {
-    bottom: 18px;
-    left: 50%;
-    transform: translateX(-50%);
   }
 }
 
@@ -1198,10 +1184,6 @@ body.panel-collapsed .cesium-infoBox {
   .m-scrub-end {
     right: 0; bottom: 0;
     transform: translateY(100%);
-  }
-  .m-scrub-play {
-    bottom: 8px;
-    left: 8px;
   }
 }
 

@@ -597,9 +597,6 @@
     <span class="m-scrub-bound m-scrub-start" id="m-scrub-start"></span>
     <span class="m-scrub-bound m-scrub-end" id="m-scrub-end"></span>
     <div class="m-scrub-time" id="m-scrub-time">00:00:00 UTC</div>
-    <button class="m-scrub-play" id="m-scrub-play">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-    </button>
   </div>
 
   <!-- ===== CesiumJS Init ===== -->

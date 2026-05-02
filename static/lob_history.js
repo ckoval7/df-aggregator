@@ -197,6 +197,8 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
 
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
     viewer.dataSources.add(lobHistoryDataSource);
+    viewer.automaticallyTrackDataSourceClocks = false;
+    viewer.clock.clockRange = Cesium.ClockRange.CLAMPED;
     enterHistoryMode();
     var merged = renderTimelineHighlights(lobHistoryDataSource);
     if (window.mScrub) mScrub.show(startMs, endMs, merged);
@@ -236,6 +238,8 @@ function exitHistoryMode() {
   viewer.dataSources.remove(lobHistoryDataSource);
   lobHistoryDataSource = new Cesium.CzmlDataSource();
 
+  viewer.automaticallyTrackDataSourceClocks = true;
+  viewer.clock.clockRange = Cesium.ClockRange.UNBOUNDED;
   viewer.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER;
   viewer.clock.currentTime = Cesium.JulianDate.now();
   viewer.clock.shouldAnimate = true;
