@@ -51,6 +51,7 @@ function renderTimelineHighlights(dataSource) {
   viewer.timeline.updateFromClock();
 
   renderScrubHighlights(merged);
+  return merged;
 }
 
 function clearTimelineHighlights() {
@@ -197,7 +198,8 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
     viewer.dataSources.add(lobHistoryDataSource);
     enterHistoryMode();
-    renderTimelineHighlights(lobHistoryDataSource);
+    var merged = renderTimelineHighlights(lobHistoryDataSource);
+    if (window.mScrub) mScrub.show(startMs, endMs, merged);
     spinner.style.visibility = "hidden";
     spinner.style.zIndex = "0";
   }).catch(function(error) {
@@ -229,6 +231,7 @@ function enterHistoryMode() {
 
 function exitHistoryMode() {
   clearTimelineHighlights();
+  if (window.mScrub) mScrub.hide();
   isHistoryMode = false;
   viewer.dataSources.remove(lobHistoryDataSource);
   lobHistoryDataSource = new Cesium.CzmlDataSource();
