@@ -1,4 +1,31 @@
-## Recent Changes (April 2026):
+## Recent Changes (May 2026):
+
+### UI Redesign
+- **Complete frontend rewrite** — new design token CSS system, restructured layout, and rewritten JS/CSS for a modern look
+- **Status bar** — Cesium toolbar integrated into a persistent status bar with pipeline stats (receiver count, intersection rate, cluster count)
+- **Hamburger menu** — stays in status bar and morphs into X on toggle
+- **New typography** — switched to Geist/Geist Mono fonts with ~15% larger type scale
+- **Signal filters** — scroll wheel support on sliders, thicker slider tracks, settings persist across page refresh via localStorage
+- **Renamed controls** — "Capture Receivers" is now "Enable Processing"; signal filters button changed from "Apply & Refresh" to "Refresh"
+
+### Mobile Support
+- **Responsive mobile layout** — full mobile UI with drawer navigation, bottom sheet, status strip, and responsive breakpoint at 768px
+- **Mobile scrub bar** — touch-friendly LOB history scrub bar with orientation-aware layout (portrait/landscape), start/end time labels, and 44px touch targets
+- **Mobile history mode** — scrub bar auto-shows/hides when entering/exiting history mode, reuses desktop load handler
+- **Mobile filters** — labels match desktop, with XSS escaping and CRUD sync hooks
+- **Base layer picker** — visible on mobile view with fixed blank thumbnail on initial load
+
+### Bug Fixes
+- **Transmitter data refreshes on map** after AOI/exclusion rule changes
+- **Points and billboards clamped to ground** — prevents depth clipping issues
+- **Silenced quirks mode warning** from CesiumJS InfoBox iframe
+- **Timeline highlight color** now matches the accent color
+- **Live map refresh restored** — data source remove/re-add cycle fixed
+
+### Receiver Error Handling
+- **Robust receiver error handling** — automatic backoff, auto-reactivation, and error status shown in WebUI (reverted from master to avoid conflicts, will land with UI redesign)
+
+## Changes (April 2026):
 
 ### Map & UI
 - **LOB history timeline** — replay historical LOB data using CesiumJS timeline/animation controls with flash and accumulate display modes, preset time ranges, and timeline highlights showing when LOBs were recorded

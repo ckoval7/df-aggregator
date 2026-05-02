@@ -1,5 +1,6 @@
 var HIGHLIGHT_GAP_THRESHOLD_MS = 10000;
 var highlightRanges = [];
+var isHistoryMode = false;
 
 function extractIntervals(dataSource) {
   var intervals = [];
@@ -37,6 +38,7 @@ function renderTimelineHighlights(dataSource) {
   clearTimelineHighlights();
   var intervals = extractIntervals(dataSource);
   var merged = mergeIntervals(intervals);
+
   var color = Cesium.Color.GREEN.withAlpha(0.4);
   for (var i = 0; i < merged.length; i++) {
     var range = viewer.timeline.addHighlightRange(color, 5);
@@ -47,40 +49,106 @@ function renderTimelineHighlights(dataSource) {
     highlightRanges.push(range);
   }
   viewer.timeline.updateFromClock();
+
+  renderScrubHighlights(merged);
+  return merged;
 }
 
 function clearTimelineHighlights() {
-  if (highlightRanges.length === 0) return;
-  var allRanges = viewer.timeline._highlightRanges;
-  for (var i = 0; i < highlightRanges.length; i++) {
-    var idx = allRanges.indexOf(highlightRanges[i]);
-    if (idx !== -1) {
-      allRanges.splice(idx, 1);
+  if (highlightRanges.length > 0) {
+    var allRanges = viewer.timeline._highlightRanges;
+    for (var i = 0; i < highlightRanges.length; i++) {
+      var idx = allRanges.indexOf(highlightRanges[i]);
+      if (idx !== -1) { allRanges.splice(idx, 1); }
     }
+    highlightRanges = [];
+    viewer.timeline.updateFromClock();
   }
-  highlightRanges = [];
-  viewer.timeline.updateFromClock();
+  clearScrubHighlights();
 }
 
-var isHistoryMode = false;
+function renderScrubHighlights(merged) {
+  clearScrubHighlights();
+  var track = document.getElementById("scrub-track");
+  var axis = document.getElementById("scrub-axis");
+  if (merged.length === 0) return;
 
-var lobHistoryEn = document.getElementById("lob_history_en");
-lobHistoryEn.onchange = function() {
-  if (lobHistoryEn.checked) {
-    fetch("/update?lob_history=true");
-  } else {
-    fetch("/update?lob_history=false");
+  var startVal = document.getElementById("history_start").value;
+  var endVal = document.getElementById("history_end").value;
+  var startMs = startVal ? new Date(startVal).getTime() : merged[0][0];
+  var endMs = endVal ? new Date(endVal).getTime() : merged[merged.length - 1][1];
+  var totalSpan = endMs - startMs;
+  if (totalSpan <= 0) return;
+
+  for (var i = 0; i < merged.length; i++) {
+    var leftPct = ((merged[i][0] - startMs) / totalSpan) * 100;
+    var widthPct = ((merged[i][1] - merged[i][0]) / totalSpan) * 100;
+    var el = document.createElement('div');
+    el.className = 'scrub-highlight';
+    el.style.left = Math.max(0, leftPct) + '%';
+    el.style.width = Math.min(widthPct, 100 - leftPct) + '%';
+    track.appendChild(el);
   }
-};
 
-var presetButtons = document.querySelectorAll(".history-card-btn[data-minutes]");
-presetButtons.forEach(function(btn) {
+  var nowMs = Date.now();
+  if (nowMs >= startMs && nowMs <= endMs) {
+    var headPct = ((nowMs - startMs) / totalSpan) * 100;
+    var head = document.createElement('div');
+    head.className = 'scrub-head';
+    head.style.left = headPct + '%';
+    track.appendChild(head);
+  }
+
+  axis.innerHTML = '';
+  for (var t = 0; t < 4; t++) {
+    var tickMs = startMs + (totalSpan * t / 3);
+    var d = new Date(tickMs);
+    var label = document.createElement('span');
+    label.textContent = String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
+    axis.appendChild(label);
+  }
+}
+
+function clearScrubHighlights() {
+  var track = document.getElementById("scrub-track");
+  track.querySelectorAll('.scrub-highlight, .scrub-head').forEach(function(e) { e.remove(); });
+  document.getElementById("scrub-axis").innerHTML = '';
+}
+
+// Record History toggle
+var lobHistoryToggle = document.getElementById("lob-history-toggle");
+var recPill = document.getElementById("rec-pill");
+lobHistoryToggle.addEventListener("click", function() {
+  lobHistoryToggle.classList.toggle("on");
+  var isOn = lobHistoryToggle.classList.contains("on");
+  fetch("/update?lob_history=" + (isOn ? "true" : "false"));
+  recPill.style.display = isOn ? "" : "none";
+  if (typeof saveFilters === "function") saveFilters();
+});
+if (lobHistoryToggle.classList.contains("on")) {
+  recPill.style.display = "";
+}
+
+// Time range presets
+var presetGroup = document.getElementById("time-presets");
+presetGroup.querySelectorAll('.seg-btn').forEach(function(btn) {
   btn.addEventListener("click", function() {
+    presetGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
     var minutes = parseInt(btn.getAttribute("data-minutes"));
     var now = new Date();
     var start = new Date(now.getTime() - minutes * 60000);
     document.getElementById("history_start").value = toLocalISOString(start);
     document.getElementById("history_end").value = toLocalISOString(now);
+  });
+});
+
+// Mode segmented control
+var modeGroup = document.getElementById("history-mode-group");
+modeGroup.querySelectorAll('.seg-btn').forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    modeGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
   });
 });
 
@@ -97,6 +165,7 @@ function toLocalISOString(date) {
   document.getElementById("history_end").value = toLocalISOString(now);
 })();
 
+// Load History
 document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   var startInput = document.getElementById("history_start").value;
   var endInput = document.getElementById("history_end").value;
@@ -108,7 +177,8 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
 
   var startMs = new Date(startInput).getTime();
   var endMs = new Date(endInput).getTime();
-  var mode = document.querySelector('input[name="history_mode"]:checked').value;
+  var activeMode = modeGroup.querySelector('.seg-btn.active');
+  var mode = activeMode ? activeMode.getAttribute('data-mode') : 'flash';
   var freqInput = document.getElementById("history_frequency").value;
 
   var params = "start=" + startMs + "&end=" + endMs + "&mode=" + mode;
@@ -121,14 +191,17 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   spinner.style.zIndex = "10";
 
   if (isHistoryMode) {
-    viewer.dataSources.remove(lobHistoryDataSource, true);
-    lobHistoryDataSource = new Cesium.CzmlDataSource();
+    viewer.dataSources.remove(lobHistoryDataSource);
   }
+  lobHistoryDataSource = new Cesium.CzmlDataSource();
 
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
     viewer.dataSources.add(lobHistoryDataSource);
+    viewer.automaticallyTrackDataSourceClocks = false;
+    viewer.clock.clockRange = Cesium.ClockRange.CLAMPED;
     enterHistoryMode();
-    renderTimelineHighlights(lobHistoryDataSource);
+    var merged = renderTimelineHighlights(lobHistoryDataSource);
+    if (window.mScrub) mScrub.show(startMs, endMs, merged);
     spinner.style.visibility = "hidden";
     spinner.style.zIndex = "0";
   }).catch(function(error) {
@@ -138,6 +211,7 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   });
 });
 
+// Live button
 document.getElementById("liveBtn").addEventListener("click", function() {
   exitHistoryMode();
 });
@@ -147,16 +221,25 @@ function enterHistoryMode() {
   clearInterval(autoRefresh);
   document.querySelector(".cesium-viewer-animationContainer").classList.add("history-visible");
   document.querySelector(".cesium-viewer-timelineContainer").classList.add("history-visible");
-  document.getElementById("liveBtn").style.display = "inline-block";
-  document.getElementById("loadHistoryBtn").value = "Reload History";
+  var liveBtn = document.getElementById("liveBtn");
+  liveBtn.style.display = "";
+  liveBtn.className = "btn btn-live";
+  liveBtn.innerHTML = '<span class="live-dot"></span>LIVE';
+  document.getElementById("loadHistoryBtn").innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Reload History';
+  statusBar.setMode(false);
+  if (window.mobileUI) mobileUI.setMode(false);
 }
 
 function exitHistoryMode() {
   clearTimelineHighlights();
+  if (window.mScrub) mScrub.hide();
   isHistoryMode = false;
-  viewer.dataSources.remove(lobHistoryDataSource, true);
+  viewer.dataSources.remove(lobHistoryDataSource);
   lobHistoryDataSource = new Cesium.CzmlDataSource();
 
+  viewer.automaticallyTrackDataSourceClocks = true;
+  viewer.clock.clockRange = Cesium.ClockRange.UNBOUNDED;
   viewer.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER;
   viewer.clock.currentTime = Cesium.JulianDate.now();
   viewer.clock.shouldAnimate = true;
@@ -167,6 +250,13 @@ function exitHistoryMode() {
   autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
   reloadRX();
 
-  document.getElementById("liveBtn").style.display = "none";
-  document.getElementById("loadHistoryBtn").value = "Load History";
+  var liveBtn = document.getElementById("liveBtn");
+  liveBtn.style.display = "none";
+  liveBtn.className = "btn btn-ghost";
+  liveBtn.innerHTML = '<span class="live-dot"></span>Go Live';
+
+  document.getElementById("loadHistoryBtn").innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Load History';
+  statusBar.setMode(true);
+  if (window.mobileUI) mobileUI.setMode(true);
 }

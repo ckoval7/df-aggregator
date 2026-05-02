@@ -41,7 +41,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
-from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock
+from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock, HeightReference
+from czml3.enums import HeightReferences
 from czml3.types import TimeInterval
 import queue
 from multiprocessing import Process, Queue, set_start_method
@@ -83,6 +84,8 @@ DATABASE_EDIT_Q = queue.Queue()
 DATABASE_RETURN = queue.Queue()
 
 dbscan_lock = threading.Lock()
+pipeline_stats_cache = {}
+pipeline_stats_lock = threading.Lock()
 
 ###############################################
 # Thread synchronization lock for receiver data
@@ -392,10 +395,17 @@ def autoeps_calc(X):
 # finds the mean of a cluster of intersections.
 ###############################################
 def process_data(database_name, epsilon, min_samp):
+    global pipeline_stats_cache
     n_std = GAUSSIAN_ELLIPSE_SIGMA
     intersect_list = []
     likely_location = []
     ellipsedata = []
+    per_aoi_stats = []
+    total_db_intersections = 0
+    total_dbscan_ms = 0.0
+    resolved_epsilon = None
+    resolved_min_samples = None
+    clustering_enabled = (epsilon != "0")
     # Short-lived read-only connection; opened per-request intentionally to avoid
     # holding a connection across the long-lived web server thread.
     conn = sqlite3.connect(database_name)
@@ -410,6 +420,8 @@ def process_data(database_name, epsilon, min_samp):
             WHERE aoi_id=? ORDER BY confidence DESC LIMIT ?''', [aoi, MAX_INTERSECTS_PER_AOI])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
+            n_input = len(intersect_array)
+            total_db_intersections += n_input
             if epsilon != "0":
                 X = StandardScaler().fit_transform(intersect_array[:, 0:2])
                 n_points = len(X)
@@ -420,6 +432,7 @@ def process_data(database_name, epsilon, min_samp):
                     elif min_samp.isnumeric():
                         aoi_min_samp = max(3, int(min_samp))
                     else:
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
                         continue
                 else:
                     aoi_min_samp = max(3, int(min_samp))
@@ -429,12 +442,17 @@ def process_data(database_name, epsilon, min_samp):
                     print(f"min_samp: {aoi_min_samp}, eps: {aoi_eps}")
                     if aoi_eps <= 0:
                         print("Could not determine a valid epsilon, skipping clustering for this AOI.")
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
                         continue
                 else:
                     try:
                         aoi_eps = float(epsilon)
                     except (ValueError, TypeError):
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
                         continue
+
+                resolved_epsilon = aoi_eps
+                resolved_min_samples = aoi_min_samp
 
                 print(f"Computing Clusters from {n_points} intersections.")
                 with dbscan_lock:
@@ -454,6 +472,8 @@ def process_data(database_name, epsilon, min_samp):
                         db.terminate()
                         db.join(timeout=5)
                         db.close()
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
+                        _update_pipeline_stats(total_db_intersections, clustering_enabled, per_aoi_stats, total_dbscan_ms, resolved_epsilon, resolved_min_samples)
                         return likely_location, intersect_list, ellipsedata
                     db.join(timeout=5)
                     if db.is_alive():
@@ -462,6 +482,8 @@ def process_data(database_name, epsilon, min_samp):
                     db.close()
 
                 stoptime = time.time()
+                aoi_dbscan_ms = (stoptime - starttime) * 1000
+                total_dbscan_ms += aoi_dbscan_ms
                 print(
                     f"DBSCAN took {stoptime - starttime} seconds to compute the clusters.")
 
@@ -470,9 +492,12 @@ def process_data(database_name, epsilon, min_samp):
                 # Number of clusters in labels, ignoring noise if present.
                 n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
                 n_noise_ = list(labels).count(-1)
+                n_in_cluster = n_points - n_noise_
                 clear(debugging)
                 print('Number of clusters: %d' % n_clusters_)
                 print('Outliers Removed: %d' % n_noise_)
+
+                per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": n_in_cluster, "clusters": n_clusters_, "outliers": n_noise_})
 
                 for x in range(n_clusters_):
                     mask = labels == x
@@ -504,6 +529,8 @@ def process_data(database_name, epsilon, min_samp):
 
                 for x in likely_location:
                     print(x[::-1])
+            else:
+                per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": None, "clusters": None, "outliers": None})
 
             for x in intersect_array:
                 try:
@@ -514,8 +541,41 @@ def process_data(database_name, epsilon, min_samp):
 
         else:
             print(f"No Intersections in AOI {aoi}.")
+            per_aoi_stats.append({"aoi_id": aoi, "input": 0, "in_cluster": 0, "clusters": 0, "outliers": 0})
     conn.close()
+
+    _update_pipeline_stats(total_db_intersections, clustering_enabled, per_aoi_stats, total_dbscan_ms, resolved_epsilon, resolved_min_samples)
     return likely_location, intersect_list, ellipsedata
+
+
+def _update_pipeline_stats(db_intersections, clustering_enabled, per_aoi, dbscan_ms, epsilon, min_samples):
+    global pipeline_stats_cache
+    total_in_cluster = 0
+    total_clusters = 0
+    total_outliers = 0
+    for aoi in per_aoi:
+        if aoi["in_cluster"] is not None:
+            total_in_cluster += aoi["in_cluster"]
+            total_clusters += aoi["clusters"]
+            total_outliers += aoi["outliers"]
+
+    stats = {
+        "db_intersections": db_intersections,
+        "clustering_enabled": clustering_enabled,
+        "per_aoi": per_aoi,
+        "totals": {
+            "in_cluster": total_in_cluster,
+            "clusters": total_clusters,
+            "outliers_removed": total_outliers,
+        },
+        "dbscan_ms": round(dbscan_ms),
+        "auto_params": {
+            "epsilon": epsilon,
+            "min_samples": min_samples,
+        },
+    }
+    with pipeline_stats_lock:
+        pipeline_stats_cache = stats
 
 
 #######################################################################
@@ -633,19 +693,24 @@ def write_geojson(best_point, all_the_points):
 # Writes output.czml used by the WebUI
 ###############################################
 def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
+    clamp = HeightReference(heightReference=HeightReferences.CLAMP_TO_GROUND)
+    no_depth = 1e12
     point_properties = {
         "pixelSize": 5.0,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"}
+        "heightReference": clamp,
+        "disableDepthTestDistance": no_depth,
     }
     best_point_properties = {
         "pixelSize": 12.0,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
+        "heightReference": clamp,
+        "disableDepthTestDistance": no_depth,
         "color": {
             "rgba": [0, 255, 0, 255],
         }
     }
 
     ellipse_properties = {
+        "heightReference": clamp,
         "granularity": 0.008722222,
         "zIndex": 5,
         "material": {
@@ -717,7 +782,8 @@ def write_rx_czml():
     rx_properties = {
         "verticalOrigin": "BOTTOM",
         "scale": 0.75,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
+        "heightReference": HeightReference(heightReference=HeightReferences.CLAMP_TO_GROUND),
+        "disableDepthTestDistance": 1e12,
         "height": 48,
         "width": 48,
     }
@@ -1046,6 +1112,21 @@ def tx_czml_out():
     output = write_czml(*process_data(database_name, eps,
                                       min_samp), plotallintersects, eps)
     return str(output)
+
+
+@get('/api/pipeline-stats')
+def get_pipeline_stats():
+    response.headers['Content-Type'] = 'application/json'
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    with pipeline_stats_lock:
+        return json.dumps(pipeline_stats_cache if pipeline_stats_cache else {
+            "db_intersections": 0,
+            "clustering_enabled": False,
+            "per_aoi": [],
+            "totals": {"in_cluster": 0, "clusters": 0, "outliers_removed": 0},
+            "dbscan_ms": 0,
+            "auto_params": {"epsilon": None, "min_samples": None},
+        })
 
 
 ###############################################
