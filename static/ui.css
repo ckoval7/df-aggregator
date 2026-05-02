@@ -82,6 +82,38 @@ input, select { font-family: inherit; }
 .stat-value { font-size: 16px; font-weight: 600; font-family: var(--mono); display: flex; align-items: center; gap: 6px; }
 .stat-value .unit { font-size: 13px; color: var(--fg-2); font-weight: 500; }
 
+/* ===== Pipeline Stats ===== */
+.stat-group-pipeline {
+  display: flex; align-items: center; gap: 12px;
+  padding-left: 20px; margin-left: 8px;
+  border-left: 1px solid var(--bd-soft);
+  flex: none;
+}
+.stat-group-pipeline .stat-value { font-variant-numeric: tabular-nums; }
+.pipeline-arrow {
+  color: var(--fg-3); font-size: 14px; font-weight: 600; font-family: var(--mono);
+  line-height: 1; margin-top: 12px;
+}
+.pipeline-warn {
+  font-size: 11px; font-family: var(--mono); color: var(--warn);
+  white-space: nowrap; margin-top: 12px; max-width: 280px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.pipeline-warn.hidden { display: none; }
+@media (max-width: 1400px) {
+  .stat-group-pipeline .stat-label { font-size: 9px; }
+  .stat-group-pipeline .stat-value { font-size: 13px; }
+  .stat-group-pipeline { gap: 8px; padding-left: 14px; }
+}
+@media (max-width: 1200px) {
+  .stat-group-pipeline .stat-label { display: none; }
+  .stat-group-pipeline .stat-value { font-size: 12px; }
+  .pipeline-warn { display: none; }
+}
+@media (max-width: 1000px) {
+  .stat-group-pipeline { display: none; }
+}
+
 .clock { margin-left: auto; text-align: right; font-family: var(--mono); flex-shrink: 0; }
 .clock-time { font-size: 15px; font-weight: 600; color: var(--fg-0); letter-spacing: 0.06em; }
 .clock-date { font-size: 12px; color: var(--fg-2); letter-spacing: 0.1em; }

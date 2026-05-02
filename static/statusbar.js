@@ -1,5 +1,6 @@
 var statusBar = {
   els: {},
+  _pipelineTimer: null,
 
   init: function() {
     this.els.rxCount = document.getElementById('stat-rx-count');
@@ -12,6 +13,15 @@ var statusBar = {
     this.els.modePill = document.getElementById('stat-mode-pill');
     this.els.clockTime = document.getElementById('clock-time');
     this.els.clockDate = document.getElementById('clock-date');
+    this.els.dbIntersections = document.getElementById('stat-db-intersections');
+    this.els.inCluster = document.getElementById('stat-in-cluster');
+    this.els.clusters = document.getElementById('stat-clusters');
+    this.els.pipelineWarn = document.getElementById('pipeline-warn');
+    this.els.pipelineGroup = document.getElementById('stat-pipeline-group');
+    this.els.inclusterWrap = document.getElementById('stat-incluster-wrap');
+    this.els.clustersWrap = document.getElementById('stat-clusters-wrap');
+    this.els.arrow1 = document.getElementById('pipeline-arrow-1');
+    this.els.arrow2 = document.getElementById('pipeline-arrow-2');
     this.startClock();
   },
 
@@ -84,6 +94,74 @@ var statusBar = {
     } else {
       this.els.modePill.className = 'mode-pill history';
       this.els.modePill.innerHTML = '<span class="dot dot-accent"></span>HISTORY';
+    }
+  },
+
+  fetchPipelineStats: function() {
+    var self = this;
+    if (this._pipelineTimer) clearTimeout(this._pipelineTimer);
+    this._pipelineTimer = setTimeout(function() {
+      fetch('/api/pipeline-stats')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { self.updatePipelineStats(data); })
+        .catch(function() {});
+    }, 250);
+  },
+
+  updatePipelineStats: function(data) {
+    var fmt = function(n) {
+      if (n == null) return '—';
+      return n.toLocaleString();
+    };
+
+    var dbInt = data.db_intersections || 0;
+    this.els.dbIntersections.textContent = fmt(dbInt);
+
+    if (!data.clustering_enabled) {
+      this.els.inclusterWrap.style.display = 'none';
+      this.els.arrow2.style.display = 'none';
+      this.els.clustersWrap.style.display = 'none';
+      this.els.arrow1.style.display = 'none';
+      this._setPipelineWarn(dbInt === 0 ? 'No intersections in time window' : '');
+      return;
+    }
+
+    this.els.inclusterWrap.style.display = '';
+    this.els.clustersWrap.style.display = '';
+    this.els.arrow1.style.display = '';
+    this.els.arrow2.style.display = '';
+
+    var totals = data.totals || {};
+    var inCluster = totals.in_cluster || 0;
+    var clusters = totals.clusters || 0;
+    var outliers = totals.outliers_removed || 0;
+
+    this.els.inCluster.textContent = fmt(inCluster);
+    this.els.clusters.textContent = fmt(clusters);
+
+    var tooltip = '';
+    if (data.per_aoi && data.per_aoi.length > 1) {
+      tooltip = data.per_aoi.map(function(a) {
+        var label = a.aoi_id === -1 ? 'Global' : 'AOI-' + a.aoi_id;
+        return label + ': ' + fmt(a.in_cluster) + ' in clusters / ' + fmt(a.clusters) + ' clusters';
+      }).join('\n');
+    }
+    this.els.pipelineGroup.title = tooltip;
+
+    var warn = '';
+    if (dbInt === 0) {
+      warn = 'No intersections in time window';
+    }
+    this._setPipelineWarn(warn);
+  },
+
+  _setPipelineWarn: function(msg) {
+    if (msg) {
+      this.els.pipelineWarn.textContent = msg;
+      this.els.pipelineWarn.classList.remove('hidden');
+    } else {
+      this.els.pipelineWarn.textContent = '';
+      this.els.pipelineWarn.classList.add('hidden');
     }
   }
 };

@@ -190,9 +190,9 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   spinner.style.zIndex = "10";
 
   if (isHistoryMode) {
-    viewer.dataSources.remove(lobHistoryDataSource, true);
-    lobHistoryDataSource = new Cesium.CzmlDataSource();
+    viewer.dataSources.remove(lobHistoryDataSource);
   }
+  lobHistoryDataSource = new Cesium.CzmlDataSource();
 
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
     viewer.dataSources.add(lobHistoryDataSource);
@@ -229,7 +229,7 @@ function enterHistoryMode() {
 function exitHistoryMode() {
   clearTimelineHighlights();
   isHistoryMode = false;
-  viewer.dataSources.remove(lobHistoryDataSource, true);
+  viewer.dataSources.remove(lobHistoryDataSource);
   lobHistoryDataSource = new Cesium.CzmlDataSource();
 
   viewer.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER;

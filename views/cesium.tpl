@@ -75,6 +75,24 @@
       </div>
     </div>
 
+    <div class="stat-group stat-group-pipeline" id="stat-pipeline-group">
+      <div class="stat">
+        <div class="stat-label">INTERSECTS</div>
+        <div class="stat-value mono" id="stat-db-intersections">—</div>
+      </div>
+      <div class="pipeline-arrow" id="pipeline-arrow-1">→</div>
+      <div class="stat" id="stat-incluster-wrap">
+        <div class="stat-label">IN CLUSTERS</div>
+        <div class="stat-value mono" id="stat-in-cluster">—</div>
+      </div>
+      <div class="pipeline-arrow" id="pipeline-arrow-2">→</div>
+      <div class="stat" id="stat-clusters-wrap">
+        <div class="stat-label">CLUSTERS</div>
+        <div class="stat-value mono accent" id="stat-clusters">—</div>
+      </div>
+      <div class="pipeline-warn hidden" id="pipeline-warn"></div>
+    </div>
+
     <div class="clock">
       <div class="clock-time" id="clock-time">--:--:-- UTC</div>
       <div class="clock-date" id="clock-date">-- --- ----</div>
@@ -353,6 +371,10 @@
       mapProjection: new Cesium.WebMercatorProjection(),
     });
 
+    viewer.dataSources.add(transmittersDataSource);
+    viewer.dataSources.add(receiversDataSource);
+    viewer.dataSources.add(aoiDataSource);
+
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
     viewer.infoBox.frame.src = "about:blank";
 
@@ -549,24 +571,22 @@
       promise1.then(function(dataSource1) {
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
+        statusBar.fetchPipelineStats();
       }).catch(function(error) {
         console.error('Error loading transmitters CZML:', error);
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
       });
-      viewer.dataSources.add(transmittersDataSource);
       return transmittersDataSource;
     }
 
     function loadRxCzml() {
       receiversDataSource.load('/receivers.czml');
-      viewer.dataSources.add(receiversDataSource);
       return receiversDataSource;
     }
 
     function loadAoiCzml() {
       aoiDataSource.load('/aoi.czml');
-      viewer.dataSources.add(aoiDataSource);
       return aoiDataSource;
     }
 
@@ -577,18 +597,16 @@
     }
 
     function clearOld() {
-      viewer.dataSources.remove(receiversDataSource, true);
-      viewer.dataSources.remove(aoiDataSource, true);
-      viewer.dataSources.remove(transmittersDataSource, true);
+      transmittersDataSource.entities.removeAll();
+      receiversDataSource.entities.removeAll();
+      aoiDataSource.entities.removeAll();
     }
 
     function reloadRX() {
-      viewer.dataSources.remove(receiversDataSource, true);
       loadRxCzml();
     }
 
     function reloadAoi() {
-      viewer.dataSources.remove(aoiDataSource, true);
       loadAoiCzml();
     }
   </script>
