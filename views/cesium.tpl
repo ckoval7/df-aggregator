@@ -870,6 +870,7 @@
   <script src="/static/interest_areas.js"></script>
   <script src="/static/cardsmenu.js"></script>
   <script src="/static/lob_history.js"></script>
+  <script src="/static/mobile.js"></script>
 
   <!-- ===== Init & Filter Wiring ===== -->
   <script>
