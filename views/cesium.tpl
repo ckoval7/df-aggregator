@@ -350,12 +350,14 @@
     Cesium.Ion.defaultAccessToken = '{{access_token}}';
     % end
 
-    var esriProvider = Cesium.ArcGisMapServerImageryProvider.fromUrl(
-      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
-    );
+    var defaultImageryViewModels = Cesium.createDefaultImageryProviderViewModels();
+    var esriViewModel = defaultImageryViewModels.find(function(vm) {
+      return vm.name === 'ArcGIS World Imagery';
+    });
 
     var viewer = new Cesium.Viewer('cesiumContainer', {
-      baseLayer: Cesium.ImageryLayer.fromProviderAsync(esriProvider),
+      imageryProviderViewModels: defaultImageryViewModels,
+      selectedImageryProviderViewModel: esriViewModel,
       sceneModePicker: true,
       baseLayerPicker: true,
       homeButton: false,
