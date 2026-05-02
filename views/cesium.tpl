@@ -339,6 +339,261 @@
     </div>
   </aside>
 
+  <!-- ===== Mobile Layout (<=768px) ===== -->
+
+  <!-- Mobile: Top Status Strip -->
+  <div class="m-topbar" id="m-topbar">
+    <div class="m-topbar-row" id="m-topbar-row">
+      <button class="m-burger" id="m-burger" title="Menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="m-mode live" id="m-mode-pill">
+        <span class="m-rec-dot"></span>LIVE
+      </span>
+      <div class="m-strip">
+        <div class="m-strip-cell"><span class="m-cap">RX</span><span class="m-val" id="m-stat-rx">0<span style="color:var(--fg-3)">/0</span></span></div>
+        <div class="m-strip-cell"><span class="m-cap">FREQ</span><span class="m-val" id="m-stat-freq">&mdash;</span></div>
+        <div class="m-strip-cell"><span class="m-cap">CLUST</span><span class="m-val" id="m-stat-clust">&mdash;</span></div>
+      </div>
+      <div class="m-chev">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+    <div class="m-topbar-expanded">
+      <div class="m-row-grid">
+        <div class="m-meter"><span class="m-cap">Receivers</span><span class="m-val" id="m-meter-rx"><span class="m-dot m-dot-good" style="display:inline-block;margin-right:6px"></span>0 <span class="unit">/ 0 online</span></span></div>
+        <div class="m-meter"><span class="m-cap">AOI · Excl</span><span class="m-val" id="m-meter-aoi">0 <span class="unit">aoi</span> · 0 <span class="unit">excl</span></span></div>
+        <div class="m-meter"><span class="m-cap">Frequency</span><span class="m-val" id="m-meter-freq">&mdash; <span class="unit">no active rx</span></span></div>
+        <div class="m-meter"><span class="m-cap">Mode</span><span class="m-val" id="m-meter-mode">LIVE capture</span></div>
+      </div>
+      <div class="m-pipeline">
+        <span class="m-pipe-cap">DBSCAN Pipeline</span>
+        <div class="m-pipe-row">
+          <div class="m-pipe-step"><span class="m-pipe-num" id="m-pipe-intersects">&mdash;</span><span class="m-pipe-lbl">intersects</span></div>
+          <svg class="m-pipe-arrow" id="m-pipe-arrow-1" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+          <div class="m-pipe-step" id="m-pipe-incluster-wrap"><span class="m-pipe-num" id="m-pipe-incluster">&mdash;</span><span class="m-pipe-lbl" id="m-pipe-incluster-lbl">in cluster</span></div>
+          <svg class="m-pipe-arrow" id="m-pipe-arrow-2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+          <div class="m-pipe-step" id="m-pipe-clusters-wrap"><span class="m-pipe-num" id="m-pipe-clusters">&mdash;</span><span class="m-pipe-lbl">clusters</span></div>
+        </div>
+        <div class="m-pipe-warn hidden" id="m-pipe-warn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 9v2m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          <span id="m-pipe-warn-text"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: Drawer Scrim -->
+  <div class="m-scrim" id="m-scrim"></div>
+
+  <!-- Mobile: Drawer -->
+  <aside class="m-drawer" id="m-drawer">
+    <div class="m-drawer-head">
+      <div class="m-drawer-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>
+      </div>
+      <div>
+        <div class="m-drawer-title">DF AGGREGATOR</div>
+        <div class="m-drawer-sub">Field Operator</div>
+      </div>
+      <button class="m-drawer-close" id="m-drawer-close" title="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="m-drawer-tabs">
+      <button class="m-drawer-tab active" data-tab="receivers">Recv<span class="m-tab-count" id="m-tab-rx-count">0</span></button>
+      <button class="m-drawer-tab" data-tab="aois">Areas<span class="m-tab-count" id="m-tab-aoi-count">0</span></button>
+      <button class="m-drawer-tab" data-tab="filters">Filters</button>
+      <button class="m-drawer-tab" data-tab="history">History</button>
+    </div>
+    <div class="m-drawer-body">
+
+      <!-- Receivers Tab -->
+      <div class="m-tab-pane active" id="m-pane-receivers">
+        <div class="m-section-head">
+          <span class="m-section-title">Receivers</span>
+          <span class="m-pill" id="m-rx-pill">0</span>
+        </div>
+        <div id="m-rx-cards"></div>
+        <button class="m-add-btn" id="m-add-rx-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add receiver
+        </button>
+      </div>
+
+      <!-- Areas Tab -->
+      <div class="m-tab-pane" id="m-pane-aois">
+        <div class="m-section-head">
+          <span class="m-section-title">Areas of Interest</span>
+          <span class="m-pill" id="m-aoi-pill">0</span>
+        </div>
+        <div id="m-aoi-cards"></div>
+        <button class="m-add-btn" id="m-add-aoi-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add AOI
+        </button>
+        <div class="m-divider"></div>
+        <div class="m-section-head">
+          <span class="m-section-title">Exclusions</span>
+          <span class="m-pill" id="m-ex-pill">0</span>
+        </div>
+        <div id="m-exclusion-cards"></div>
+        <button class="m-add-btn" id="m-add-exclusion-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add exclusion
+        </button>
+      </div>
+
+      <!-- Filters Tab -->
+      <div class="m-tab-pane" id="m-pane-filters">
+        <div class="m-filt-section">
+          <div class="m-filt-row toggle-row">
+            <div>
+              <div class="m-filt-label">Capture Receivers</div>
+              <div class="m-filt-hint">Enable intersection capture from active receivers</div>
+            </div>
+            <span class="m-rx-toggle {{'on' if rx_state else ''}}" id="m-rx-en-toggle"><span class="m-rx-thumb"></span></span>
+          </div>
+          <div class="m-filt-row">
+            <div class="m-filt-head">
+              <div class="m-filt-label">Min Power</div>
+              <div class="m-filt-val" id="m-power-val">{{minpower}}</div>
+            </div>
+            <input type="range" class="m-slider" min="0" max="100" value="{{minpower}}" id="m-powerRange">
+          </div>
+          <div class="m-filt-row">
+            <div class="m-filt-head">
+              <div class="m-filt-label">Min Confidence</div>
+              <div class="m-filt-val" id="m-conf-val">{{minconf}}</div>
+            </div>
+            <input type="range" class="m-slider" min="0" max="300" value="{{minconf}}" id="m-confRange">
+          </div>
+          <div class="m-filt-row toggle-row">
+            <div>
+              <div class="m-filt-label">Clustering</div>
+              <div class="m-filt-hint">Draw confidence ellipses around clusters</div>
+            </div>
+            <span class="m-rx-toggle {{'on' if epsilon == 'auto' else ''}}" id="m-clustering-toggle"><span class="m-rx-thumb"></span></span>
+          </div>
+          <div class="m-filt-row">
+            <div class="m-filt-head">
+              <div>
+                <div class="m-filt-label">Epsilon (ε)</div>
+                <div class="m-filt-hint">DBSCAN neighborhood radius — 0 lets server pick</div>
+              </div>
+              <div class="m-filt-val {{'auto' if epsilon == 'auto' else ''}}" id="m-eps-val">{{'AUTO' if epsilon == 'auto' else epsilon}}</div>
+            </div>
+            <input type="range" class="m-slider" min="0" max="2" step="0.01" value="{{0 if epsilon == 'auto' else epsilon}}" id="m-epsilonRange">
+          </div>
+          <div class="m-filt-row">
+            <div class="m-filt-head">
+              <div>
+                <div class="m-filt-label">Min Samples</div>
+                <div class="m-filt-hint">Min points to form a cluster</div>
+              </div>
+              <div class="m-filt-val {{'auto' if minpoints == 'auto' else ''}}" id="m-minpoint-val">{{'AUTO' if minpoints == 'auto' else minpoints}}</div>
+            </div>
+            <input type="range" class="m-slider" min="0" max="300" step="5" value="{{0 if minpoints == 'auto' else minpoints}}" id="m-minpointRange">
+          </div>
+          <div class="m-filt-row toggle-row">
+            <div>
+              <div class="m-filt-label">Plot All Intersect Points</div>
+              <div class="m-filt-hint">Show every intersection, skip clustering</div>
+            </div>
+            <span class="m-rx-toggle {{'on' if intersect_state else ''}}" id="m-intersect-toggle"><span class="m-rx-thumb"></span></span>
+          </div>
+          <button class="m-bigbtn primary" id="m-refresh-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Apply &amp; Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- History Tab -->
+      <div class="m-tab-pane" id="m-pane-history">
+        <div class="m-filt-section">
+          <div class="m-filt-row toggle-row">
+            <div>
+              <div class="m-filt-label">Record History</div>
+              <div class="m-filt-hint">Persist LOB data to database</div>
+            </div>
+            <span class="m-rx-toggle {{'on' if lob_history_state else ''}}" id="m-lob-history-toggle"><span class="m-rx-thumb"></span></span>
+          </div>
+          <div class="m-hist-row">
+            <span class="m-row-lbl">Time Range</span>
+            <div class="m-seg" id="m-time-presets">
+              <button data-minutes="30">30m</button>
+              <button class="active" data-minutes="60">1h</button>
+              <button data-minutes="240">4h</button>
+              <button data-minutes="1440">24h</button>
+            </div>
+          </div>
+          <div class="m-hist-row">
+            <span class="m-row-lbl">Mode</span>
+            <div class="m-seg two-col" id="m-mode-group">
+              <button class="active" data-mode="flash">Flash</button>
+              <button data-mode="accumulate">Accumulate</button>
+            </div>
+          </div>
+          <button class="m-bigbtn ghost" id="m-edit-range-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Edit Range…
+          </button>
+          <div class="m-hist-row">
+            <span class="m-row-lbl">Window</span>
+            <div class="m-window-block">
+              <div><span class="m-window-label">FROM</span><span id="m-window-from">—</span></div>
+              <div><span class="m-window-label">&nbsp; TO</span><span id="m-window-to">—</span></div>
+            </div>
+          </div>
+          <button class="m-bigbtn ghost" id="m-live-btn">GO LIVE</button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Mobile: Scrub Dock -->
+  <div class="m-scrubdock" id="m-scrubdock">
+    <div class="m-scrubdock-head">
+      <span>History</span>
+      <span class="m-scrub-time" id="m-scrub-time">&mdash;</span>
+      <button class="m-scrub-edit" id="m-scrub-edit">Edit</button>
+    </div>
+    <div class="m-scrubtrack" id="m-scrub-track"></div>
+    <div class="m-scrubaxis" id="m-scrub-axis"></div>
+  </div>
+
+  <!-- Mobile: Bottom Sheet -->
+  <div class="m-sheet-scrim" id="m-sheet-scrim"></div>
+  <div class="m-sheet" id="m-sheet">
+    <div class="m-sheet-handle"></div>
+    <div class="m-sheet-head">
+      <div class="m-sheet-title">Edit Time Range</div>
+      <button class="m-sheet-close" id="m-sheet-close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="m-sheet-body">
+      <div class="m-hist-row">
+        <span class="m-row-lbl">Start</span>
+        <input type="datetime-local" class="m-time-input" id="m-history-start" step="1">
+      </div>
+      <div class="m-hist-row">
+        <span class="m-row-lbl">End</span>
+        <input type="datetime-local" class="m-time-input" id="m-history-end" step="1">
+      </div>
+      <div class="m-hist-row">
+        <span class="m-row-lbl">Frequency</span>
+        <input type="text" class="m-time-input" id="m-history-freq" placeholder="All frequencies">
+      </div>
+      <button class="m-bigbtn primary" id="m-load-history-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Load History
+      </button>
+    </div>
+  </div>
+
   <!-- ===== CesiumJS Init ===== -->
   <script>
     var transmittersDataSource = new Cesium.CzmlDataSource();
