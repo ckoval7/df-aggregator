@@ -1,4 +1,6 @@
 (function() {
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
   var mTopbar = document.getElementById('m-topbar');
   var mTopbarRow = document.getElementById('m-topbar-row');
   var mBurger = document.getElementById('m-burger');
@@ -514,7 +516,7 @@
 
       var html = '<div class="m-rxhead">';
       html += '<span class="m-dot ' + (rx.active ? 'm-dot-good' : 'm-dot-bad') + '"></span>';
-      html += '<span class="m-rxid">' + rx.station_id + '</span>';
+      html += '<span class="m-rxid">' + esc(rx.station_id) + '</span>';
       html += '<span class="m-rxpill ' + (rx.active ? 'on' : 'off') + '">' + (rx.active ? 'ONLINE' : 'OFFLINE') + '</span>';
       html += '<span class="m-rx-toggle ' + (rx.active ? 'on' : '') + '" data-uid="' + rx.uid + '"><span class="m-rx-thumb"></span></span>';
       html += '</div>';
@@ -549,10 +551,8 @@
     container.querySelectorAll('.m-rx-toggle').forEach(function(toggle) {
       toggle.addEventListener('click', function() {
         var uid = parseInt(toggle.getAttribute('data-uid'));
-        updateRx(function(rxJson) {
-          var rx = rxJson.receivers[uid];
-          activateReceiver(uid, !rx.active);
-        }, uid);
+        var isCurrentlyOn = toggle.classList.contains('on');
+        activateReceiver(uid, !isCurrentlyOn);
       });
     });
   }
@@ -576,7 +576,7 @@
 
       var html = '<div class="m-aoi-head">';
       html += '<span class="m-dot ' + dotClass + '"></span>';
-      html += '<span class="m-aoi-label">' + (aoi.label || kind.toUpperCase() + '-' + aoi.uid) + '</span>';
+      html += '<span class="m-aoi-label">' + esc(aoi.label || kind.toUpperCase() + '-' + aoi.uid) + '</span>';
       html += '<button class="m-remove-btn" data-uid="' + aoi.uid + '">Remove</button>';
       html += '</div>';
       html += '<div class="m-kvgrid">';

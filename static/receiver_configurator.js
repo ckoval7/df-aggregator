@@ -18,6 +18,7 @@ function makeNewRx(url) {
       loadRx(function(rx_json) {
         createReceivers(rx_json);
         statusBar.updateReceiverStats(rx_json);
+        if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
       });
       reloadRX();
     });
@@ -38,6 +39,7 @@ function deleteReceiver(uid) {
       loadRx(function(rx_json) {
         createReceivers(rx_json);
         statusBar.updateReceiverStats(rx_json);
+        if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
       });
       reloadRX();
     });
@@ -54,6 +56,7 @@ function activateReceiver(uid, state) {
       loadRx(function(rx_json) {
         refreshRx(rx_json);
         statusBar.updateReceiverStats(rx_json);
+        if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
       });
       reloadRX();
     });

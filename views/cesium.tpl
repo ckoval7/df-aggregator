@@ -449,8 +449,8 @@
         <div class="m-filt-section">
           <div class="m-filt-row toggle-row">
             <div>
-              <div class="m-filt-label">Capture Receivers</div>
-              <div class="m-filt-hint">Enable intersection capture from active receivers</div>
+              <div class="m-filt-label">Enable Processing</div>
+              <div class="m-filt-hint">Process intersections from active receivers</div>
             </div>
             <span class="m-rx-toggle {{'on' if rx_state else ''}}" id="m-rx-en-toggle"><span class="m-rx-thumb"></span></span>
           </div>
@@ -504,7 +504,7 @@
           </div>
           <button class="m-bigbtn primary" id="m-refresh-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Apply &amp; Refresh
+            Refresh
           </button>
         </div>
       </div>

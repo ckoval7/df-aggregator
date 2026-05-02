@@ -820,7 +820,7 @@ body.panel-collapsed .cesium-infoBox {
 .m-meterbar .m-mfill { height: 100%; border-radius: 2px; background: var(--good); }
 .m-meterbar .m-mfill.alt { background: var(--accent); }
 .m-meterbar .m-mval { color: var(--fg-1); font-weight: 600; min-width: 22px; text-align: right; }
-.m-meterbar + .m-meterbar { border-top: 0; padding-top: 4; margin-top: 4px; }
+.m-meterbar + .m-meterbar { border-top: 0; padding-top: 4px; margin-top: 4px; }
 
 .m-aoi-head {
   display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
