@@ -187,9 +187,9 @@
 
       tickListener = viewer.clock.onTick.addEventListener(onTick);
 
-      track.addEventListener('touchstart', onTouchStart, { passive: false });
-      track.addEventListener('touchmove', onTouchMove, { passive: false });
-      track.addEventListener('touchend', onTouchEnd);
+      scrubEl.addEventListener('touchstart', onTouchStart, { passive: false });
+      scrubEl.addEventListener('touchmove', onTouchMove, { passive: false });
+      scrubEl.addEventListener('touchend', onTouchEnd);
     },
 
     hide: function() {
@@ -202,9 +202,9 @@
       currentMerged = [];
       dragging = false;
 
-      track.removeEventListener('touchstart', onTouchStart);
-      track.removeEventListener('touchmove', onTouchMove);
-      track.removeEventListener('touchend', onTouchEnd);
+      scrubEl.removeEventListener('touchstart', onTouchStart);
+      scrubEl.removeEventListener('touchmove', onTouchMove);
+      scrubEl.removeEventListener('touchend', onTouchEnd);
     }
   };
 })();

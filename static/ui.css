@@ -1059,6 +1059,7 @@ body.panel-collapsed .cesium-infoBox {
 }
 .m-scrub.active {
   pointer-events: auto;
+  touch-action: none;
 }
 .m-scrub-track {
   position: relative;
@@ -1071,6 +1072,7 @@ body.panel-collapsed .cesium-infoBox {
 .m-scrub-hl {
   position: absolute;
   background: var(--good-soft);
+  border: 1px solid var(--good);
   border-radius: 2px;
 }
 .m-scrub-head {
