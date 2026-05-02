@@ -869,6 +869,11 @@
       viewer.dataSources.remove(aoiDataSource, true);
       loadAoiCzml();
     }
+
+    function reloadTx() {
+      viewer.dataSources.remove(transmittersDataSource, true);
+      loadTxCzml();
+    }
   </script>
 
   <!-- ===== Component Scripts ===== -->

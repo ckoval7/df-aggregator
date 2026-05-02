@@ -35,6 +35,7 @@ function deleteAoi(uid) {
         if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
       });
       reloadAoi();
+      reloadTx();
     });
 }
 
@@ -52,6 +53,7 @@ function purgeAoi(uid) {
         if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
       });
       reloadAoi();
+      reloadTx();
     });
 }
 
@@ -64,6 +66,7 @@ function runAoi() {
         if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
       });
       reloadAoi();
+      reloadTx();
     });
 }
 
