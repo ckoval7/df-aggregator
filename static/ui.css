@@ -172,14 +172,6 @@ input, select { font-family: inherit; }
 .sidepanel::-webkit-scrollbar { width: 6px; }
 .sidepanel::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 3px; }
 
-.sidepanel-close {
-  position: sticky; top: 0; align-self: flex-end;
-  background: var(--bg-2); border: 1px solid var(--bd);
-  width: 36px; height: 36px; border-radius: var(--r-sm);
-  color: var(--fg-1); cursor: pointer; display: grid; place-items: center;
-  z-index: 2; flex-shrink: 0;
-}
-.sidepanel-close:hover { color: var(--fg-0); border-color: var(--accent); }
 
 .panel-toggle {
   width: 36px; height: 36px;

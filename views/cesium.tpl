@@ -188,10 +188,6 @@
 
   <!-- ===== Side Panel ===== -->
   <aside class="sidepanel" id="sidepanel">
-    <button class="sidepanel-close" id="sidepanel-close" title="Close panel">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-
     <!-- Receivers Section -->
     <div class="panel-section">
       <div class="section-head">
@@ -807,9 +803,6 @@
       panelToggle.title = open ? "Close panel" : "Open panel";
       localStorage.setItem('df-panel-collapsed', !open);
     }
-    document.getElementById("sidepanel-close").addEventListener("click", function() {
-      setPanelOpen(false);
-    });
     panelToggle.addEventListener("click", function() {
       var isCollapsed = sidepanel.classList.contains("collapsed");
       setPanelOpen(isCollapsed);
