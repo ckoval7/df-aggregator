@@ -779,6 +779,7 @@
           loadRx(function(rx_json) {
             refreshRx(rx_json);
             statusBar.updateReceiverStats(rx_json);
+            if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
           });
           loadAllCzml();
         });
@@ -880,10 +881,12 @@
     loadRx(function(rx_json, id) {
       createReceivers(rx_json, id);
       statusBar.updateReceiverStats(rx_json);
+      if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
     });
     loadAoi(function(aoi_json, id) {
       createAois(aoi_json, id);
       statusBar.updateAoiStats(aoi_json);
+      if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
     });
 
     function saveFilters() {
@@ -958,6 +961,44 @@
       else if (s.lob_history === false && lobToggle.classList.contains("on")) lobToggle.classList.remove("on");
       var recPill = document.getElementById("rec-pill");
       if (recPill) recPill.style.display = lobToggle.classList.contains("on") ? "" : "none";
+
+      if (window.mobileUI) {
+        var mPower = document.getElementById('m-powerRange');
+        var mConf = document.getElementById('m-confRange');
+        var mEps = document.getElementById('m-epsilonRange');
+        var mMinpt = document.getElementById('m-minpointRange');
+        if (mPower) { mPower.value = powerSlider.value; document.getElementById('m-power-val').textContent = powerSlider.value; }
+        if (mConf) { mConf.value = confSlider.value; document.getElementById('m-conf-val').textContent = confSlider.value; }
+        if (mEps) {
+          mEps.value = epsSlider.value;
+          var mEpsVal = document.getElementById('m-eps-val');
+          if (parseFloat(epsSlider.value) > 0) { mEpsVal.textContent = epsSlider.value; mEpsVal.className = 'm-filt-val'; }
+          else { mEpsVal.textContent = 'AUTO'; mEpsVal.className = 'm-filt-val auto'; }
+        }
+        if (mMinpt) {
+          mMinpt.value = minpointSlider.value;
+          var mMinptVal = document.getElementById('m-minpoint-val');
+          if (parseInt(minpointSlider.value) > 0) { mMinptVal.textContent = minpointSlider.value; mMinptVal.className = 'm-filt-val'; }
+          else { mMinptVal.textContent = 'AUTO'; mMinptVal.className = 'm-filt-val auto'; }
+        }
+
+        var mCluster = document.getElementById('m-clustering-toggle');
+        var mIntersect = document.getElementById('m-intersect-toggle');
+        var mRxEn = document.getElementById('m-rx-en-toggle');
+        var mLob = document.getElementById('m-lob-history-toggle');
+
+        if (s.clustering === true && mCluster && !mCluster.classList.contains('on')) mCluster.classList.add('on');
+        else if (s.clustering === false && mCluster && mCluster.classList.contains('on')) mCluster.classList.remove('on');
+
+        if (s.intersects === true && mIntersect && !mIntersect.classList.contains('on')) mIntersect.classList.add('on');
+        else if (s.intersects === false && mIntersect && mIntersect.classList.contains('on')) mIntersect.classList.remove('on');
+
+        if (s.processing === true && mRxEn && !mRxEn.classList.contains('on')) mRxEn.classList.add('on');
+        else if (s.processing === false && mRxEn && mRxEn.classList.contains('on')) mRxEn.classList.remove('on');
+
+        if (s.lob_history === true && mLob && !mLob.classList.contains('on')) mLob.classList.add('on');
+        else if (s.lob_history === false && mLob && mLob.classList.contains('on')) mLob.classList.remove('on');
+      }
 
       updateParams("minpower=" + powerSlider.value + "&minconf=" + confSlider.value
         + "&rx=" + (rxToggle.classList.contains("on") ? "true" : "false")

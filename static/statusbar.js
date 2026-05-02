@@ -95,6 +95,7 @@ var statusBar = {
       this.els.modePill.className = 'mode-pill history';
       this.els.modePill.innerHTML = '<span class="dot dot-accent"></span>HISTORY';
     }
+    if (window.mobileUI) window.mobileUI.setMode(isLive);
   },
 
   fetchPipelineStats: function() {
@@ -153,6 +154,7 @@ var statusBar = {
       warn = 'No intersections in time window';
     }
     this._setPipelineWarn(warn);
+    if (window.mobileUI) window.mobileUI.updatePipelineStats(data);
   },
 
   _setPipelineWarn: function(msg) {
