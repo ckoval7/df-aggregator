@@ -41,7 +41,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
-from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock
+from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock, HeightReference
+from czml3.enums import HeightReferences
 from czml3.types import TimeInterval
 import queue
 from multiprocessing import Process, Queue, set_start_method
@@ -692,19 +693,24 @@ def write_geojson(best_point, all_the_points):
 # Writes output.czml used by the WebUI
 ###############################################
 def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
+    clamp = HeightReference(heightReference=HeightReferences.CLAMP_TO_GROUND)
+    no_depth = 1e12
     point_properties = {
         "pixelSize": 5.0,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"}
+        "heightReference": clamp,
+        "disableDepthTestDistance": no_depth,
     }
     best_point_properties = {
         "pixelSize": 12.0,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
+        "heightReference": clamp,
+        "disableDepthTestDistance": no_depth,
         "color": {
             "rgba": [0, 255, 0, 255],
         }
     }
 
     ellipse_properties = {
+        "heightReference": clamp,
         "granularity": 0.008722222,
         "zIndex": 5,
         "material": {
@@ -776,7 +782,8 @@ def write_rx_czml():
     rx_properties = {
         "verticalOrigin": "BOTTOM",
         "scale": 0.75,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
+        "heightReference": HeightReference(heightReference=HeightReferences.CLAMP_TO_GROUND),
+        "disableDepthTestDistance": 1e12,
         "height": 48,
         "width": 48,
     }
