@@ -1192,9 +1192,9 @@ body.panel-collapsed .cesium-infoBox {
 
 /* ---- Responsive toggle ---- */
 @media (max-width: 768px) {
-  .statusbar { display: none !important; }
-  .filters-host { display: none !important; }
-  .sidepanel { display: none !important; }
+  .statusbar { display: none; }
+  .filters-host { display: none; }
+  .sidepanel { display: none; }
   .cesium-viewer-toolbar {
     position: fixed !important;
     top: 62px;
@@ -1207,8 +1207,6 @@ body.panel-collapsed .cesium-infoBox {
     right: 0 !important;
     max-height: calc(100vh - 110px) !important;
   }
-  .cesium-viewer-animationContainer { display: none !important; }
-  .cesium-viewer-timelineContainer { display: none !important; }
   .m-topbar { display: block; }
   .m-scrim, .m-drawer, .m-sheet-scrim, .m-sheet { display: initial; }
   .m-sheet-scrim { display: none; }
