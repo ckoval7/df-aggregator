@@ -95,7 +95,6 @@ var statusBar = {
       this.els.modePill.className = 'mode-pill history';
       this.els.modePill.innerHTML = '<span class="dot dot-accent"></span>HISTORY';
     }
-    if (window.mobileUI) window.mobileUI.setMode(isLive);
   },
 
   fetchPipelineStats: function() {

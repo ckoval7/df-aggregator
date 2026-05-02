@@ -535,10 +535,6 @@
               <button data-mode="accumulate">Accumulate</button>
             </div>
           </div>
-          <button class="m-bigbtn ghost" id="m-edit-range-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Edit Range…
-          </button>
           <div class="m-hist-row">
             <span class="m-row-lbl">Window</span>
             <div class="m-window-block">
@@ -546,23 +542,24 @@
               <div><span class="m-window-label">&nbsp; TO</span><span id="m-window-to">—</span></div>
             </div>
           </div>
-          <button class="m-bigbtn ghost" id="m-live-btn">GO LIVE</button>
+          <button class="m-bigbtn ghost" id="m-edit-range-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Edit Range…
+          </button>
+          <div class="m-hist-foot">
+            <button class="m-bigbtn primary" id="m-load-history-main-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Load History
+            </button>
+            <button class="m-bigbtn ghost" id="m-live-btn" style="display:none">
+              <span class="live-dot"></span>Go Live
+            </button>
+          </div>
         </div>
       </div>
 
     </div>
   </aside>
-
-  <!-- Mobile: Scrub Dock -->
-  <div class="m-scrubdock" id="m-scrubdock">
-    <div class="m-scrubdock-head">
-      <span>History</span>
-      <span class="m-scrub-time" id="m-scrub-time">&mdash;</span>
-      <button class="m-scrub-edit" id="m-scrub-edit">Edit</button>
-    </div>
-    <div class="m-scrubtrack" id="m-scrub-track"></div>
-    <div class="m-scrubaxis" id="m-scrub-axis"></div>
-  </div>
 
   <!-- Mobile: Bottom Sheet -->
   <div class="m-sheet-scrim" id="m-sheet-scrim"></div>

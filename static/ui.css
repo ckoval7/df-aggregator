@@ -1001,51 +1001,10 @@ body.panel-collapsed .cesium-infoBox {
 .m-window-label {
   color: var(--fg-3); letter-spacing: 0.1em; font-size: 10px; margin-right: 6px;
 }
-
-/* ---- Scrub dock ---- */
-.m-scrubdock {
-  position: absolute; left: 8px; right: 8px; bottom: 12px;
-  z-index: 30;
-  background: var(--bg-1);
-  border: 1px solid var(--bd);
-  border-radius: var(--r);
-  padding: 8px 12px 9px;
-  display: none; flex-direction: column; gap: 6px;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+.m-hist-foot {
+  display: flex; gap: 8px; margin-top: 4px;
 }
-.m-scrubdock.visible { display: flex; }
-.m-scrubdock-head {
-  display: flex; align-items: center; gap: 8px;
-  font: 700 10.5px var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--accent);
-}
-.m-scrubdock-head .m-scrub-time {
-  margin-left: auto;
-  font: 600 12px var(--mono);
-  color: var(--fg-0);
-  letter-spacing: 0.04em;
-}
-.m-scrub-edit {
-  background: transparent;
-  border: 1px solid var(--bd);
-  color: var(--fg-1);
-  border-radius: 6px;
-  padding: 3px 8px;
-  font: 600 10.5px var(--mono); letter-spacing: 0.08em;
-  cursor: pointer;
-}
-.m-scrubtrack {
-  position: relative; height: 8px;
-  background: var(--bg-3); border-radius: 4px; overflow: hidden;
-  border: 1px solid var(--bd-soft);
-}
-.m-scrub-hl { position: absolute; top: 0; bottom: 0; background: var(--good-soft); border-left: 1px solid var(--good); border-right: 1px solid var(--good); }
-.m-scrub-head { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-.m-scrubaxis {
-  display: flex; justify-content: space-between;
-  font: 600 9.5px var(--mono); color: var(--fg-3); letter-spacing: 0.06em;
-}
+.m-hist-foot .m-bigbtn { width: auto; flex: 1; white-space: nowrap; min-width: 0; padding: 13px 10px; font-size: 12px; }
 
 /* ---- Bottom sheet ---- */
 .m-sheet-scrim {
@@ -1102,9 +1061,7 @@ body.panel-collapsed .cesium-infoBox {
   .cesium-viewer-animationContainer { display: none !important; }
   .cesium-viewer-timelineContainer { display: none !important; }
   .m-topbar { display: block; }
-  .m-scrim, .m-drawer, .m-scrubdock, .m-sheet-scrim, .m-sheet { display: initial; }
-  .m-scrubdock { display: none; }
-  .m-scrubdock.visible { display: flex; }
+  .m-scrim, .m-drawer, .m-sheet-scrim, .m-sheet { display: initial; }
   .m-sheet-scrim { display: none; }
   .m-sheet-scrim.open { display: block; }
   .m-sheet { display: flex; }

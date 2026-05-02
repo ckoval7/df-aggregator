@@ -10,7 +10,7 @@
   var mSheetScrim = document.getElementById('m-sheet-scrim');
   var mSheet = document.getElementById('m-sheet');
   var mSheetClose = document.getElementById('m-sheet-close');
-  var mScrubdock = document.getElementById('m-scrubdock');
+
 
   var mTopExpanded = false;
 
@@ -74,12 +74,6 @@
   document.getElementById('m-edit-range-btn').addEventListener('click', openSheet);
   mSheetScrim.addEventListener('click', closeSheet);
   mSheetClose.addEventListener('click', closeSheet);
-
-  // ── Scrub dock edit → drawer + sheet ──
-  document.getElementById('m-scrub-edit').addEventListener('click', function() {
-    openDrawer('history');
-    setTimeout(openSheet, 200);
-  });
 
   // ── Sync sheet datetime inputs with desktop inputs ──
   function syncSheetInputs() {
@@ -207,74 +201,48 @@
     });
   });
 
-  // LIVE / GO LIVE
+  // ── Go Live button — only active during history mode ──
   var mLiveBtn = document.getElementById('m-live-btn');
   mLiveBtn.addEventListener('click', function() {
     if (typeof isHistoryMode !== 'undefined' && isHistoryMode) {
       exitHistoryMode();
-      mSetLiveState(true);
-    } else {
-      mSetLiveState(false);
     }
   });
 
+  var mLoadMainBtn = document.getElementById('m-load-history-main-btn');
+  var clockIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ';
+
   function mSetLiveState(isLive) {
     if (isLive) {
-      mLiveBtn.className = 'm-bigbtn ghost';
-      mLiveBtn.textContent = 'GO LIVE';
-      mScrubdock.classList.remove('visible');
+      mLiveBtn.style.display = 'none';
+      mLoadMainBtn.innerHTML = clockIcon + 'Load History';
       mUpdateModePill(true);
     } else {
-      mLiveBtn.className = 'm-bigbtn live';
-      mLiveBtn.innerHTML = '<span class="m-rec-dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.4s infinite"></span> LIVE';
-      mScrubdock.classList.add('visible');
+      mLiveBtn.style.display = '';
+      mLoadMainBtn.innerHTML = clockIcon + 'Reload History';
       mUpdateModePill(false);
+      mUpdateWindowDisplay();
     }
   }
 
-  // ── Load History (sheet) ──
+  // ── Load History (main pane button) — presets already sync to desktop inputs ──
+  document.getElementById('m-load-history-main-btn').addEventListener('click', function() {
+    document.getElementById('loadHistoryBtn').click();
+  });
+
+  // ── Load History (sheet) — sync inputs to desktop and reuse desktop handler ──
   document.getElementById('m-load-history-btn').addEventListener('click', function() {
     var startVal = document.getElementById('m-history-start').value;
     var endVal = document.getElementById('m-history-end').value;
     if (!startVal || !endVal) return;
 
-    // Sync to desktop inputs
     document.getElementById('history_start').value = startVal;
     document.getElementById('history_end').value = endVal;
     var mFreq = document.getElementById('m-history-freq').value;
-    if (mFreq) document.getElementById('history_frequency').value = mFreq;
+    document.getElementById('history_frequency').value = mFreq || '';
 
     closeSheet();
-
-    var startMs = new Date(startVal).getTime();
-    var endMs = new Date(endVal).getTime();
-    var activeMode = mModeGroup.querySelector('button.active');
-    var mode = activeMode ? activeMode.getAttribute('data-mode') : 'flash';
-    var params = 'start=' + startMs + '&end=' + endMs + '&mode=' + mode;
-    if (mFreq) params += '&frequency=' + mFreq;
-
-    var spinner = document.getElementById('loader');
-    spinner.style.visibility = 'visible';
-    spinner.style.zIndex = '10';
-
-    if (typeof isHistoryMode !== 'undefined' && isHistoryMode) {
-      viewer.dataSources.remove(lobHistoryDataSource);
-    }
-    lobHistoryDataSource = new Cesium.CzmlDataSource();
-
-    lobHistoryDataSource.load('/lob_history.czml?' + params).then(function() {
-      viewer.dataSources.add(lobHistoryDataSource);
-      enterHistoryMode();
-      mSetLiveState(false);
-      renderTimelineHighlights(lobHistoryDataSource);
-      mUpdateScrubDock();
-      spinner.style.visibility = 'hidden';
-      spinner.style.zIndex = '0';
-    }).catch(function(error) {
-      console.error('Error loading LOB history:', error);
-      spinner.style.visibility = 'hidden';
-      spinner.style.zIndex = '0';
-    });
+    document.getElementById('loadHistoryBtn').click();
   });
 
   function mUpdateWindowDisplay() {
@@ -284,68 +252,6 @@
     var toEl = document.getElementById('m-window-to');
     fromEl.textContent = startEl.value ? startEl.value.replace('T', ' ') : '—';
     toEl.textContent = endEl.value ? endEl.value.replace('T', ' ') : '—';
-  }
-
-  // ── Scrub dock ──
-  function mUpdateScrubDock() {
-    var startVal = document.getElementById('history_start').value;
-    var endVal = document.getElementById('history_end').value;
-    if (!startVal || !endVal) return;
-
-    var startDate = new Date(startVal);
-    var endDate = new Date(endVal);
-    var fmt = function(d) {
-      return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
-    };
-    document.getElementById('m-scrub-time').textContent = fmt(startDate) + ' → ' + fmt(endDate) + ' UTC';
-
-    mRenderScrubHighlights();
-  }
-
-  function mRenderScrubHighlights() {
-    var track = document.getElementById('m-scrub-track');
-    var axis = document.getElementById('m-scrub-axis');
-    track.querySelectorAll('.m-scrub-hl, .m-scrub-head').forEach(function(e) { e.remove(); });
-    axis.innerHTML = '';
-
-    if (typeof lobHistoryDataSource === 'undefined') return;
-    var intervals = extractIntervals(lobHistoryDataSource);
-    var merged = mergeIntervals(intervals);
-    if (merged.length === 0) return;
-
-    var startVal = document.getElementById('history_start').value;
-    var endVal = document.getElementById('history_end').value;
-    var startMs = startVal ? new Date(startVal).getTime() : merged[0][0];
-    var endMs = endVal ? new Date(endVal).getTime() : merged[merged.length - 1][1];
-    var totalSpan = endMs - startMs;
-    if (totalSpan <= 0) return;
-
-    for (var i = 0; i < merged.length; i++) {
-      var leftPct = ((merged[i][0] - startMs) / totalSpan) * 100;
-      var widthPct = ((merged[i][1] - merged[i][0]) / totalSpan) * 100;
-      var el = document.createElement('div');
-      el.className = 'm-scrub-hl';
-      el.style.left = Math.max(0, leftPct) + '%';
-      el.style.width = Math.min(widthPct, 100 - leftPct) + '%';
-      track.appendChild(el);
-    }
-
-    var nowMs = Date.now();
-    if (nowMs >= startMs && nowMs <= endMs) {
-      var headPct = ((nowMs - startMs) / totalSpan) * 100;
-      var head = document.createElement('div');
-      head.className = 'm-scrub-head';
-      head.style.left = headPct + '%';
-      track.appendChild(head);
-    }
-
-    for (var t = 0; t < 4; t++) {
-      var tickMs = startMs + (totalSpan * t / 3);
-      var d = new Date(tickMs);
-      var label = document.createElement('span');
-      label.textContent = String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
-      axis.appendChild(label);
-    }
   }
 
   // ── Mobile stats updates ──
@@ -497,7 +403,6 @@
     },
 
     setMode: function(isLive) {
-      mUpdateModePill(isLive);
       mSetLiveState(isLive);
     }
   };
