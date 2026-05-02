@@ -1195,7 +1195,18 @@ body.panel-collapsed .cesium-infoBox {
   .statusbar { display: none !important; }
   .filters-host { display: none !important; }
   .sidepanel { display: none !important; }
-  .cesium-viewer-toolbar { display: none !important; }
+  .cesium-viewer-toolbar {
+    position: fixed !important;
+    top: 62px;
+    right: 8px;
+    z-index: 900;
+  }
+  .cesium-viewer-toolbar .cesium-sceneModePicker-wrapper { display: none !important; }
+  .cesium-baseLayerPicker-dropDown {
+    top: 38px !important;
+    right: 0 !important;
+    max-height: calc(100vh - 110px) !important;
+  }
   .cesium-viewer-animationContainer { display: none !important; }
   .cesium-viewer-timelineContainer { display: none !important; }
   .m-topbar { display: block; }

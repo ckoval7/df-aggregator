@@ -635,7 +635,7 @@
     var cesiumToolbar = document.querySelector('.cesium-viewer-toolbar');
     var statusbarEl = document.querySelector('.statusbar');
     var clockEl = document.querySelector('.clock');
-    if (cesiumToolbar && statusbarEl && clockEl) {
+    if (cesiumToolbar && statusbarEl && clockEl && window.innerWidth > 768) {
       statusbarEl.insertBefore(cesiumToolbar, clockEl);
     }
 
