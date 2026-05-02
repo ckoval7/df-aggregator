@@ -1085,7 +1085,7 @@ body.panel-collapsed .cesium-infoBox {
 }
 .m-scrub-time {
   position: absolute;
-  font: 600 11px var(--mono);
+  font: 600 14px var(--mono);
   color: var(--fg-0);
   background: var(--bg-1);
   border: 1px solid var(--bd-soft);
@@ -1099,6 +1099,13 @@ body.panel-collapsed .cesium-infoBox {
 }
 .m-scrub.active .m-scrub-time {
   opacity: 1;
+}
+.m-scrub-bound {
+  position: absolute;
+  font: 600 13px var(--mono);
+  color: var(--fg-2);
+  white-space: nowrap;
+  pointer-events: none;
 }
 .m-scrub-play {
   position: fixed;
@@ -1129,19 +1136,27 @@ body.panel-collapsed .cesium-infoBox {
   }
   .m-scrub-track {
     position: absolute;
-    right: 17px;
+    right: 14px;
     top: 0; bottom: 0;
-    width: 10px;
+    width: 16px;
   }
   .m-scrub-hl {
     left: 0; right: 0;
   }
   .m-scrub-head {
-    left: -3px; right: -3px;
-    height: 2px;
+    left: -4px; right: -4px;
+    height: 3px;
   }
   .m-scrub-time {
-    right: 36px;
+    right: 42px;
+  }
+  .m-scrub-start {
+    bottom: -2px; right: 42px;
+    transform: translateY(100%);
+  }
+  .m-scrub-end {
+    top: -2px; right: 42px;
+    transform: translateY(-100%);
   }
   .m-scrub-play {
     bottom: 18px;
@@ -1163,18 +1178,26 @@ body.panel-collapsed .cesium-infoBox {
   .m-scrub-track {
     position: absolute;
     left: 0; right: 0;
-    bottom: 17px;
-    height: 10px;
+    bottom: 14px;
+    height: 16px;
   }
   .m-scrub-hl {
     top: 0; bottom: 0;
   }
   .m-scrub-head {
-    top: -3px; bottom: -3px;
-    width: 2px;
+    top: -4px; bottom: -4px;
+    width: 3px;
   }
   .m-scrub-time {
-    bottom: 36px;
+    bottom: 42px;
+  }
+  .m-scrub-start {
+    left: 0; bottom: 0;
+    transform: translateY(100%);
+  }
+  .m-scrub-end {
+    right: 0; bottom: 0;
+    transform: translateY(100%);
   }
   .m-scrub-play {
     bottom: 8px;

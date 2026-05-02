@@ -1,6 +1,8 @@
 (function() {
   var track = document.getElementById('m-scrub-track');
   var timeLabel = document.getElementById('m-scrub-time');
+  var startLabel = document.getElementById('m-scrub-start');
+  var endLabel = document.getElementById('m-scrub-end');
   var playBtn = document.getElementById('m-scrub-play');
   var scrubEl = document.getElementById('m-scrub');
 
@@ -63,12 +65,20 @@
     }
   }
 
-  function updateTimeText(ms) {
+  function formatUTC(ms) {
     var d = new Date(ms);
-    var h = String(d.getUTCHours()).padStart(2, '0');
-    var m = String(d.getUTCMinutes()).padStart(2, '0');
-    var s = String(d.getUTCSeconds()).padStart(2, '0');
-    timeLabel.textContent = h + ':' + m + ':' + s + ' UTC';
+    return String(d.getUTCHours()).padStart(2, '0') + ':' +
+           String(d.getUTCMinutes()).padStart(2, '0') + ':' +
+           String(d.getUTCSeconds()).padStart(2, '0');
+  }
+
+  function updateTimeText(ms) {
+    timeLabel.textContent = formatUTC(ms) + ' UTC';
+  }
+
+  function updateBoundLabels() {
+    startLabel.textContent = formatUTC(startMs);
+    endLabel.textContent = formatUTC(endMs);
   }
 
   function setClockTime(frac) {
@@ -171,12 +181,14 @@
       currentMerged = merged;
 
       clearTrack();
+      scrubEl.classList.add('active');
+
       head = document.createElement('div');
       head.className = 'm-scrub-head';
       track.appendChild(head);
 
       renderHighlights(merged);
-      scrubEl.classList.add('active');
+      updateBoundLabels();
 
       var now = Cesium.JulianDate.toDate(viewer.clock.currentTime).getTime();
       var frac = timeToFraction(now);
