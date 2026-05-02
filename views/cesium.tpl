@@ -591,6 +591,15 @@
     </div>
   </div>
 
+  <!-- Mobile: Scrub Bar (history playback) -->
+  <div class="m-scrub" id="m-scrub">
+    <div class="m-scrub-track" id="m-scrub-track"></div>
+    <div class="m-scrub-time" id="m-scrub-time">00:00:00 UTC</div>
+    <button class="m-scrub-play" id="m-scrub-play">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+  </div>
+
   <!-- ===== CesiumJS Init ===== -->
   <script>
     var transmittersDataSource = new Cesium.CzmlDataSource();
@@ -869,6 +878,7 @@
   <script src="/static/cardsmenu.js"></script>
   <script src="/static/lob_history.js"></script>
   <script src="/static/mobile.js"></script>
+  <script src="/static/mobile_scrub.js"></script>
 
   <!-- ===== Init & Filter Wiring ===== -->
   <script>
