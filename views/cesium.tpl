@@ -630,7 +630,7 @@
     });
 
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
-    viewer.infoBox.frame.src = "about:blank";
+    viewer.infoBox.frame.srcdoc = "<!DOCTYPE html><html><head></head><body></body></html>";
 
     var cesiumToolbar = document.querySelector('.cesium-viewer-toolbar');
     var statusbarEl = document.querySelector('.statusbar');
