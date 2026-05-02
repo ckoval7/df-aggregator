@@ -1052,6 +1052,134 @@ body.panel-collapsed .cesium-infoBox {
   display: flex; flex-direction: column; gap: 14px;
 }
 
+/* ---- Mobile scrub bar (history playback) ---- */
+.m-scrub {
+  display: none;
+  pointer-events: none;
+}
+.m-scrub.active {
+  pointer-events: auto;
+}
+.m-scrub-track {
+  position: relative;
+  background: var(--bg-3);
+  border: 1px solid var(--bd-soft);
+  border-radius: 6px;
+  overflow: visible;
+  touch-action: none;
+}
+.m-scrub-hl {
+  position: absolute;
+  background: var(--good-soft);
+  border-radius: 2px;
+}
+.m-scrub-head {
+  position: absolute;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  border-radius: 1px;
+  z-index: 2;
+  pointer-events: none;
+}
+.m-scrub-time {
+  position: absolute;
+  font: 600 11px var(--mono);
+  color: var(--fg-0);
+  background: var(--bg-1);
+  border: 1px solid var(--bd-soft);
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.m-scrub.active .m-scrub-time {
+  opacity: 1;
+}
+.m-scrub-play {
+  position: fixed;
+  width: 48px; height: 48px;
+  background: var(--bg-1);
+  border: 1px solid var(--bd);
+  border-radius: 50%;
+  color: var(--fg-0);
+  display: grid; place-items: center;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 42;
+}
+.m-scrub-play:active {
+  background: var(--bg-3);
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .m-scrub.active {
+    display: block;
+    position: fixed;
+    right: 10px;
+    top: 70px;
+    bottom: 80px;
+    width: 44px;
+    z-index: 41;
+  }
+  .m-scrub-track {
+    position: absolute;
+    right: 17px;
+    top: 0; bottom: 0;
+    width: 10px;
+  }
+  .m-scrub-hl {
+    left: 0; right: 0;
+  }
+  .m-scrub-head {
+    left: -3px; right: -3px;
+    height: 2px;
+  }
+  .m-scrub-time {
+    right: 36px;
+  }
+  .m-scrub-play {
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .m-scrub.active {
+    display: block;
+    position: fixed;
+    left: 62px;
+    right: 10px;
+    bottom: 10px;
+    height: 44px;
+    z-index: 41;
+  }
+  .m-scrub-track {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 17px;
+    height: 10px;
+  }
+  .m-scrub-hl {
+    top: 0; bottom: 0;
+  }
+  .m-scrub-head {
+    top: -3px; bottom: -3px;
+    width: 2px;
+  }
+  .m-scrub-time {
+    bottom: 36px;
+  }
+  .m-scrub-play {
+    bottom: 8px;
+    left: 8px;
+  }
+}
+
 /* ---- Responsive toggle ---- */
 @media (max-width: 768px) {
   .statusbar { display: none !important; }
