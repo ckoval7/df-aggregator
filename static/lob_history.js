@@ -122,6 +122,7 @@ lobHistoryToggle.addEventListener("click", function() {
   var isOn = lobHistoryToggle.classList.contains("on");
   fetch("/update?lob_history=" + (isOn ? "true" : "false"));
   recPill.style.display = isOn ? "" : "none";
+  if (typeof saveFilters === "function") saveFilters();
 });
 if (lobHistoryToggle.classList.contains("on")) {
   recPill.style.display = "";

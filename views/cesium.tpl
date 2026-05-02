@@ -614,11 +614,90 @@
       statusBar.updateAoiStats(aoi_json);
     });
 
+    function saveFilters() {
+      var state = {
+        minpower: document.getElementById("powerRange").value,
+        minconf: document.getElementById("confRange").value,
+        epsilon: document.getElementById("epsilonRange").value,
+        minpoints: document.getElementById("minpointRange").value,
+        clustering: document.getElementById("clustering-toggle").classList.contains("on"),
+        intersects: document.getElementById("intersect-toggle").classList.contains("on"),
+        processing: document.getElementById("rx-en-toggle").classList.contains("on"),
+        lob_history: document.getElementById("lob-history-toggle").classList.contains("on")
+      };
+      localStorage.setItem('df-signal-filters', JSON.stringify(state));
+    }
+
+    (function restoreFilters() {
+      var raw = localStorage.getItem('df-signal-filters');
+      if (!raw) return;
+      try { var s = JSON.parse(raw); } catch(e) { return; }
+
+      var powerSlider = document.getElementById("powerRange");
+      var confSlider = document.getElementById("confRange");
+      var epsSlider = document.getElementById("epsilonRange");
+      var minpointSlider = document.getElementById("minpointRange");
+
+      if (s.minpower != null) {
+        powerSlider.value = s.minpower;
+        document.getElementById("power-val").textContent = s.minpower;
+      }
+      if (s.minconf != null) {
+        confSlider.value = s.minconf;
+        document.getElementById("conf-val").textContent = s.minconf;
+      }
+      if (s.epsilon != null) {
+        epsSlider.value = s.epsilon;
+        var epsVal = document.getElementById("eps-val");
+        if (parseFloat(s.epsilon) > 0) {
+          epsVal.textContent = s.epsilon;
+          epsVal.className = 'filt-val';
+        } else {
+          epsVal.textContent = 'AUTO';
+          epsVal.className = 'filt-val filt-val-auto';
+        }
+      }
+      if (s.minpoints != null) {
+        minpointSlider.value = s.minpoints;
+        var mpVal = document.getElementById("minpoint-val");
+        if (parseInt(s.minpoints) > 0) {
+          mpVal.textContent = s.minpoints;
+          mpVal.className = 'filt-val';
+        } else {
+          mpVal.textContent = 'AUTO';
+          mpVal.className = 'filt-val filt-val-auto';
+        }
+      }
+
+      var clusterToggle = document.getElementById("clustering-toggle");
+      if (s.clustering === true && !clusterToggle.classList.contains("on")) clusterToggle.classList.add("on");
+      else if (s.clustering === false && clusterToggle.classList.contains("on")) clusterToggle.classList.remove("on");
+
+      var intersectToggle = document.getElementById("intersect-toggle");
+      if (s.intersects === true && !intersectToggle.classList.contains("on")) intersectToggle.classList.add("on");
+      else if (s.intersects === false && intersectToggle.classList.contains("on")) intersectToggle.classList.remove("on");
+
+      var rxToggle = document.getElementById("rx-en-toggle");
+      if (s.processing === true && !rxToggle.classList.contains("on")) rxToggle.classList.add("on");
+      else if (s.processing === false && rxToggle.classList.contains("on")) rxToggle.classList.remove("on");
+
+      var lobToggle = document.getElementById("lob-history-toggle");
+      if (s.lob_history === true && !lobToggle.classList.contains("on")) lobToggle.classList.add("on");
+      else if (s.lob_history === false && lobToggle.classList.contains("on")) lobToggle.classList.remove("on");
+      var recPill = document.getElementById("rec-pill");
+      if (recPill) recPill.style.display = lobToggle.classList.contains("on") ? "" : "none";
+
+      updateParams("minpower=" + powerSlider.value + "&minconf=" + confSlider.value
+        + "&rx=" + (rxToggle.classList.contains("on") ? "true" : "false")
+        + "&lob_history=" + (lobToggle.classList.contains("on") ? "true" : "false"));
+    })();
+
     function wireToggle(id, onChange) {
       var el = document.getElementById(id);
       el.addEventListener('click', function() {
         el.classList.toggle('on');
         if (onChange) onChange(el.classList.contains('on'));
+        saveFilters();
       });
     }
 
@@ -651,12 +730,12 @@
     var powerSlider = document.getElementById("powerRange");
     var powerVal = document.getElementById("power-val");
     powerSlider.oninput = function() { powerVal.textContent = this.value; };
-    powerSlider.onpointerup = function() { updateParams("minpower=" + this.value); };
+    powerSlider.onpointerup = function() { updateParams("minpower=" + this.value); saveFilters(); };
 
     var confSlider = document.getElementById("confRange");
     var confVal = document.getElementById("conf-val");
     confSlider.oninput = function() { confVal.textContent = this.value; };
-    confSlider.onpointerup = function() { updateParams("minconf=" + this.value); };
+    confSlider.onpointerup = function() { updateParams("minconf=" + this.value); saveFilters(); };
 
     var epsSlider = document.getElementById("epsilonRange");
     var epsVal = document.getElementById("eps-val");
@@ -669,7 +748,7 @@
         epsVal.className = 'filt-val filt-val-auto';
       }
     };
-    epsSlider.onpointerup = function() { updateParams(""); };
+    epsSlider.onpointerup = function() { updateParams(""); saveFilters(); };
 
     var minpointSlider = document.getElementById("minpointRange");
     var minpointVal = document.getElementById("minpoint-val");
@@ -682,7 +761,7 @@
         minpointVal.className = 'filt-val filt-val-auto';
       }
     };
-    minpointSlider.onpointerup = function() { updateParams(""); };
+    minpointSlider.onpointerup = function() { updateParams(""); saveFilters(); };
 
     document.getElementById("refreshbutton").addEventListener("click", function() {
       updateParams("");
