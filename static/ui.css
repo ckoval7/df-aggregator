@@ -548,6 +548,9 @@ body.panel-collapsed .cesium-infoBox {
 .cesium-viewer-timelineContainer {
   display: none !important;
 }
+.cesium-timeline-highlight {
+  background: var(--accent) !important;
+}
 @media (min-width: 769px) {
   .cesium-viewer-animationContainer.history-visible,
   .cesium-viewer-timelineContainer.history-visible {
