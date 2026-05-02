@@ -29,6 +29,9 @@ import threading
 import signal
 import json
 import urllib.request
+import http.client
+import urllib.error
+import socket
 from colorsys import hsv_to_rgb
 import argparse
 from os import kill, getpid
@@ -38,7 +41,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
-from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock
+from czml3.properties import Position, PositionList, Polyline, PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial, Color, Clock, HeightReference
+from czml3.enums import HeightReferences
 from czml3.types import TimeInterval
 import queue
 from multiprocessing import Process, Queue, set_start_method
@@ -80,6 +84,8 @@ DATABASE_EDIT_Q = queue.Queue()
 DATABASE_RETURN = queue.Queue()
 
 dbscan_lock = threading.Lock()
+pipeline_stats_cache = {}
+pipeline_stats_lock = threading.Lock()
 
 ###############################################
 # Thread synchronization lock for receiver data
@@ -115,6 +121,39 @@ BEARING_CHECK_TOLERANCE_DEG = 5            # Max deviation when validating inter
 AUTOEPS_SLOPE_THRESHOLD = 0.003           # Slope threshold for epsilon auto-calculation
 GAUSSIAN_ELLIPSE_SIGMA = 3.0              # Standard deviations for confidence ellipse (3-sigma = 99.7%)
 
+# Receiver Retry Constants
+RECEIVER_MAX_RETRIES_TRANSIENT = 5        # Consecutive transient failures before deactivating
+RECEIVER_MAX_RETRIES_PERSISTENT = 2       # Consecutive persistent failures before deactivating
+RECEIVER_BACKOFF_BASE_S = 2               # Backoff base in seconds (doubles each failure: 2, 4, 8, 16, 32)
+RECEIVER_PROBE_INTERVAL_S = 30            # Seconds between auto-reactivation probes
+
+
+def _classify_error(ex):
+    if isinstance(ex, urllib.error.HTTPError):
+        if ex.code >= 500:
+            return ('transient', RECEIVER_MAX_RETRIES_TRANSIENT)
+        elif 400 <= ex.code < 500:
+            return ('persistent', RECEIVER_MAX_RETRIES_PERSISTENT)
+    transient_types = (
+        http.client.IncompleteRead,
+        urllib.error.URLError,
+        TimeoutError,
+        ConnectionError,
+        socket.error,
+        OSError,
+    )
+    if isinstance(ex, transient_types):
+        return ('transient', RECEIVER_MAX_RETRIES_TRANSIENT)
+    persistent_types = (
+        etree.XMLSyntaxError,
+        ValueError,
+        TypeError,
+        AttributeError,
+    )
+    if isinstance(ex, persistent_types):
+        return ('persistent', RECEIVER_MAX_RETRIES_PERSISTENT)
+    return ('transient', RECEIVER_MAX_RETRIES_TRANSIENT)
+
 
 receivers = []
 
@@ -141,13 +180,18 @@ class receiver:
         self.isActive = True
         self.flipped = False
         self.inverted = True
+        self.error_count = 0
+        self.last_error = ""
+        self.next_retry_time = 0
+        self.next_probe_time = 0
+        self.max_retries = 0
         self.update(first_run=True)
 
     # Updates receiver from the remote URL
     def update(self, first_run=False):
         try:
             # Fetch XML from remote URL, then parse with secure parser to prevent XXE attacks
-            with urllib.request.urlopen(self.station_url) as response:
+            with urllib.request.urlopen(self.station_url, timeout=5) as response:
                 xml_data = response.read()
             xml_contents = etree.fromstring(xml_data, parser=_secure_parser)
             xml_station_id = xml_contents.find('STATION_ID')
@@ -175,25 +219,43 @@ class receiver:
             self.power = float(xml_power.text)
             xml_conf = xml_contents.find('CONF')
             self.confidence = int(xml_conf.text)
+            self.error_count = 0
+            self.last_error = ""
+            self.next_retry_time = 0
+            self.next_probe_time = 0
+            self.max_retries = 0
         except KeyboardInterrupt:
             finish()
         except Exception as ex:
-            if first_run:
-                self.station_id = "Unknown"
-            self.latitude = 0.0
-            self.longitude = 0.0
-            self.heading = 0.0
-            self.raw_doa = 0.0
-            self.doa = 0.0
-            self.frequency = 0.0
-            self.power = 0.0
-            self.confidence = 0
-            self.doa_time = 0
-            self.isActive = False
-            print(ex)
-            print(
-                f"Problem connecting to {self.station_url}, receiver deactivated. Reactivate in WebUI.")
-            # raise IOError
+            error_type, max_retries = _classify_error(ex)
+            self.error_count += 1
+            self.last_error = f"{type(ex).__name__}: {ex}"
+            self.max_retries = max_retries
+            backoff = min(RECEIVER_BACKOFF_BASE_S ** self.error_count, 64)
+            self.next_retry_time = time.time() + backoff
+            print(f"{ex} — {self.station_url} "
+                  f"({error_type} error {self.error_count}/{max_retries}, "
+                  f"retry in {backoff}s)")
+            if first_run or self.error_count >= max_retries:
+                if first_run:
+                    self.station_id = "Unknown"
+                self.latitude = 0.0
+                self.longitude = 0.0
+                self.heading = 0.0
+                self.raw_doa = 0.0
+                self.doa = 0.0
+                self.frequency = 0.0
+                self.power = 0.0
+                self.confidence = 0
+                self.doa_time = 0
+                self.isActive = False
+                self.error_count = 0
+                self.next_retry_time = 0
+                self.next_probe_time = time.time() + RECEIVER_PROBE_INTERVAL_S
+                self.max_retries = 0
+                print(
+                    f"Problem connecting to {self.station_url}, receiver deactivated. "
+                    f"Will auto-probe in {RECEIVER_PROBE_INTERVAL_S}s.")
 
     # Returns receivers properties as a dict, useful for passing data to the WebUI
     def receiver_dict(self):
@@ -226,6 +288,10 @@ class receiver:
     previous_doa_time = 0
     last_processed_at = 0
     d_2_last_intersection = [LOB_DRAW_DISTANCE_METERS]
+    last_error = ""
+    next_retry_time = 0
+    next_probe_time = 0
+    max_retries = 0
 
 
 ###############################################
@@ -329,10 +395,17 @@ def autoeps_calc(X):
 # finds the mean of a cluster of intersections.
 ###############################################
 def process_data(database_name, epsilon, min_samp):
+    global pipeline_stats_cache
     n_std = GAUSSIAN_ELLIPSE_SIGMA
     intersect_list = []
     likely_location = []
     ellipsedata = []
+    per_aoi_stats = []
+    total_db_intersections = 0
+    total_dbscan_ms = 0.0
+    resolved_epsilon = None
+    resolved_min_samples = None
+    clustering_enabled = (epsilon != "0")
     # Short-lived read-only connection; opened per-request intentionally to avoid
     # holding a connection across the long-lived web server thread.
     conn = sqlite3.connect(database_name)
@@ -347,6 +420,8 @@ def process_data(database_name, epsilon, min_samp):
             WHERE aoi_id=? ORDER BY confidence DESC LIMIT ?''', [aoi, MAX_INTERSECTS_PER_AOI])
         intersect_array = np.array(curs.fetchall())
         if intersect_array.size != 0:
+            n_input = len(intersect_array)
+            total_db_intersections += n_input
             if epsilon != "0":
                 X = StandardScaler().fit_transform(intersect_array[:, 0:2])
                 n_points = len(X)
@@ -357,6 +432,7 @@ def process_data(database_name, epsilon, min_samp):
                     elif min_samp.isnumeric():
                         aoi_min_samp = max(3, int(min_samp))
                     else:
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
                         continue
                 else:
                     aoi_min_samp = max(3, int(min_samp))
@@ -366,12 +442,17 @@ def process_data(database_name, epsilon, min_samp):
                     print(f"min_samp: {aoi_min_samp}, eps: {aoi_eps}")
                     if aoi_eps <= 0:
                         print("Could not determine a valid epsilon, skipping clustering for this AOI.")
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
                         continue
                 else:
                     try:
                         aoi_eps = float(epsilon)
                     except (ValueError, TypeError):
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
                         continue
+
+                resolved_epsilon = aoi_eps
+                resolved_min_samples = aoi_min_samp
 
                 print(f"Computing Clusters from {n_points} intersections.")
                 with dbscan_lock:
@@ -391,6 +472,8 @@ def process_data(database_name, epsilon, min_samp):
                         db.terminate()
                         db.join(timeout=5)
                         db.close()
+                        per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input})
+                        _update_pipeline_stats(total_db_intersections, clustering_enabled, per_aoi_stats, total_dbscan_ms, resolved_epsilon, resolved_min_samples)
                         return likely_location, intersect_list, ellipsedata
                     db.join(timeout=5)
                     if db.is_alive():
@@ -399,6 +482,8 @@ def process_data(database_name, epsilon, min_samp):
                     db.close()
 
                 stoptime = time.time()
+                aoi_dbscan_ms = (stoptime - starttime) * 1000
+                total_dbscan_ms += aoi_dbscan_ms
                 print(
                     f"DBSCAN took {stoptime - starttime} seconds to compute the clusters.")
 
@@ -407,9 +492,12 @@ def process_data(database_name, epsilon, min_samp):
                 # Number of clusters in labels, ignoring noise if present.
                 n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
                 n_noise_ = list(labels).count(-1)
+                n_in_cluster = n_points - n_noise_
                 clear(debugging)
                 print('Number of clusters: %d' % n_clusters_)
                 print('Outliers Removed: %d' % n_noise_)
+
+                per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": n_in_cluster, "clusters": n_clusters_, "outliers": n_noise_})
 
                 for x in range(n_clusters_):
                     mask = labels == x
@@ -441,6 +529,8 @@ def process_data(database_name, epsilon, min_samp):
 
                 for x in likely_location:
                     print(x[::-1])
+            else:
+                per_aoi_stats.append({"aoi_id": aoi, "input": n_input, "in_cluster": None, "clusters": None, "outliers": None})
 
             for x in intersect_array:
                 try:
@@ -451,8 +541,41 @@ def process_data(database_name, epsilon, min_samp):
 
         else:
             print(f"No Intersections in AOI {aoi}.")
+            per_aoi_stats.append({"aoi_id": aoi, "input": 0, "in_cluster": 0, "clusters": 0, "outliers": 0})
     conn.close()
+
+    _update_pipeline_stats(total_db_intersections, clustering_enabled, per_aoi_stats, total_dbscan_ms, resolved_epsilon, resolved_min_samples)
     return likely_location, intersect_list, ellipsedata
+
+
+def _update_pipeline_stats(db_intersections, clustering_enabled, per_aoi, dbscan_ms, epsilon, min_samples):
+    global pipeline_stats_cache
+    total_in_cluster = 0
+    total_clusters = 0
+    total_outliers = 0
+    for aoi in per_aoi:
+        if aoi["in_cluster"] is not None:
+            total_in_cluster += aoi["in_cluster"]
+            total_clusters += aoi["clusters"]
+            total_outliers += aoi["outliers"]
+
+    stats = {
+        "db_intersections": db_intersections,
+        "clustering_enabled": clustering_enabled,
+        "per_aoi": per_aoi,
+        "totals": {
+            "in_cluster": total_in_cluster,
+            "clusters": total_clusters,
+            "outliers_removed": total_outliers,
+        },
+        "dbscan_ms": round(dbscan_ms),
+        "auto_params": {
+            "epsilon": epsilon,
+            "min_samples": min_samples,
+        },
+    }
+    with pipeline_stats_lock:
+        pipeline_stats_cache = stats
 
 
 #######################################################################
@@ -570,19 +693,24 @@ def write_geojson(best_point, all_the_points):
 # Writes output.czml used by the WebUI
 ###############################################
 def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
+    clamp = HeightReference(heightReference=HeightReferences.CLAMP_TO_GROUND)
+    no_depth = 1e12
     point_properties = {
         "pixelSize": 5.0,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"}
+        "heightReference": clamp,
+        "disableDepthTestDistance": no_depth,
     }
     best_point_properties = {
         "pixelSize": 12.0,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
+        "heightReference": clamp,
+        "disableDepthTestDistance": no_depth,
         "color": {
             "rgba": [0, 255, 0, 255],
         }
     }
 
     ellipse_properties = {
+        "heightReference": clamp,
         "granularity": 0.008722222,
         "zIndex": 5,
         "material": {
@@ -654,7 +782,8 @@ def write_rx_czml():
     rx_properties = {
         "verticalOrigin": "BOTTOM",
         "scale": 0.75,
-        "heightReference": {"heightReference": "CLAMP_TO_GROUND"},
+        "heightReference": HeightReference(heightReference=HeightReferences.CLAMP_TO_GROUND),
+        "disableDepthTestDistance": 1e12,
         "height": 48,
         "width": 48,
     }
@@ -985,6 +1114,21 @@ def tx_czml_out():
     return str(output)
 
 
+@get('/api/pipeline-stats')
+def get_pipeline_stats():
+    response.headers['Content-Type'] = 'application/json'
+    response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+    with pipeline_stats_lock:
+        return json.dumps(pipeline_stats_cache if pipeline_stats_cache else {
+            "db_intersections": 0,
+            "clustering_enabled": False,
+            "per_aoi": [],
+            "totals": {"in_cluster": 0, "clusters": 0, "outliers_removed": 0},
+            "dbscan_ms": 0,
+            "auto_params": {"epsilon": None, "min_samples": None},
+        })
+
+
 ###############################################
 # PUT request to update receiver variables
 # from the WebUI
@@ -1006,6 +1150,14 @@ def update_rx(action):
     elif action == "activate":
         index = int(data['uid'])
         receivers[index].isActive = data['state']
+        if data['state']:
+            receivers[index].error_count = 0
+            receivers[index].last_error = ""
+            receivers[index].next_retry_time = 0
+            receivers[index].next_probe_time = 0
+            receivers[index].max_retries = 0
+        else:
+            receivers[index].next_probe_time = 0
     else:
         action = int(action)
         try:
@@ -1194,12 +1346,27 @@ def run_receiver():
             print("Press Control+C to process data and exit.")
 
         # Poll receivers outside the lock (network I/O)
+        now = time.time()
         for rx in receivers:
             try:
                 if rx.isActive:
+                    if rx.error_count > 0 and now < rx.next_retry_time:
+                        continue
                     rx.update()
             except IOError:
                 print("Problem connecting to receiver.")
+
+        # Auto-reactivation probe for deactivated receivers
+        for rx in receivers:
+            if not rx.isActive and rx.next_probe_time > 0 and now >= rx.next_probe_time:
+                print(f"Probing deactivated receiver {rx.station_url}...")
+                rx.update()
+                if rx.error_count == 0:
+                    rx.isActive = True
+                    rx.next_probe_time = 0
+                    print(f"Receiver {rx.station_url} reactivated successfully.")
+                else:
+                    rx.next_probe_time = now + RECEIVER_PROBE_INTERVAL_S
 
         # Snapshot receiver state under lock, then release for processing
         with rx_lock:

@@ -1,6 +1,25 @@
 # DF Aggregator
 
-## Recent Changes (April 2026):
+## Recent Changes (May 2026):
+
+### UI Redesign
+- **Complete frontend rewrite** — new design token CSS system, restructured layout, and rewritten JS/CSS for a modern look
+- **Status bar** — Cesium toolbar integrated into a persistent status bar with pipeline stats (receiver count, intersection rate, cluster count)
+- **Hamburger menu** — stays in status bar and morphs into X on toggle
+- **New typography** — switched to Geist/Geist Mono fonts with ~15% larger type scale
+- **Signal filters** — scroll wheel support on sliders, thicker slider tracks, settings persist across page refresh via localStorage
+
+### Mobile Support
+- **Responsive mobile layout** — full mobile UI with drawer navigation, bottom sheet, status strip, and responsive breakpoint at 768px
+- **Mobile scrub bar** — touch-friendly LOB history scrub bar with orientation-aware layout (portrait/landscape) and 44px touch targets
+- **Mobile filters and history** — labels match desktop, scrub bar auto-shows/hides with history mode
+
+### Bug Fixes
+- **Transmitter data refreshes on map** after AOI/exclusion rule changes
+- **Points and billboards clamped to ground** — prevents depth clipping issues
+- **Robust receiver error handling** — automatic backoff, auto-reactivation, and error status in WebUI
+
+## Changes (April 2026):
 
 ### Map & UI
 - **LOB history timeline** — replay historical LOB data using CesiumJS timeline/animation controls with flash and accumulate display modes, preset time ranges, and timeline highlights showing when LOBs were recorded
