@@ -5,15 +5,24 @@ import math
 import socket
 from urllib.parse import urlsplit
 
-from bottle import Bottle, run, request, response, redirect, template, static_file, HTTPError
+from bottle import (
+    Bottle,
+    run,
+    request,
+    response,
+    redirect,
+    template,
+    static_file,
+    HTTPError,
+)
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 import geo
 
 log = logging.getLogger(__name__)
 
-_NO_CACHE = 'no-cache, no-store, must-revalidate, max-age=0'
-_JSON_CT = 'application/json'
+_NO_CACHE = "no-cache, no-store, must-revalidate, max-age=0"
+_JSON_CT = "application/json"
 
 
 # NOTE: there is intentionally no authentication on these routes. The default
@@ -67,7 +76,7 @@ def _rx_resolve(data, receiver_manager):
     # Returns the receiver object for the given uid, raising 400 if it's
     # gone. Resolution is atomic on the manager's lock — callers must not
     # then re-index `receiver_manager.receivers[uid]` (TOCTOU with remove()).
-    idx = _require_int(data, 'uid', lo=0)
+    idx = _require_int(data, "uid", lo=0)
     rx = receiver_manager.get_by_index(idx)
     if rx is None:
         raise HTTPError(400, "uid out of range")
@@ -89,7 +98,7 @@ def _validate_receiver_url(url):
         parts = urlsplit(url)
     except ValueError:
         raise HTTPError(400, "invalid receiver URL")
-    if parts.scheme not in ('http', 'https'):
+    if parts.scheme not in ("http", "https"):
         raise HTTPError(400, "receiver URL must be http or https")
     host = parts.hostname
     if not host:
@@ -129,31 +138,31 @@ def _snapshot_rx_properties(receiver_manager):
     rx_properties = []
     for index, x in snapshot:
         rx = x.receiver_dict()
-        rx['uid'] = index
+        rx["uid"] = index
         rx_properties.append(rx)
     return rx_properties
 
 
 def _rx_action_new(receiver_manager):
-    data = _read_json_body(required_keys=('station_url',))
-    url = data['station_url']
+    data = _read_json_body(required_keys=("station_url",))
+    url = data["station_url"]
     if not isinstance(url, str):
         raise HTTPError(400, "station_url must be a string")
-    url = url.replace('\n', '').strip()
+    url = url.replace("\n", "").strip()
     _validate_receiver_url(url)
     receiver_manager.add(url)
 
 
 def _rx_action_del(receiver_manager):
-    data = _read_json_body(required_keys=('uid',))
+    data = _read_json_body(required_keys=("uid",))
     index, _ = _rx_resolve(data, receiver_manager)
     receiver_manager.remove(index)
 
 
 def _rx_action_activate(receiver_manager):
-    data = _read_json_body(required_keys=('uid', 'state'))
+    data = _read_json_body(required_keys=("uid", "state"))
     _, rx = _rx_resolve(data, receiver_manager)
-    state = bool(data['state'])
+    state = bool(data["state"])
     rx.isActive = state
     if state:
         rx.error_count = 0
@@ -169,14 +178,16 @@ def _rx_action_configure(action, receiver_manager):
     try:
         index = int(action)
     except ValueError:
-        raise HTTPError(400, "action must be 'new', 'del', 'activate', or an integer index")
-    data = _read_json_body(required_keys=('mobile', 'inverted', 'single'))
+        raise HTTPError(
+            400, "action must be 'new', 'del', 'activate', or an integer index"
+        )
+    data = _read_json_body(required_keys=("mobile", "inverted", "single"))
     rx = receiver_manager.get_by_index(index)
     if rx is None:
         raise HTTPError(400, "receiver index out of range")
-    rx.isMobile = bool(data['mobile'])
-    rx.inverted = bool(data['inverted'])
-    rx.isSingle = bool(data['single'])
+    rx.isMobile = bool(data["mobile"])
+    rx.inverted = bool(data["inverted"])
+    rx.isSingle = bool(data["single"])
     # Don't call rx.update() here — that's a 5s blocking HTTP fetch
     # in a request handler. The polling loop calls update() every
     # ~1s and will apply the new isMobile/inverted/isSingle flags
@@ -199,34 +210,37 @@ def _dispatch_rx_action(action, receiver_manager):
 
 
 def _aoi_action_new(db):
-    data = _read_json_body(required_keys=('aoi_type', 'latitude', 'longitude', 'radius'))
+    data = _read_json_body(
+        required_keys=("aoi_type", "latitude", "longitude", "radius")
+    )
     if "" in data.values():
         raise HTTPError(400, "AOI fields must not be empty")
-    aoi_type = data['aoi_type']
-    if aoi_type not in ('aoi', 'exclusion'):
+    aoi_type = data["aoi_type"]
+    if aoi_type not in ("aoi", "exclusion"):
         raise HTTPError(400, "aoi_type must be 'aoi' or 'exclusion'")
     # Earth's circumference is ~40,000 km; cap radius well above any
     # realistic AOI to keep downstream geodesy from running away.
-    lat = _require_float(data, 'latitude', lo=-90.0, hi=90.0)
-    lon = _require_float(data, 'longitude', lo=-180.0, hi=180.0)
-    radius = _require_float(data, 'radius', lo=1.0, hi=20_000_000.0)
+    lat = _require_float(data, "latitude", lo=-90.0, hi=90.0)
+    lon = _require_float(data, "longitude", lo=-180.0, hi=180.0)
+    radius = _require_float(data, "radius", lo=1.0, hi=20_000_000.0)
     db.add_aoi(aoi_type, lat, lon, radius)
 
 
 def _aoi_action_del(db):
-    data = _read_json_body(required_keys=('uid',))
-    uid = _require_int(data, 'uid', lo=0)
+    data = _read_json_body(required_keys=("uid",))
+    uid = _require_int(data, "uid", lo=0)
     db.execute("UPDATE intersects SET aoi_id=? WHERE aoi_id=?", [(-1, uid)], wait=True)
     db.execute("DELETE FROM interest_areas WHERE uid=?", [(str(uid),)], wait=True)
     db.commit_and_invalidate_aoi_cache()
 
 
 def _aoi_action_purge(db):
-    data = _read_json_body(required_keys=('uid',))
-    uid = _require_int(data, 'uid', lo=0)
+    data = _read_json_body(required_keys=("uid",))
+    uid = _require_int(data, "uid", lo=0)
     row = db.query_one(
         "SELECT aoi_type, latitude, longitude, radius FROM interest_areas WHERE uid=?",
-        [uid])
+        [uid],
+    )
     if row is None:
         raise HTTPError(404, "AOI not found")
     # Purge is only defined for exclusion zones — see purge_database.
@@ -252,99 +266,113 @@ def _dispatch_aoi_action(action, db):
 def create_routes(config, ms, db, receiver_manager):
     app = Bottle()
 
-    @app.route('/static/<filepath:path>', name='static')
+    @app.route("/static/<filepath:path>", name="static")
     def server_static(filepath):
-        resp = static_file(filepath, root='./static')
-        resp.set_header('Cache-Control', _NO_CACHE)
+        resp = static_file(filepath, root="./static")
+        resp.set_header("Cache-Control", _NO_CACHE)
         return resp
 
-    @app.get('/')
-    @app.get('/index')
-    @app.get('/cesium')
+    @app.get("/")
+    @app.get("/index")
+    @app.get("/cesium")
     def cesium():
-        response.set_header('Cache-Control', _NO_CACHE)
-        return template('cesium.tpl',
-                        {'access_token': config.access_token,
-                         'epsilon': ms.eps,
-                         'minpower': ms.min_power,
-                         'minconf': ms.min_conf,
-                         'minpoints': ms.min_samp,
-                         'rx_state': "checked" if ms.receiving is True else "",
-                         'intersect_state': "checked" if ms.plotintersects is True else "",
-                         'lob_history_state': "checked" if ms.lob_history_enabled is True else "",
-                         'receivers': receiver_manager.receivers})
+        response.set_header("Cache-Control", _NO_CACHE)
+        return template(
+            "cesium.tpl",
+            {
+                "access_token": config.access_token,
+                "epsilon": ms.eps,
+                "minpower": ms.min_power,
+                "minconf": ms.min_conf,
+                "minpoints": ms.min_samp,
+                "rx_state": "checked" if ms.receiving is True else "",
+                "intersect_state": "checked" if ms.plotintersects is True else "",
+                "lob_history_state": (
+                    "checked" if ms.lob_history_enabled is True else ""
+                ),
+                "receivers": receiver_manager.receivers,
+            },
+        )
 
-    @app.get('/update')
+    @app.get("/update")
     def update_cesium():
         _apply_cesium_updates(ms, request.query)
         return "OK"
 
-    @app.get('/rx_params')
+    @app.get("/rx_params")
     def rx_params():
         # No rx.update() here — the run_loop polls every ~1s; this endpoint
         # just returns cached state for the UI cards.
-        response.headers['Content-Type'] = _JSON_CT
-        return json.dumps({'receivers': _snapshot_rx_properties(receiver_manager)})
+        response.headers["Content-Type"] = _JSON_CT
+        return json.dumps({"receivers": _snapshot_rx_properties(receiver_manager)})
 
-    @app.get('/output.czml')
+    @app.get("/output.czml")
     def tx_czml_out():
         eps = request.query.eps if request.query.eps else str(ms.eps)
         min_samp = request.query.minpts if request.query.minpts else str(ms.min_samp)
         plotallintersects = _resolve_plotallintersects(request.query, ms)
-        response.set_header('Cache-Control', _NO_CACHE)
-        output = geo.write_czml(*geo.process_data(db, eps, min_samp), plotallintersects, eps)
+        response.set_header("Cache-Control", _NO_CACHE)
+        output = geo.write_czml(
+            *geo.process_data(db, eps, min_samp), plotallintersects, eps
+        )
         return str(output)
 
-    @app.get('/api/pipeline-stats')
+    @app.get("/api/pipeline-stats")
     def pipeline_stats():
-        response.headers['Content-Type'] = _JSON_CT
-        response.set_header('Cache-Control', _NO_CACHE)
+        response.headers["Content-Type"] = _JSON_CT
+        response.set_header("Cache-Control", _NO_CACHE)
         return json.dumps(geo.get_pipeline_stats())
 
-    @app.put('/rx_params/<action>')
+    @app.put("/rx_params/<action>")
     def update_rx(action):
         _dispatch_rx_action(action, receiver_manager)
-        return redirect('/rx_params')
+        return redirect("/rx_params")
 
-    @app.get('/interest_areas')
+    @app.get("/interest_areas")
     def load_interest_areas():
         aoi_properties = [
-            {'uid': x[0], 'aoi_type': x[1], 'latitude': x[2], 'longitude': x[3], 'radius': x[4]}
+            {
+                "uid": x[0],
+                "aoi_type": x[1],
+                "latitude": x[2],
+                "longitude": x[3],
+                "radius": x[4],
+            }
             for x in db.fetch_aoi_data()
         ]
-        response.headers['Content-Type'] = _JSON_CT
-        return json.dumps({'aois': aoi_properties})
+        response.headers["Content-Type"] = _JSON_CT
+        return json.dumps({"aois": aoi_properties})
 
-    @app.put('/interest_areas/<action>')
+    @app.put("/interest_areas/<action>")
     def handle_interest_areas(action):
         _dispatch_aoi_action(action, db)
 
-    @app.get('/run_all_aoi_rules')
+    @app.get("/run_all_aoi_rules")
     def run_aoi_rules():
-        response.headers['Content-Type'] = _JSON_CT
+        response.headers["Content-Type"] = _JSON_CT
         return json.dumps(db.run_aoi_rules())
 
-    @app.get('/receivers.czml')
+    @app.get("/receivers.czml")
     def rx_czml():
-        response.set_header('Cache-Control', _NO_CACHE)
+        response.set_header("Cache-Control", _NO_CACHE)
         return geo.write_rx_czml(receiver_manager, ms)
 
-    @app.get('/lob_history.czml')
+    @app.get("/lob_history.czml")
     def lob_history():
-        response.set_header('Cache-Control', _NO_CACHE)
+        response.set_header("Cache-Control", _NO_CACHE)
         params = {
-            'start': request.query.start,
-            'end': request.query.end,
-            'min_conf': request.query.min_conf,
-            'min_power': request.query.min_power,
-            'mode': request.query.mode,
-            'frequency': request.query.frequency,
+            "start": request.query.start,
+            "end": request.query.end,
+            "min_conf": request.query.min_conf,
+            "min_power": request.query.min_power,
+            "mode": request.query.mode,
+            "frequency": request.query.frequency,
         }
         return geo.lob_history_czml(db, ms, params)
 
-    @app.get('/aoi.czml')
+    @app.get("/aoi.czml")
     def aoi_czml():
-        response.set_header('Cache-Control', _NO_CACHE)
+        response.set_header("Cache-Control", _NO_CACHE)
         return geo.wr_aoi_czml(db)
 
     return app
@@ -352,11 +380,11 @@ def create_routes(config, ms, db, receiver_manager):
 
 class GzipMiddleware:
     _COMPRESSIBLE = (
-        'text/',
-        'application/json',
-        'application/javascript',
-        'application/x-javascript',
-        'application/czml',
+        "text/",
+        "application/json",
+        "application/javascript",
+        "application/x-javascript",
+        "application/czml",
     )
     _MIN_SIZE = 512
 
@@ -365,16 +393,18 @@ class GzipMiddleware:
 
     @staticmethod
     def _is_websocket_upgrade(environ):
-        return (environ.get('HTTP_UPGRADE', '').lower() == 'websocket' and
-                'upgrade' in environ.get('HTTP_CONNECTION', '').lower())
+        return (
+            environ.get("HTTP_UPGRADE", "").lower() == "websocket"
+            and "upgrade" in environ.get("HTTP_CONNECTION", "").lower()
+        )
 
     def _is_compressible(self, headers):
-        content_type = ''
+        content_type = ""
         for name, value in headers:
             name_lower = name.lower()
-            if name_lower == 'content-encoding':
+            if name_lower == "content-encoding":
                 return False
-            if name_lower == 'content-type':
+            if name_lower == "content-type":
                 content_type = value.lower()
         return any(ct in content_type for ct in self._COMPRESSIBLE)
 
@@ -388,25 +418,27 @@ class GzipMiddleware:
         new_headers = []
         for name, value in headers:
             lname = name.lower()
-            if lname in ('content-length', 'content-encoding'):
+            if lname in ("content-length", "content-encoding"):
                 continue
-            if lname == 'vary':
+            if lname == "vary":
                 existing_vary_tokens.extend(
-                    t.strip() for t in value.split(',') if t.strip())
+                    t.strip() for t in value.split(",") if t.strip()
+                )
                 continue
             new_headers.append((name, value))
 
-        if not any(t.lower() == 'accept-encoding' for t in existing_vary_tokens):
-            existing_vary_tokens.append('Accept-Encoding')
+        if not any(t.lower() == "accept-encoding" for t in existing_vary_tokens):
+            existing_vary_tokens.append("Accept-Encoding")
 
-        new_headers.append(('Content-Encoding', 'gzip'))
-        new_headers.append(('Content-Length', str(compressed_len)))
-        new_headers.append(('Vary', ', '.join(existing_vary_tokens)))
+        new_headers.append(("Content-Encoding", "gzip"))
+        new_headers.append(("Content-Length", str(compressed_len)))
+        new_headers.append(("Vary", ", ".join(existing_vary_tokens)))
         return new_headers
 
     def __call__(self, environ, start_response):
-        if (self._is_websocket_upgrade(environ) or
-                'gzip' not in environ.get('HTTP_ACCEPT_ENCODING', '')):
+        if self._is_websocket_upgrade(environ) or "gzip" not in environ.get(
+            "HTTP_ACCEPT_ENCODING", ""
+        ):
             return self.app(environ, start_response)
 
         captured_status = []
@@ -431,9 +463,9 @@ class GzipMiddleware:
             return result
 
         try:
-            body = b''.join(result)
+            body = b"".join(result)
         finally:
-            if hasattr(result, 'close'):
+            if hasattr(result, "close"):
                 result.close()
 
         if len(body) < self._MIN_SIZE:
@@ -448,8 +480,17 @@ class GzipMiddleware:
 
 def start_server(config, app):
     try:
-        run(app=GzipMiddleware(app), host=config.ip, port=config.port, quiet=True,
-            server=GeventWebSocketServer, debug=config.debugging)
+        run(
+            app=GzipMiddleware(app),
+            host=config.ip,
+            port=config.port,
+            quiet=True,
+            server=GeventWebSocketServer,
+            debug=config.debugging,
+        )
     except OSError:
-        log.error("Port %d seems to be in use. Please select another port or "
-                  "check if another instance of DFA is already running.", config.port)
+        log.error(
+            "Port %d seems to be in use. Please select another port or "
+            "check if another instance of DFA is already running.",
+            config.port,
+        )

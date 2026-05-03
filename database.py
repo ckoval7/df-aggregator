@@ -16,29 +16,29 @@ log = logging.getLogger(__name__)
 _EARTH_RADIUS_M = 6378137.0
 
 _SCHEMA_DDL = (
-    '''CREATE TABLE IF NOT EXISTS receivers (
+    """CREATE TABLE IF NOT EXISTS receivers (
         station_id TEXT UNIQUE,
         station_url TEXT,
         isAuto INTEGER,
         isMobile INTEGER,
         isSingle INTEGER,
         latitude REAL,
-        longitude REAL)''',
-    '''CREATE TABLE IF NOT EXISTS interest_areas (
+        longitude REAL)""",
+    """CREATE TABLE IF NOT EXISTS interest_areas (
         uid INTEGER,
         aoi_type TEXT,
         latitude REAL,
         longitude REAL,
-        radius INTEGER)''',
-    '''CREATE TABLE IF NOT EXISTS intersects (
+        radius INTEGER)""",
+    """CREATE TABLE IF NOT EXISTS intersects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         time INTEGER,
         latitude REAL,
         longitude REAL,
         num_parents INTEGER,
         confidence INTEGER,
-        aoi_id INTEGER)''',
-    '''CREATE TABLE IF NOT EXISTS lobs (
+        aoi_id INTEGER)""",
+    """CREATE TABLE IF NOT EXISTS lobs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         time INTEGER,
         station_id TEXT,
@@ -47,24 +47,24 @@ _SCHEMA_DDL = (
         confidence INTEGER,
         power REAL,
         frequency REAL,
-        lob REAL)''',
+        lob REAL)""",
 )
 
 _LOBS_MIGRATIONS = (("power", "REAL"), ("frequency", "REAL"))
 
 _INDEX_DDL = (
-    '''CREATE INDEX IF NOT EXISTS idx_intersects_aoi_confidence
-        ON intersects(aoi_id, confidence DESC)''',
-    '''CREATE INDEX IF NOT EXISTS idx_intersects_time
-        ON intersects(time)''',
-    '''CREATE INDEX IF NOT EXISTS idx_lobs_station_time
-        ON lobs(station_id, time)''',
-    '''CREATE INDEX IF NOT EXISTS idx_lobs_time
-        ON lobs(time)''',
-    '''CREATE INDEX IF NOT EXISTS idx_interest_areas_uid
-        ON interest_areas(uid)''',
-    '''CREATE INDEX IF NOT EXISTS idx_interest_areas_type
-        ON interest_areas(aoi_type)''',
+    """CREATE INDEX IF NOT EXISTS idx_intersects_aoi_confidence
+        ON intersects(aoi_id, confidence DESC)""",
+    """CREATE INDEX IF NOT EXISTS idx_intersects_time
+        ON intersects(time)""",
+    """CREATE INDEX IF NOT EXISTS idx_lobs_station_time
+        ON lobs(station_id, time)""",
+    """CREATE INDEX IF NOT EXISTS idx_lobs_time
+        ON lobs(time)""",
+    """CREATE INDEX IF NOT EXISTS idx_interest_areas_uid
+        ON interest_areas(uid)""",
+    """CREATE INDEX IF NOT EXISTS idx_interest_areas_type
+        ON interest_areas(aoi_type)""",
 )
 
 
@@ -183,9 +183,12 @@ class Database:
             try:
                 should_exit = self._dispatch_writer_command(conn, c, command, items)
             except Exception as ex:
-                log.error("Database writer error on '%s': %s: %s",
-                          command[:60] if isinstance(command, str) else command,
-                          type(ex).__name__, ex)
+                log.error(
+                    "Database writer error on '%s': %s: %s",
+                    command[:60] if isinstance(command, str) else command,
+                    type(ex).__name__,
+                    ex,
+                )
                 if reply_q is not None:
                     reply_q.put(ex)
                 continue
@@ -215,7 +218,7 @@ class Database:
                 # the outer list (append/sort) doesn't corrupt the cache.
                 # Inner rows are sqlite tuples, already immutable.
                 return list(self._aoi_cache)
-            result = self.query('SELECT * FROM interest_areas')
+            result = self.query("SELECT * FROM interest_areas")
             self._aoi_cache = result
             return list(result)
 
@@ -243,10 +246,10 @@ class Database:
         return any(keep_list), in_aoi
 
     def add_aoi(self, aoi_type, lat, lon, radius):
-        prev_uid = self.query_one('SELECT MAX(uid) from interest_areas')[0]
+        prev_uid = self.query_one("SELECT MAX(uid) from interest_areas")[0]
         uid = (prev_uid + 1) if prev_uid is not None else 0
         to_table = [uid, aoi_type, lat, lon, radius]
-        command = 'INSERT INTO interest_areas VALUES (?,?,?,?,?)'
+        command = "INSERT INTO interest_areas VALUES (?,?,?,?,?)"
         self.execute(command, [to_table], wait=True)
         self.commit_and_invalidate_aoi_cache()
 
@@ -258,7 +261,8 @@ class Database:
         # silently iterating to a zero-row delete.
         if area_type != "exclusion":
             raise ValueError(
-                f"purge_database only supports area_type='exclusion', got {area_type!r}")
+                f"purge_database only supports area_type='exclusion', got {area_type!r}"
+            )
         intersect_list = self.query("SELECT latitude, longitude, id FROM intersects")
         delete_these = []
         for x in intersect_list:
@@ -282,8 +286,10 @@ class Database:
         # was happening before; if you want a smaller-radius-wins or
         # uid-stable policy, that's a behavior change, not a perf change.
         aoi_list = self.fetch_aoi_data()
-        intersect_list = self.query('SELECT id, latitude, longitude FROM intersects')
-        n_aoi = self.query_one('SELECT COUNT(*) FROM interest_areas WHERE aoi_type="aoi"')[0]
+        intersect_list = self.query("SELECT id, latitude, longitude FROM intersects")
+        n_aoi = self.query_one(
+            'SELECT COUNT(*) FROM interest_areas WHERE aoi_type="aoi"'
+        )[0]
         starttime = time.time()
         del_list = []
         keep_list = []
@@ -294,10 +300,16 @@ class Database:
             self.execute("UPDATE intersects SET aoi_id=?", (-1,), wait=True)
             self.commit_and_invalidate_aoi_cache()
             stoptime = time.time()
-            log.info("Purged 0 intersections and sorted 0 intersections into 0 AOIs in %.3f seconds.",
-                     stoptime - starttime)
-            return {"sorted": 0, "purged": 0, "aois": 0,
-                    "elapsed_s": stoptime - starttime}
+            log.info(
+                "Purged 0 intersections and sorted 0 intersections into 0 AOIs in %.3f seconds.",
+                stoptime - starttime,
+            )
+            return {
+                "sorted": 0,
+                "purged": 0,
+                "aois": 0,
+                "elapsed_s": stoptime - starttime,
+            }
 
         if intersect_list:
             # Shape arrays once: points are (N,), AOIs are (M,). Distances
@@ -308,7 +320,8 @@ class Database:
             p_lon = np.radians(points[:, 2])
 
             aoi_arr = np.asarray(
-                [(a[0], a[2], a[3], a[4]) for a in aoi_list], dtype=np.float64)
+                [(a[0], a[2], a[3], a[4]) for a in aoi_list], dtype=np.float64
+            )
             aoi_uids = aoi_arr[:, 0].astype(np.int64)
             a_lat = np.radians(aoi_arr[:, 1])
             a_lon = np.radians(aoi_arr[:, 2])
@@ -321,15 +334,16 @@ class Database:
             dlon = a_lon[None, :] - p_lon[:, None]
             sin_dlat = np.sin(dlat / 2.0)
             sin_dlon = np.sin(dlon / 2.0)
-            h = (sin_dlat * sin_dlat +
-                 np.cos(p_lat)[:, None] * np.cos(a_lat)[None, :] *
-                 sin_dlon * sin_dlon)
+            h = (
+                sin_dlat * sin_dlat
+                + np.cos(p_lat)[:, None] * np.cos(a_lat)[None, :] * sin_dlon * sin_dlon
+            )
             # clip to defend against tiny FP overshoot above 1.0
             distances = 2.0 * _EARTH_RADIUS_M * np.arcsin(np.sqrt(np.clip(h, 0.0, 1.0)))
 
             inside = distances < a_radius[None, :]
-            is_excl = (aoi_types == "exclusion")
-            is_aoi = (aoi_types == "aoi")
+            is_excl = aoi_types == "exclusion"
+            is_aoi = aoi_types == "aoi"
 
             inside_any_exclusion = (inside & is_excl[None, :]).any(axis=1)
             aoi_hits = inside & is_aoi[None, :]
@@ -340,9 +354,10 @@ class Database:
             # last-match-wins: pick the largest column index where aoi_hits
             # is True, then map back to that AOI's uid.
             col_indices = np.arange(aoi_hits.shape[1])
-            last_hit_col = np.where(
-                aoi_hits, col_indices[None, :], -1).max(axis=1)
-            last_hit_uid = np.where(last_hit_col >= 0, aoi_uids[last_hit_col.clip(min=0)], -1)
+            last_hit_col = np.where(aoi_hits, col_indices[None, :], -1).max(axis=1)
+            last_hit_uid = np.where(
+                last_hit_col >= 0, aoi_uids[last_hit_col.clip(min=0)], -1
+            )
 
             kept_ids = ids[keep_mask]
             kept_uids = last_hit_uid[keep_mask]
@@ -357,10 +372,21 @@ class Database:
             self.execute("DELETE from intersects WHERE id=?", del_list, wait=True)
             self.commit()
         if keep_list:
-            self.execute("UPDATE intersects SET aoi_id=? WHERE id=?", keep_list, wait=True)
+            self.execute(
+                "UPDATE intersects SET aoi_id=? WHERE id=?", keep_list, wait=True
+            )
         self.commit_and_invalidate_aoi_cache()
         stoptime = time.time()
-        log.info("Purged %d intersections and sorted %d intersections into %d AOIs in %.3f seconds.",
-                 purged, sorted_count, n_aoi, stoptime - starttime)
-        return {"sorted": sorted_count, "purged": purged, "aois": int(n_aoi),
-                "elapsed_s": stoptime - starttime}
+        log.info(
+            "Purged %d intersections and sorted %d intersections into %d AOIs in %.3f seconds.",
+            purged,
+            sorted_count,
+            n_aoi,
+            stoptime - starttime,
+        )
+        return {
+            "sorted": sorted_count,
+            "purged": purged,
+            "aois": int(n_aoi),
+            "elapsed_s": stoptime - starttime,
+        }

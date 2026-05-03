@@ -17,10 +17,15 @@
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from sys import version_info
-if (version_info.major != 3 or version_info.minor < 6):
-    print("Looks like you're running python version " +
-          str(version_info.major) + "." +
-          str(version_info.minor) + ", which is no longer supported.")
+
+if version_info.major != 3 or version_info.minor < 6:
+    print(
+        "Looks like you're running python version "
+        + str(version_info.major)
+        + "."
+        + str(version_info.minor)
+        + ", which is no longer supported."
+    )
     print("Your python version is out of date, please update to 3.6 or newer.")
     quit()
 
@@ -41,50 +46,116 @@ import web
 log = logging.getLogger(__name__)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="DF Aggregator — networked radio direction finding")
-    parser.add_argument("-d", "--database", dest="database_name",
-                        help="Database file", metavar="FILE", required=True)
-    parser.add_argument("-r", "--receivers", dest="rx_file",
-                        help="List of receiver URLs", metavar="FILE")
-    parser.add_argument("-g", "--geofile", dest="geofile",
-                        help="GeoJSON output file", metavar="FILE")
-    parser.add_argument("-e", "--epsilon", dest="eps",
-                        help="Max clustering distance (default: auto)",
-                        metavar="NUMBER", default="auto")
-    parser.add_argument("-c", "--confidence", dest="conf",
-                        help="Minimum confidence value (default: 10)",
-                        metavar="NUMBER", type=int, default=10)
-    parser.add_argument("-p", "--power", dest="pwr",
-                        help="Minimum power value (default: 10)",
-                        metavar="NUMBER", type=int, default=10)
-    parser.add_argument("-m", "--min-samples", dest="minsamp",
-                        help="Minimum samples per cluster (default: auto)",
-                        metavar="NUMBER", default="auto")
-    parser.add_argument("--plot_intersects", dest="plotintersects",
-                        help="Plot all intersect points in clusters",
-                        action="store_true")
-    parser.add_argument("-o", "--offline", dest="disable",
-                        help="Start with receiver turned off",
-                        action="store_false", default=True)
-    parser.add_argument("--access_token", dest="token_file",
-                        help="Cesium access token file", metavar="FILE")
-    parser.add_argument("--ip", dest="ipaddr",
-                        help="IP address to serve from (default: 127.0.0.1)",
-                        metavar="IP_ADDRESS", type=str, default="127.0.0.1")
-    parser.add_argument("--port", dest="port",
-                        help="Port number to serve from (default: 8080)",
-                        metavar="NUMBER", type=int, default=8080)
-    parser.add_argument("--debug", dest="debugging",
-                        help="Enable DEBUG-level logging and Bottle debug mode",
-                        action="store_true")
-    parser.add_argument("--log-file", dest="log_file",
-                        help="Also write logs to this file",
-                        metavar="PATH")
-    parser.add_argument("--no-lob-history", dest="no_lob_history",
-                        help="Disable LOB history recording",
-                        action="store_true")
+        description="DF Aggregator — networked radio direction finding"
+    )
+    parser.add_argument(
+        "-d",
+        "--database",
+        dest="database_name",
+        help="Database file",
+        metavar="FILE",
+        required=True,
+    )
+    parser.add_argument(
+        "-r",
+        "--receivers",
+        dest="rx_file",
+        help="List of receiver URLs",
+        metavar="FILE",
+    )
+    parser.add_argument(
+        "-g", "--geofile", dest="geofile", help="GeoJSON output file", metavar="FILE"
+    )
+    parser.add_argument(
+        "-e",
+        "--epsilon",
+        dest="eps",
+        help="Max clustering distance (default: auto)",
+        metavar="NUMBER",
+        default="auto",
+    )
+    parser.add_argument(
+        "-c",
+        "--confidence",
+        dest="conf",
+        help="Minimum confidence value (default: 10)",
+        metavar="NUMBER",
+        type=int,
+        default=10,
+    )
+    parser.add_argument(
+        "-p",
+        "--power",
+        dest="pwr",
+        help="Minimum power value (default: 10)",
+        metavar="NUMBER",
+        type=int,
+        default=10,
+    )
+    parser.add_argument(
+        "-m",
+        "--min-samples",
+        dest="minsamp",
+        help="Minimum samples per cluster (default: auto)",
+        metavar="NUMBER",
+        default="auto",
+    )
+    parser.add_argument(
+        "--plot_intersects",
+        dest="plotintersects",
+        help="Plot all intersect points in clusters",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-o",
+        "--offline",
+        dest="disable",
+        help="Start with receiver turned off",
+        action="store_false",
+        default=True,
+    )
+    parser.add_argument(
+        "--access_token",
+        dest="token_file",
+        help="Cesium access token file",
+        metavar="FILE",
+    )
+    parser.add_argument(
+        "--ip",
+        dest="ipaddr",
+        help="IP address to serve from (default: 127.0.0.1)",
+        metavar="IP_ADDRESS",
+        type=str,
+        default="127.0.0.1",
+    )
+    parser.add_argument(
+        "--port",
+        dest="port",
+        help="Port number to serve from (default: 8080)",
+        metavar="NUMBER",
+        type=int,
+        default=8080,
+    )
+    parser.add_argument(
+        "--debug",
+        dest="debugging",
+        help="Enable DEBUG-level logging and Bottle debug mode",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--log-file",
+        dest="log_file",
+        help="Also write logs to this file",
+        metavar="PATH",
+    )
+    parser.add_argument(
+        "--no-lob-history",
+        dest="no_lob_history",
+        help="Disable LOB history recording",
+        action="store_true",
+    )
     options = parser.parse_args()
 
     root_level = logging.DEBUG if options.debugging else logging.INFO
@@ -108,7 +179,7 @@ if __name__ == '__main__':
     def _demote_successful_access(record):
         msg = record.getMessage()
         m = _access_log_re.search(msg)
-        if m and m.group(1)[0] in ('2', '3'):
+        if m and m.group(1)[0] in ("2", "3"):
             record.levelno = logging.DEBUG
             record.levelname = "DEBUG"
         return True
@@ -118,7 +189,7 @@ if __name__ == '__main__':
     access_token = None
     if options.token_file:
         with open(options.token_file, "r") as token:
-            access_token = token.read().replace('\n', '')
+            access_token = token.read().replace("\n", "")
 
     app_config = AppConfig(
         database_name=options.database_name,
@@ -143,7 +214,9 @@ if __name__ == '__main__':
         rx_mgr.save_to_db()
         db.close()
         if app_config.geofile is not None:
-            geo.write_geojson(*geo.process_data(db, ms.eps, ms.min_samp)[:2], app_config.geofile)
+            geo.write_geojson(
+                *geo.process_data(db, ms.eps, ms.min_samp)[:2], app_config.geofile
+            )
         kill(getpid(), signal.SIGTERM)
 
     dbwriter = threading.Thread(target=db.writer_loop)
@@ -161,7 +234,7 @@ if __name__ == '__main__':
             with open(options.rx_file, "r") as file2:
                 receiver_list = file2.readlines()
                 for x in receiver_list:
-                    receiver_url = x.replace('\n', '')
+                    receiver_url = x.replace("\n", "")
                     rx_mgr.add(receiver_url)
 
         prev_receiving = None

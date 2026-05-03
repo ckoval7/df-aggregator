@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 # global default) to avoid fork() deadlocks when the web server / db-writer
 # threads are running in the parent. Scoped here so importing this module
 # from a non-DBSCAN code path doesn't perturb anything.
-_dbscan_ctx = _mp.get_context('forkserver')
+_dbscan_ctx = _mp.get_context("forkserver")
 
 import numpy as np
 from scipy.spatial.distance import cdist
@@ -20,18 +20,31 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler, minmax_scale
 from geojson import MultiPoint, Feature, FeatureCollection
 from czml3 import Packet, Document, CZML_VERSION
-from czml3.properties import (Position, PositionList, Polyline,
-    PolylineMaterial, PolylineOutlineMaterial, PolylineDashMaterial,
-    Color, Clock, HeightReference)
+from czml3.properties import (
+    Position,
+    PositionList,
+    Polyline,
+    PolylineMaterial,
+    PolylineOutlineMaterial,
+    PolylineDashMaterial,
+    Color,
+    Clock,
+    HeightReference,
+)
 from czml3.enums import HeightReferences
 from czml3.types import TimeInterval
 
 import vincenty as v
-from config import (LOB_DRAW_DISTANCE_METERS, HEADING_DRAW_DISTANCE_METERS,
-    MAX_INTERSECTION_DISTANCE_METERS, BEARING_CHECK_TOLERANCE_DEG,
-    AUTOEPS_SLOPE_THRESHOLD, AUTOEPS_SAMPLE_SIZE, GAUSSIAN_ELLIPSE_SIGMA,
-    MAX_INTERSECTS_PER_AOI)
-
+from config import (
+    LOB_DRAW_DISTANCE_METERS,
+    HEADING_DRAW_DISTANCE_METERS,
+    MAX_INTERSECTION_DISTANCE_METERS,
+    BEARING_CHECK_TOLERANCE_DEG,
+    AUTOEPS_SLOPE_THRESHOLD,
+    AUTOEPS_SAMPLE_SIZE,
+    GAUSSIAN_ELLIPSE_SIGMA,
+    MAX_INTERSECTS_PER_AOI,
+)
 
 pipeline_stats_cache = {}
 pipeline_stats_lock = threading.Lock()
@@ -51,7 +64,15 @@ def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
     return ([x1, y1, z1], [x2, y2, z2])
 
 
-def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_INTERSECTION_DISTANCE_METERS):
+def plot_intersects(
+    lat_a,
+    lon_a,
+    doa_a,
+    lat_b,
+    lon_b,
+    doa_b,
+    max_distance=MAX_INTERSECTION_DISTANCE_METERS,
+):
     coord_a2 = v.direct(lat_a, lon_a, doa_a, LOB_DRAW_DISTANCE_METERS)
     coord_b2 = v.direct(lat_b, lon_b, doa_b, LOB_DRAW_DISTANCE_METERS)
     plane_a = plot_polar(lat_a, lon_a, *coord_a2)
@@ -74,7 +95,7 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_I
     # and safely above the degenerate floor — leaves the existing bearing
     # tolerance and max_distance checks in charge of "near-parallel but
     # nominally valid" rejection, where they belong.
-    cross_mag = np.sqrt(L[0]**2 + L[1]**2 + L[2]**2)
+    cross_mag = np.sqrt(L[0] ** 2 + L[1] ** 2 + L[2] ** 2)
     if cross_mag < 1e-12:
         return None
     X1 = L / cross_mag
@@ -82,14 +103,15 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_I
 
     def mag(q):
         return np.sqrt(np.vdot(q, q))
+
     dist1 = mag(X1 - plane_a[0])
     dist2 = mag(X2 - plane_a[0])
     if dist1 < dist2:
-        i_lat = math.asin(X1[2]) * 180. / np.pi
-        i_long = math.atan2(X1[1], X1[0]) * 180. / np.pi
+        i_lat = math.asin(X1[2]) * 180.0 / np.pi
+        i_long = math.atan2(X1[1], X1[0]) * 180.0 / np.pi
     else:
-        i_lat = math.asin(X2[2]) * 180. / np.pi
-        i_long = math.atan2(X2[1], X2[0]) * 180. / np.pi
+        i_lat = math.asin(X2[2]) * 180.0 / np.pi
+        i_long = math.atan2(X2[1], X2[0]) * 180.0 / np.pi
     check_bearing = v.get_heading((lat_a, lon_a), (i_lat, i_long))
     # angular_diff_deg, not abs() — bearings near 0°/360° wrap. Without the
     # wrap-aware compare, a target due north (e.g. doa=359.7°,
@@ -112,7 +134,7 @@ def do_dbscan_batch(jobs, result_queue):
 
 
 def autoeps_calc(X):
-    X = X[:min(AUTOEPS_SAMPLE_SIZE, len(X)):2]
+    X = X[: min(AUTOEPS_SAMPLE_SIZE, len(X)) : 2]
     if len(X) < 2:
         return 0
     dist_matrix = cdist(X, X)
@@ -129,8 +151,20 @@ def autoeps_calc(X):
 
 def _empty_stats(aoi, n_input, *, passthrough=False):
     if passthrough:
-        return {"aoi_id": aoi, "input": n_input, "in_cluster": None, "clusters": None, "outliers": None}
-    return {"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input}
+        return {
+            "aoi_id": aoi,
+            "input": n_input,
+            "in_cluster": None,
+            "clusters": None,
+            "outliers": None,
+        }
+    return {
+        "aoi_id": aoi,
+        "input": n_input,
+        "in_cluster": 0,
+        "clusters": 0,
+        "outliers": n_input,
+    }
 
 
 def _resolve_min_samp(min_samp, n_points):
@@ -148,7 +182,9 @@ def _resolve_epsilon(epsilon, X, aoi_min_samp):
         aoi_eps = autoeps_calc(X)
         log.debug("min_samp: %s, eps: %s", aoi_min_samp, aoi_eps)
         if aoi_eps <= 0:
-            log.warning("Could not determine a valid epsilon, skipping clustering for this AOI.")
+            log.warning(
+                "Could not determine a valid epsilon, skipping clustering for this AOI."
+            )
             return None
         return aoi_eps
     try:
@@ -172,12 +208,21 @@ def _prepare_cluster_jobs(db, aoi_list, epsilon, min_samp, intersect_list):
 
     for aoi in aoi_list:
         log.debug("Checking AOI %s.", aoi)
-        rows = db.query('''SELECT longitude, latitude, time FROM intersects
-            WHERE aoi_id=? ORDER BY confidence DESC LIMIT ?''', [aoi, MAX_INTERSECTS_PER_AOI])
+        rows = db.query(
+            """SELECT longitude, latitude, time FROM intersects
+            WHERE aoi_id=? ORDER BY confidence DESC LIMIT ?""",
+            [aoi, MAX_INTERSECTS_PER_AOI],
+        )
         intersect_array = np.array(rows)
         if intersect_array.size == 0:
             log.debug("No Intersections in AOI %s.", aoi)
-            stats_by_aoi[aoi] = {"aoi_id": aoi, "input": 0, "in_cluster": 0, "clusters": 0, "outliers": 0}
+            stats_by_aoi[aoi] = {
+                "aoi_id": aoi,
+                "input": 0,
+                "in_cluster": 0,
+                "clusters": 0,
+                "outliers": 0,
+            }
             continue
 
         n_input = len(intersect_array)
@@ -207,8 +252,14 @@ def _prepare_cluster_jobs(db, aoi_list, epsilon, min_samp, intersect_list):
         cluster_jobs.append((aoi, X, aoi_eps, aoi_min_samp))
         postprocess_queue.append((aoi, intersect_array, n_input, n_points))
 
-    return (cluster_jobs, postprocess_queue, stats_by_aoi,
-            total_db_intersections, resolved_epsilon, resolved_min_samples)
+    return (
+        cluster_jobs,
+        postprocess_queue,
+        stats_by_aoi,
+        total_db_intersections,
+        resolved_epsilon,
+        resolved_min_samples,
+    )
 
 
 def _run_dbscan(cluster_jobs):
@@ -257,10 +308,8 @@ def _compute_cluster_ellipse(cluster, n_std):
     if cov_deg[0, 0] < 1e-30 and cov_deg[1, 1] < 1e-30:
         return clustermean, None
     center_latlon = clustermean.tolist()[::-1]
-    m_per_deg_lon = v.inverse(center_latlon,
-        (clustermean[1], clustermean[0] + 1))[0]
-    m_per_deg_lat = v.inverse(center_latlon,
-        (clustermean[1] + 1, clustermean[0]))[0]
+    m_per_deg_lon = v.inverse(center_latlon, (clustermean[1], clustermean[0] + 1))[0]
+    m_per_deg_lat = v.inverse(center_latlon, (clustermean[1] + 1, clustermean[0]))[0]
     S = np.diag([m_per_deg_lon, m_per_deg_lat])
     cov_m = S @ cov_deg @ S
     eigenvalues, eigenvectors = np.linalg.eigh(cov_m)
@@ -271,8 +320,9 @@ def _compute_cluster_ellipse(cluster, n_std):
     return clustermean, [semi_major_m, semi_minor_m, rotation, *clustermean.tolist()]
 
 
-def _postprocess_clusters(postprocess_queue, labels_by_aoi, dbscan_failed, n_std,
-                          intersect_list, stats_by_aoi):
+def _postprocess_clusters(
+    postprocess_queue, labels_by_aoi, dbscan_failed, n_std, intersect_list, stats_by_aoi
+):
     """Apply DBSCAN labels, gather likely locations and ellipses.
 
     Mutates intersect_list and stats_by_aoi in place; returns
@@ -293,8 +343,13 @@ def _postprocess_clusters(postprocess_queue, labels_by_aoi, dbscan_failed, n_std
         log.debug("Number of clusters: %d", n_clusters_)
         log.debug("Outliers Removed: %d", n_noise_)
 
-        stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input,
-            "in_cluster": n_in_cluster, "clusters": n_clusters_, "outliers": n_noise_}
+        stats_by_aoi[aoi] = {
+            "aoi_id": aoi,
+            "input": n_input,
+            "in_cluster": n_in_cluster,
+            "clusters": n_clusters_,
+            "outliers": n_noise_,
+        }
 
         for x in range(n_clusters_):
             cluster = intersect_array[labels == x, 0:3]
@@ -314,30 +369,48 @@ def _postprocess_clusters(postprocess_queue, labels_by_aoi, dbscan_failed, n_std
 
 
 def process_data(db, epsilon, min_samp):
-    clustering_enabled = (epsilon != "0")
+    clustering_enabled = epsilon != "0"
     intersect_list = []
 
     aoi_rows = db.query('SELECT uid FROM interest_areas WHERE aoi_type="aoi"')
     aoi_list = [item for sublist in aoi_rows for item in sublist]
     aoi_list.append(-1)
 
-    (cluster_jobs, postprocess_queue, stats_by_aoi,
-     total_db_intersections, resolved_epsilon, resolved_min_samples
-     ) = _prepare_cluster_jobs(db, aoi_list, epsilon, min_samp, intersect_list)
+    (
+        cluster_jobs,
+        postprocess_queue,
+        stats_by_aoi,
+        total_db_intersections,
+        resolved_epsilon,
+        resolved_min_samples,
+    ) = _prepare_cluster_jobs(db, aoi_list, epsilon, min_samp, intersect_list)
 
     labels_by_aoi, total_dbscan_ms, dbscan_failed = _run_dbscan(cluster_jobs)
 
     likely_location, ellipsedata = _postprocess_clusters(
-        postprocess_queue, labels_by_aoi, dbscan_failed,
-        GAUSSIAN_ELLIPSE_SIGMA, intersect_list, stats_by_aoi)
+        postprocess_queue,
+        labels_by_aoi,
+        dbscan_failed,
+        GAUSSIAN_ELLIPSE_SIGMA,
+        intersect_list,
+        stats_by_aoi,
+    )
 
     per_aoi_stats = [stats_by_aoi[aoi] for aoi in aoi_list if aoi in stats_by_aoi]
-    _update_pipeline_stats(total_db_intersections, clustering_enabled,
-        per_aoi_stats, total_dbscan_ms, resolved_epsilon, resolved_min_samples)
+    _update_pipeline_stats(
+        total_db_intersections,
+        clustering_enabled,
+        per_aoi_stats,
+        total_dbscan_ms,
+        resolved_epsilon,
+        resolved_min_samples,
+    )
     return likely_location, intersect_list, ellipsedata
 
 
-def _update_pipeline_stats(db_intersections, clustering_enabled, per_aoi, dbscan_ms, epsilon, min_samples):
+def _update_pipeline_stats(
+    db_intersections, clustering_enabled, per_aoi, dbscan_ms, epsilon, min_samples
+):
     global pipeline_stats_cache
     total_in_cluster = 0
     total_clusters = 0
@@ -385,13 +458,14 @@ def write_geojson(best_point, all_the_points, geofile):
     best_pt_style = {"name": "Most Likely TX Location", "marker-color": "#00FF00"}
     if all_the_points is not None:
         all_the_points = Feature(
-            properties=all_pt_style, geometry=MultiPoint(tuple(all_the_points)))
+            properties=all_pt_style, geometry=MultiPoint(tuple(all_the_points))
+        )
         with open(geofile, "w") as file1:
             if best_point is not None:
-                best_point = Feature(properties=best_pt_style, geometry=MultiPoint(
-                    tuple(best_point)))
-                file1.write(str(FeatureCollection(
-                    [best_point, all_the_points])))
+                best_point = Feature(
+                    properties=best_pt_style, geometry=MultiPoint(tuple(best_point))
+                )
+                file1.write(str(FeatureCollection([best_point, all_the_points])))
             else:
                 file1.write(str(FeatureCollection([all_the_points])))
         log.info("Wrote file %s", geofile)
@@ -409,15 +483,13 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
         "pixelSize": 12.0,
         "heightReference": clamp,
         "disableDepthTestDistance": no_depth,
-        "color": {"rgba": [0, 255, 0, 255]}
+        "color": {"rgba": [0, 255, 0, 255]},
     }
     ellipse_properties = {
         "heightReference": clamp,
         "granularity": 0.008722222,
         "zIndex": 5,
-        "material": {
-            "solidColor": {"color": {"rgba": [255, 0, 0, 90]}}
-        }
+        "material": {"solidColor": {"color": {"rgba": [255, 0, 0, 90]}}},
     }
     top = Packet(id="document", name="Geolocation Data", version=CZML_VERSION)
     all_point_packets = []
@@ -431,26 +503,44 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
         for x in all_the_points:
             rgb = [int(c * 255) for c in hsv_to_rgb(x[-1] / 3, 0.9, 0.9)]
             color_property = {"color": {"rgba": [*rgb, 255]}}
-            all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
-                                            point={**point_properties, **color_property},
-                                            position={"cartographicDegrees": [x[0], x[1], 0]}))
+            all_point_packets.append(
+                Packet(
+                    id=str(x[1]) + ", " + str(x[0]),
+                    point={**point_properties, **color_property},
+                    position={"cartographicDegrees": [x[0], x[1], 0]},
+                )
+            )
 
     if len(best_point) > 0:
         for x in best_point:
             gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={x[1]},+{x[0]}&travelmode=driving"
-            best_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
-                                             point=best_point_properties,
-                                             description=f"<a href='{gmaps_url}' target='_blank'>Google Maps Directions</a>",
-                                             position={"cartographicDegrees": [x[0], x[1], 0]}))
+            best_point_packets.append(
+                Packet(
+                    id=str(x[1]) + ", " + str(x[0]),
+                    point=best_point_properties,
+                    description=f"<a href='{gmaps_url}' target='_blank'>Google Maps Directions</a>",
+                    position={"cartographicDegrees": [x[0], x[1], 0]},
+                )
+            )
 
     if len(ellipsedata) > 0:
         for x in ellipsedata:
-            ellipse_info = {"semiMajorAxis": x[0], "semiMinorAxis": x[1], "rotation": x[2]}
-            ellipse_packets.append(Packet(id=str(x[4]) + ", " + str(x[3]),
-                                          ellipse={**ellipse_properties, **ellipse_info},
-                                          position={"cartographicDegrees": [x[3], x[4], 0]}))
+            ellipse_info = {
+                "semiMajorAxis": x[0],
+                "semiMinorAxis": x[1],
+                "rotation": x[2],
+            }
+            ellipse_packets.append(
+                Packet(
+                    id=str(x[4]) + ", " + str(x[3]),
+                    ellipse={**ellipse_properties, **ellipse_info},
+                    position={"cartographicDegrees": [x[3], x[4], 0]},
+                )
+            )
 
-    return Document(packets=[top] + best_point_packets + all_point_packets + ellipse_packets).dumps()
+    return Document(
+        packets=[top] + best_point_packets + all_point_packets + ellipse_packets
+    ).dumps()
 
 
 def write_rx_czml(receiver_manager, ms):
@@ -468,7 +558,9 @@ def write_rx_czml(receiver_manager, ms):
     rx_properties = {
         "verticalOrigin": "BOTTOM",
         "scale": 0.75,
-        "heightReference": HeightReference(heightReference=HeightReferences.CLAMP_TO_GROUND),
+        "heightReference": HeightReference(
+            heightReference=HeightReferences.CLAMP_TO_GROUND
+        ),
         "disableDepthTestDistance": 1e12,
         "height": 48,
         "width": 48,
@@ -479,60 +571,95 @@ def write_rx_czml(receiver_manager, ms):
     with receiver_manager.lock():
         for index, x in enumerate(receiver_manager.receivers):
             if x.isActive and ms.receiving:
-                if (x.confidence > min_conf and x.power > min_power):
+                if x.confidence > min_conf and x.power > min_power:
                     lob_color = green
-                elif (x.confidence <= min_conf and x.power > min_power):
+                elif x.confidence <= min_conf and x.power > min_power:
                     lob_color = orange
                 else:
                     lob_color = red
                 lob_start_lat = x.latitude
                 lob_start_lon = x.longitude
                 lob_stop_lat, lob_stop_lon = v.direct(
-                    lob_start_lat, lob_start_lon, x.doa, x.lob_length())
-                lob_packets.append(Packet(id=f"LOB-{x.station_id}-{index}",
-                                          polyline=Polyline(
-                                              material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
-                                                  color=Color(rgba=lob_color),
-                                                  outlineColor=Color(rgba=[0, 0, 0, 255]),
-                                                  outlineWidth=2
-                                              )),
-                                              clampToGround=True,
-                                              width=5,
-                                              positions=PositionList(cartographicDegrees=[
-                                                  lob_start_lon, lob_start_lat, height, lob_stop_lon, lob_stop_lat, height])
-                                          )))
+                    lob_start_lat, lob_start_lon, x.doa, x.lob_length()
+                )
+                lob_packets.append(
+                    Packet(
+                        id=f"LOB-{x.station_id}-{index}",
+                        polyline=Polyline(
+                            material=PolylineMaterial(
+                                polylineOutline=PolylineOutlineMaterial(
+                                    color=Color(rgba=lob_color),
+                                    outlineColor=Color(rgba=[0, 0, 0, 255]),
+                                    outlineWidth=2,
+                                )
+                            ),
+                            clampToGround=True,
+                            width=5,
+                            positions=PositionList(
+                                cartographicDegrees=[
+                                    lob_start_lon,
+                                    lob_start_lat,
+                                    height,
+                                    lob_stop_lon,
+                                    lob_stop_lat,
+                                    height,
+                                ]
+                            ),
+                        ),
+                    )
+                )
                 heading_start_lat = x.latitude
                 heading_start_lon = x.longitude
                 heading_stop_lat, heading_stop_lon = v.direct(
-                    heading_start_lat, heading_start_lon, x.heading, HEADING_DRAW_DISTANCE_METERS)
-                lob_packets.append(Packet(id=f"HEADING-{x.station_id}-{index}",
-                                          polyline=Polyline(
-                                              material=PolylineMaterial(
-                                                  polylineDash=PolylineDashMaterial(color=Color(
-                                                      rgba=gray),
-                                                  gapColor=Color(
-                                                      rgba=[0, 0, 0, 0])
-                                              )),
-                                              clampToGround=True,
-                                              width=2,
-                                              positions=PositionList(cartographicDegrees=[
-                                                  heading_start_lon, heading_start_lat, height, heading_stop_lon, heading_stop_lat, height])
-                                          )))
+                    heading_start_lat,
+                    heading_start_lon,
+                    x.heading,
+                    HEADING_DRAW_DISTANCE_METERS,
+                )
+                lob_packets.append(
+                    Packet(
+                        id=f"HEADING-{x.station_id}-{index}",
+                        polyline=Polyline(
+                            material=PolylineMaterial(
+                                polylineDash=PolylineDashMaterial(
+                                    color=Color(rgba=gray),
+                                    gapColor=Color(rgba=[0, 0, 0, 0]),
+                                )
+                            ),
+                            clampToGround=True,
+                            width=2,
+                            positions=PositionList(
+                                cartographicDegrees=[
+                                    heading_start_lon,
+                                    heading_start_lat,
+                                    height,
+                                    heading_stop_lon,
+                                    heading_stop_lat,
+                                    height,
+                                ]
+                            ),
+                        ),
+                    )
+                )
 
             if x.isMobile is True:
                 rx_icon = {"image": {"uri": "/static/flipped_car.svg"}}
             else:
                 rx_icon = {"image": {"uri": "/static/tower.svg"}}
-            receiver_point_packets.append(Packet(id=f"{x.station_id}-{index}",
-                                                 billboard={**rx_properties, **rx_icon},
-                                                 position={"cartographicDegrees": [x.longitude, x.latitude, 15]}))
+            receiver_point_packets.append(
+                Packet(
+                    id=f"{x.station_id}-{index}",
+                    billboard={**rx_properties, **rx_icon},
+                    position={"cartographicDegrees": [x.longitude, x.latitude, 15]},
+                )
+            )
 
     return Document(packets=[top] + receiver_point_packets + lob_packets).dumps()
 
 
 def _epoch_ms_to_iso(epoch_ms):
     dt = datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc)
-    return dt.strftime('%Y-%m-%dT%H:%M:%S.') + f'{dt.microsecond // 1000:03d}Z'
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
 
 
 _LOB_HIST_GREEN = [0, 255, 0, 153]
@@ -561,18 +688,18 @@ def _lob_history_availability(lob_time, end_iso, mode):
 
 
 def _query_lob_history(db, start, end, min_conf, min_power, freq):
-    base_sql = '''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
+    base_sql = """SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
         FROM lobs
         WHERE time BETWEEN ? AND ?
           AND confidence >= ?
-          AND power >= ?'''
+          AND power >= ?"""
     params = [start, end, min_conf, min_power]
     if freq:
         return db.query(
-            base_sql + '\n          AND frequency = ?\n        ORDER BY time',
+            base_sql + "\n          AND frequency = ?\n        ORDER BY time",
             params + [float(freq)],
         )
-    return db.query(base_sql + '\n        ORDER BY time', params)
+    return db.query(base_sql + "\n        ORDER BY time", params)
 
 
 def _build_lob_history_packet(row, end_iso, mode, min_conf, min_power):
@@ -583,29 +710,37 @@ def _build_lob_history_packet(row, end_iso, mode, min_conf, min_power):
         id=f"LOB-HIST-{station_id}-{lob_time}",
         availability=_lob_history_availability(lob_time, end_iso, mode),
         polyline=Polyline(
-            material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
-                color=Color(rgba=color),
-                outlineColor=Color(rgba=_LOB_HIST_OUTLINE),
-                outlineWidth=1,
-            )),
+            material=PolylineMaterial(
+                polylineOutline=PolylineOutlineMaterial(
+                    color=Color(rgba=color),
+                    outlineColor=Color(rgba=_LOB_HIST_OUTLINE),
+                    outlineWidth=1,
+                )
+            ),
             clampToGround=True,
             width=4,
-            positions=PositionList(cartographicDegrees=[
-                lon, lat, _LOB_HIST_HEIGHT,
-                lob_stop_lon, lob_stop_lat, _LOB_HIST_HEIGHT,
-            ]),
+            positions=PositionList(
+                cartographicDegrees=[
+                    lon,
+                    lat,
+                    _LOB_HIST_HEIGHT,
+                    lob_stop_lon,
+                    lob_stop_lat,
+                    _LOB_HIST_HEIGHT,
+                ]
+            ),
         ),
     )
 
 
 def lob_history_czml(db, ms, request_params):
     now_ms = time.time() * 1000
-    start = int(request_params.get('start') or (now_ms - 3600000))
-    end = int(request_params.get('end') or now_ms)
-    min_conf = int(request_params.get('min_conf') or ms.min_conf)
-    min_power = int(request_params.get('min_power') or ms.min_power)
-    mode = request_params.get('mode') or "flash"
-    freq = request_params.get('frequency')
+    start = int(request_params.get("start") or (now_ms - 3600000))
+    end = int(request_params.get("end") or now_ms)
+    min_conf = int(request_params.get("min_conf") or ms.min_conf)
+    min_power = int(request_params.get("min_power") or ms.min_power)
+    mode = request_params.get("mode") or "flash"
+    freq = request_params.get("frequency")
 
     rows = _query_lob_history(db, start, end, min_conf, min_power, freq)
 
@@ -652,18 +787,30 @@ def wr_aoi_czml(db):
     }
     for x in db.fetch_aoi_data():
         aoi = {
-            'uid': x[0], 'aoi_type': x[1],
-            'latitude': x[2], 'longitude': x[3], 'radius': x[4]
+            "uid": x[0],
+            "aoi_type": x[1],
+            "latitude": x[2],
+            "longitude": x[3],
+            "radius": x[4],
         }
-        match aoi['aoi_type']:
+        match aoi["aoi_type"]:
             case "aoi":
                 aoi_properties = area_of_interest_properties
             case "exclusion":
                 aoi_properties = exclusion_area_properties
-        aoi_info = {"semiMajorAxis": aoi['radius'],
-                    "semiMinorAxis": aoi['radius'], "rotation": 0}
-        aoi_packets.append(Packet(id=aoi['aoi_type'] + str(aoi['uid']),
-                                  ellipse={**aoi_properties, **aoi_info},
-                                  position={"cartographicDegrees": [aoi['longitude'], aoi['latitude'], 0]}))
+        aoi_info = {
+            "semiMajorAxis": aoi["radius"],
+            "semiMinorAxis": aoi["radius"],
+            "rotation": 0,
+        }
+        aoi_packets.append(
+            Packet(
+                id=aoi["aoi_type"] + str(aoi["uid"]),
+                ellipse={**aoi_properties, **aoi_info},
+                position={
+                    "cartographicDegrees": [aoi["longitude"], aoi["latitude"], 0]
+                },
+            )
+        )
 
     return Document(packets=[top] + aoi_packets).dumps()
