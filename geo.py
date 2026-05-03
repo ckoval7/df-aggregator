@@ -127,26 +127,48 @@ def autoeps_calc(X):
     return 0
 
 
-def process_data(db, epsilon, min_samp):
-    global pipeline_stats_cache
-    n_std = GAUSSIAN_ELLIPSE_SIGMA
-    intersect_list = []
-    likely_location = []
-    ellipsedata = []
-    per_aoi_stats = []
-    total_db_intersections = 0
-    total_dbscan_ms = 0.0
-    resolved_epsilon = None
-    resolved_min_samples = None
-    clustering_enabled = (epsilon != "0")
+def _empty_stats(aoi, n_input, *, passthrough=False):
+    if passthrough:
+        return {"aoi_id": aoi, "input": n_input, "in_cluster": None, "clusters": None, "outliers": None}
+    return {"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input}
 
-    aoi_rows = db.query('SELECT uid FROM interest_areas WHERE aoi_type="aoi"')
-    aoi_list = [item for sublist in aoi_rows for item in sublist]
-    aoi_list.append(-1)
 
+def _resolve_min_samp(min_samp, n_points):
+    if isinstance(min_samp, str):
+        if min_samp == "auto":
+            return max(3, round(0.05 * n_points))
+        if min_samp.isnumeric():
+            return max(3, int(min_samp))
+        return None
+    return max(3, int(min_samp))
+
+
+def _resolve_epsilon(epsilon, X, aoi_min_samp):
+    if epsilon == "auto":
+        aoi_eps = autoeps_calc(X)
+        log.debug("min_samp: %s, eps: %s", aoi_min_samp, aoi_eps)
+        if aoi_eps <= 0:
+            log.warning("Could not determine a valid epsilon, skipping clustering for this AOI.")
+            return None
+        return aoi_eps
+    try:
+        return float(epsilon)
+    except (ValueError, TypeError):
+        return None
+
+
+def _prepare_cluster_jobs(db, aoi_list, epsilon, min_samp, intersect_list):
+    """Build per-AOI DBSCAN jobs. Mutates intersect_list with passthrough rows.
+
+    Returns (cluster_jobs, postprocess_queue, stats_by_aoi, total_db_intersections,
+    resolved_epsilon, resolved_min_samples). resolved_* track the last AOI that
+    produced a job, matching the original last-writer-wins behavior."""
     stats_by_aoi = {}
     cluster_jobs = []
     postprocess_queue = []
+    total_db_intersections = 0
+    resolved_epsilon = None
+    resolved_min_samples = None
 
     for aoi in aoi_list:
         log.debug("Checking AOI %s.", aoi)
@@ -162,7 +184,7 @@ def process_data(db, epsilon, min_samp):
         total_db_intersections += n_input
 
         if epsilon == "0":
-            stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": None, "clusters": None, "outliers": None}
+            stats_by_aoi[aoi] = _empty_stats(aoi, n_input, passthrough=True)
             for x in intersect_array:
                 intersect_list.append(x.tolist())
             continue
@@ -170,68 +192,98 @@ def process_data(db, epsilon, min_samp):
         X = StandardScaler().fit_transform(intersect_array[:, 0:2])
         n_points = len(X)
 
-        if isinstance(min_samp, str):
-            if min_samp == "auto":
-                aoi_min_samp = max(3, round(0.05 * n_points))
-            elif min_samp.isnumeric():
-                aoi_min_samp = max(3, int(min_samp))
-            else:
-                stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input}
-                continue
-        else:
-            aoi_min_samp = max(3, int(min_samp))
+        aoi_min_samp = _resolve_min_samp(min_samp, n_points)
+        if aoi_min_samp is None:
+            stats_by_aoi[aoi] = _empty_stats(aoi, n_input)
+            continue
 
-        if epsilon == "auto":
-            aoi_eps = autoeps_calc(X)
-            log.debug("min_samp: %s, eps: %s", aoi_min_samp, aoi_eps)
-            if aoi_eps <= 0:
-                log.warning("Could not determine a valid epsilon, skipping clustering for this AOI.")
-                stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input}
-                continue
-        else:
-            try:
-                aoi_eps = float(epsilon)
-            except (ValueError, TypeError):
-                stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input}
-                continue
+        aoi_eps = _resolve_epsilon(epsilon, X, aoi_min_samp)
+        if aoi_eps is None:
+            stats_by_aoi[aoi] = _empty_stats(aoi, n_input)
+            continue
 
         resolved_epsilon = aoi_eps
         resolved_min_samples = aoi_min_samp
-
         cluster_jobs.append((aoi, X, aoi_eps, aoi_min_samp))
         postprocess_queue.append((aoi, intersect_array, n_input, n_points))
 
-    labels_by_aoi = {}
-    dbscan_failed = False
-    if cluster_jobs:
-        log.debug("Computing Clusters for %d AOIs.", len(cluster_jobs))
-        result_q = _dbscan_ctx.Queue()
-        starttime = time.time()
-        dbproc = _dbscan_ctx.Process(target=do_dbscan_batch, args=(cluster_jobs, result_q))
-        dbproc.daemon = True
-        dbproc.start()
-        timeout_s = 10 * max(1, len(cluster_jobs))
-        try:
-            labels_by_aoi = result_q.get(timeout=timeout_s)
-        except Exception:
-            log.warning("DBSCAN took too long, terminated.")
-            dbproc.terminate()
-            dbproc.join(timeout=5)
-            dbproc.close()
-            dbscan_failed = True
-        else:
-            dbproc.join(timeout=5)
-            if dbproc.is_alive():
-                dbproc.terminate()
-                dbproc.join(timeout=5)
-            dbproc.close()
-            total_dbscan_ms = (time.time() - starttime) * 1000
-            log.debug("DBSCAN took %.3f seconds for all AOIs.", total_dbscan_ms / 1000)
+    return (cluster_jobs, postprocess_queue, stats_by_aoi,
+            total_db_intersections, resolved_epsilon, resolved_min_samples)
+
+
+def _run_dbscan(cluster_jobs):
+    """Run DBSCAN in a forkserver subprocess.
+
+    Returns (labels_by_aoi, total_dbscan_ms, dbscan_failed)."""
+    if not cluster_jobs:
+        return {}, 0.0, False
+
+    log.debug("Computing Clusters for %d AOIs.", len(cluster_jobs))
+    result_q = _dbscan_ctx.Queue()
+    starttime = time.time()
+    dbproc = _dbscan_ctx.Process(target=do_dbscan_batch, args=(cluster_jobs, result_q))
+    dbproc.daemon = True
+    dbproc.start()
+    timeout_s = 10 * max(1, len(cluster_jobs))
+    try:
+        labels_by_aoi = result_q.get(timeout=timeout_s)
+    except Exception:
+        log.warning("DBSCAN took too long, terminated.")
+        dbproc.terminate()
+        dbproc.join(timeout=5)
+        dbproc.close()
+        return {}, 0.0, True
+
+    dbproc.join(timeout=5)
+    if dbproc.is_alive():
+        dbproc.terminate()
+        dbproc.join(timeout=5)
+    dbproc.close()
+    total_dbscan_ms = (time.time() - starttime) * 1000
+    log.debug("DBSCAN took %.3f seconds for all AOIs.", total_dbscan_ms / 1000)
+    return labels_by_aoi, total_dbscan_ms, False
+
+
+def _compute_cluster_ellipse(cluster, n_std):
+    """Return [semi_major_m, semi_minor_m, rotation, lon, lat] or None.
+
+    Returns None for degenerate clusters (all points coincident) where the
+    covariance collapses to the zero matrix and no ellipse can be drawn."""
+    clustermean = np.mean(cluster[:, 0:2], axis=0)
+    cov_deg = np.cov(cluster[:, 0], cluster[:, 1])
+    # Degenerate cluster (all identical points) → covariance is the zero
+    # matrix. Use a tolerance because float equality on numpy outputs can give
+    # either exact 0 or 1e-30-ish; either way there's no ellipse to draw.
+    if cov_deg[0, 0] < 1e-30 and cov_deg[1, 1] < 1e-30:
+        return clustermean, None
+    center_latlon = clustermean.tolist()[::-1]
+    m_per_deg_lon = v.inverse(center_latlon,
+        (clustermean[1], clustermean[0] + 1))[0]
+    m_per_deg_lat = v.inverse(center_latlon,
+        (clustermean[1] + 1, clustermean[0]))[0]
+    S = np.diag([m_per_deg_lon, m_per_deg_lat])
+    cov_m = S @ cov_deg @ S
+    eigenvalues, eigenvectors = np.linalg.eigh(cov_m)
+    semi_major_m = np.sqrt(eigenvalues[1]) * n_std
+    semi_minor_m = np.sqrt(eigenvalues[0]) * n_std
+    major_vec = eigenvectors[:, 1]
+    rotation = math.atan2(major_vec[1], major_vec[0])
+    return clustermean, [semi_major_m, semi_minor_m, rotation, *clustermean.tolist()]
+
+
+def _postprocess_clusters(postprocess_queue, labels_by_aoi, dbscan_failed, n_std,
+                          intersect_list, stats_by_aoi):
+    """Apply DBSCAN labels, gather likely locations and ellipses.
+
+    Mutates intersect_list and stats_by_aoi in place; returns
+    (likely_location, ellipsedata)."""
+    likely_location = []
+    ellipsedata = []
 
     for aoi, intersect_array, n_input, n_points in postprocess_queue:
         labels = labels_by_aoi.get(aoi) if not dbscan_failed else None
         if labels is None:
-            stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input}
+            stats_by_aoi[aoi] = _empty_stats(aoi, n_input)
             continue
 
         intersect_array = np.column_stack((intersect_array, labels))
@@ -241,34 +293,15 @@ def process_data(db, epsilon, min_samp):
         log.debug("Number of clusters: %d", n_clusters_)
         log.debug("Outliers Removed: %d", n_noise_)
 
-        stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": n_in_cluster, "clusters": n_clusters_, "outliers": n_noise_}
+        stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input,
+            "in_cluster": n_in_cluster, "clusters": n_clusters_, "outliers": n_noise_}
 
         for x in range(n_clusters_):
-            mask = labels == x
-            cluster = intersect_array[mask, 0:3]
-            clustermean = np.mean(cluster[:, 0:2], axis=0)
+            cluster = intersect_array[labels == x, 0:3]
+            clustermean, ellipse = _compute_cluster_ellipse(cluster, n_std)
             likely_location.append(clustermean.tolist())
-            cov_deg = np.cov(cluster[:, 0], cluster[:, 1])
-            # Degenerate cluster (all identical points) → covariance is the
-            # zero matrix. Use a tolerance because float equality on numpy
-            # outputs can give either exact 0 or 1e-30-ish; either way there's
-            # no ellipse to draw.
-            if cov_deg[0, 0] < 1e-30 and cov_deg[1, 1] < 1e-30:
-                continue
-            center_latlon = clustermean.tolist()[::-1]
-            m_per_deg_lon = v.inverse(center_latlon,
-                (clustermean[1], clustermean[0] + 1))[0]
-            m_per_deg_lat = v.inverse(center_latlon,
-                (clustermean[1] + 1, clustermean[0]))[0]
-            S = np.diag([m_per_deg_lon, m_per_deg_lat])
-            cov_m = S @ cov_deg @ S
-            eigenvalues, eigenvectors = np.linalg.eigh(cov_m)
-            semi_major_m = np.sqrt(eigenvalues[1]) * n_std
-            semi_minor_m = np.sqrt(eigenvalues[0]) * n_std
-            major_vec = eigenvectors[:, 1]
-            rotation = math.atan2(major_vec[1], major_vec[0])
-            ellipsedata.append(
-                [semi_major_m, semi_minor_m, rotation, *clustermean.tolist()])
+            if ellipse is not None:
+                ellipsedata.append(ellipse)
 
         for x in likely_location:
             log.debug("%s", x[::-1])
@@ -277,8 +310,30 @@ def process_data(db, epsilon, min_samp):
             if x[-1] >= 0:
                 intersect_list.append(x[0:3].tolist())
 
+    return likely_location, ellipsedata
+
+
+def process_data(db, epsilon, min_samp):
+    clustering_enabled = (epsilon != "0")
+    intersect_list = []
+
+    aoi_rows = db.query('SELECT uid FROM interest_areas WHERE aoi_type="aoi"')
+    aoi_list = [item for sublist in aoi_rows for item in sublist]
+    aoi_list.append(-1)
+
+    (cluster_jobs, postprocess_queue, stats_by_aoi,
+     total_db_intersections, resolved_epsilon, resolved_min_samples
+     ) = _prepare_cluster_jobs(db, aoi_list, epsilon, min_samp, intersect_list)
+
+    labels_by_aoi, total_dbscan_ms, dbscan_failed = _run_dbscan(cluster_jobs)
+
+    likely_location, ellipsedata = _postprocess_clusters(
+        postprocess_queue, labels_by_aoi, dbscan_failed,
+        GAUSSIAN_ELLIPSE_SIGMA, intersect_list, stats_by_aoi)
+
     per_aoi_stats = [stats_by_aoi[aoi] for aoi in aoi_list if aoi in stats_by_aoi]
-    _update_pipeline_stats(total_db_intersections, clustering_enabled, per_aoi_stats, total_dbscan_ms, resolved_epsilon, resolved_min_samples)
+    _update_pipeline_stats(total_db_intersections, clustering_enabled,
+        per_aoi_stats, total_dbscan_ms, resolved_epsilon, resolved_min_samples)
     return likely_location, intersect_list, ellipsedata
 
 
