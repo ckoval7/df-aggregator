@@ -7,13 +7,13 @@
       if (typeof createReceivers === 'function') createReceivers(data);
       if (globalThis.statusBar) statusBar.updateReceiverStats(data);
       if (globalThis.mobileUI) mobileUI.updateReceiverStats(data);
-      if (typeof loadRxCzml === 'function') loadRxCzml();
+      if (!isHistoryMode && typeof loadRxCzml === 'function') loadRxCzml();
     });
 
     es.addEventListener('rx_telemetry', function(e) {
       var data = JSON.parse(e.data);
       if (typeof applyTelemetryUpdates === 'function') applyTelemetryUpdates(data);
-      if (typeof loadRxCzml === 'function') loadRxCzml();
+      if (!isHistoryMode && typeof loadRxCzml === 'function') loadRxCzml();
     });
 
     es.addEventListener('aoi_config', function(e) {
@@ -21,7 +21,7 @@
       if (typeof createAois === 'function') createAois(data);
       if (globalThis.statusBar) statusBar.updateAoiStats(data);
       if (globalThis.mobileUI) mobileUI.updateAoiStats(data);
-      if (typeof loadAoiCzml === 'function') loadAoiCzml();
+      if (!isHistoryMode && typeof loadAoiCzml === 'function') loadAoiCzml();
     });
 
     es.addEventListener('heartbeat', function() {
