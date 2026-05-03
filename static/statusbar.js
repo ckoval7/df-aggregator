@@ -5,7 +5,6 @@ function fmtCount(n) {
 
 const statusBar = {
   els: {},
-  _pipelineTimer: null,
 
   init: function() {
     this.els.rxCount = document.getElementById('stat-rx-count');
@@ -16,6 +15,7 @@ const statusBar = {
     this.els.freqUnit = document.getElementById('stat-freq-unit');
     this.els.freqStat = document.getElementById('stat-freq');
     this.els.modePill = document.getElementById('stat-mode-pill');
+    this.els.connPill = document.getElementById('conn-pill');
     this.els.clockTime = document.getElementById('clock-time');
     this.els.clockDate = document.getElementById('clock-date');
     this.els.dbIntersections = document.getElementById('stat-db-intersections');
@@ -101,14 +101,17 @@ const statusBar = {
     }
   },
 
-  fetchPipelineStats: function() {
-    if (this._pipelineTimer) clearTimeout(this._pipelineTimer);
-    this._pipelineTimer = setTimeout(() => {
-      fetch('/api/pipeline-stats')
-        .then(function(r) { return r.json(); })
-        .then((data) => { this.updatePipelineStats(data); })
-        .catch(function() {});
-    }, 250);
+  setConnected: function(isConnected) {
+    if (!this.els || !this.els.connPill) return;
+    if (isConnected) {
+      this.els.connPill.classList.remove('disconnected');
+      this.els.connPill.classList.add('connected');
+      this.els.connPill.textContent = 'LIVE';
+    } else {
+      this.els.connPill.classList.remove('connected');
+      this.els.connPill.classList.add('disconnected');
+      this.els.connPill.textContent = 'DISCONNECTED';
+    }
   },
 
   updatePipelineStats: function(data) {

@@ -71,6 +71,7 @@
         <div class="stat-label">MODE</div>
         <div class="stat-value">
           <span class="mode-pill live" id="stat-mode-pill"><span class="rec-dot"></span>LIVE</span>
+          <span id="conn-pill" class="mode-pill connected">LIVE</span>
         </div>
       </div>
     </div>
