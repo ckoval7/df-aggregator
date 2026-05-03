@@ -100,22 +100,167 @@ def _validate_receiver_url(url):
         raise HTTPError(400, "receiver host did not resolve")
 
 
+def _apply_cesium_updates(ms, query):
+    if query.minconf:
+        ms.min_conf = float(query.minconf)
+    if query.minpower:
+        ms.min_power = float(query.minpower)
+    if query.rx == "true":
+        ms.receiving = True
+    elif query.rx == "false":
+        ms.receiving = False
+    if query.lob_history == "true":
+        ms.lob_history_enabled = True
+    elif query.lob_history == "false":
+        ms.lob_history_enabled = False
+
+
+def _resolve_plotallintersects(query, ms):
+    if query.plotpts == "true":
+        return True
+    if query.plotpts == "false":
+        return False
+    return ms.plotintersects
+
+
+def _snapshot_rx_properties(receiver_manager):
+    with receiver_manager.lock():
+        snapshot = list(enumerate(receiver_manager.receivers))
+    rx_properties = []
+    for index, x in snapshot:
+        rx = x.receiver_dict()
+        rx['uid'] = index
+        rx_properties.append(rx)
+    return rx_properties
+
+
+def _rx_action_new(receiver_manager):
+    data = _read_json_body(required_keys=('station_url',))
+    url = data['station_url']
+    if not isinstance(url, str):
+        raise HTTPError(400, "station_url must be a string")
+    url = url.replace('\n', '').strip()
+    _validate_receiver_url(url)
+    receiver_manager.add(url)
+
+
+def _rx_action_del(receiver_manager):
+    data = _read_json_body(required_keys=('uid',))
+    index, _ = _rx_resolve(data, receiver_manager)
+    receiver_manager.remove(index)
+
+
+def _rx_action_activate(receiver_manager):
+    data = _read_json_body(required_keys=('uid', 'state'))
+    _, rx = _rx_resolve(data, receiver_manager)
+    state = bool(data['state'])
+    rx.isActive = state
+    if state:
+        rx.error_count = 0
+        rx.last_error = ""
+        rx.next_retry_time = 0
+        rx.next_probe_time = 0
+        rx.max_retries = 0
+    else:
+        rx.next_probe_time = 0
+
+
+def _rx_action_configure(action, receiver_manager):
+    try:
+        index = int(action)
+    except ValueError:
+        raise HTTPError(400, "action must be 'new', 'del', 'activate', or an integer index")
+    data = _read_json_body(required_keys=('mobile', 'inverted', 'single'))
+    rx = receiver_manager.get_by_index(index)
+    if rx is None:
+        raise HTTPError(400, "receiver index out of range")
+    rx.isMobile = bool(data['mobile'])
+    rx.inverted = bool(data['inverted'])
+    rx.isSingle = bool(data['single'])
+    # Don't call rx.update() here — that's a 5s blocking HTTP fetch
+    # in a request handler. The polling loop calls update() every
+    # ~1s and will apply the new isMobile/inverted/isSingle flags
+    # on the next cycle (raw_doa interpretation reads them by ref).
+    # The redirect target /rx_params returns cached state anyway,
+    # so the synchronous fetch wasn't even visible to the client.
+    receiver_manager.save_to_db()
+
+
+def _dispatch_rx_action(action, receiver_manager):
+    if action == "new":
+        _rx_action_new(receiver_manager)
+    elif action == "del":
+        _rx_action_del(receiver_manager)
+    elif action == "activate":
+        _rx_action_activate(receiver_manager)
+    else:
+        _rx_action_configure(action, receiver_manager)
+
+
+def _aoi_action_new(db):
+    data = _read_json_body(required_keys=('aoi_type', 'latitude', 'longitude', 'radius'))
+    if "" in data.values():
+        raise HTTPError(400, "AOI fields must not be empty")
+    aoi_type = data['aoi_type']
+    if aoi_type not in ('aoi', 'exclusion'):
+        raise HTTPError(400, "aoi_type must be 'aoi' or 'exclusion'")
+    # Earth's circumference is ~40,000 km; cap radius well above any
+    # realistic AOI to keep downstream geodesy from running away.
+    lat = _require_float(data, 'latitude', lo=-90.0, hi=90.0)
+    lon = _require_float(data, 'longitude', lo=-180.0, hi=180.0)
+    radius = _require_float(data, 'radius', lo=1.0, hi=20_000_000.0)
+    db.add_aoi(aoi_type, lat, lon, radius)
+
+
+def _aoi_action_del(db):
+    data = _read_json_body(required_keys=('uid',))
+    uid = _require_int(data, 'uid', lo=0)
+    db.execute("UPDATE intersects SET aoi_id=? WHERE aoi_id=?", [(-1, uid)], wait=True)
+    db.execute("DELETE FROM interest_areas WHERE uid=?", [(str(uid),)], wait=True)
+    db.commit_and_invalidate_aoi_cache()
+
+
+def _aoi_action_purge(db):
+    data = _read_json_body(required_keys=('uid',))
+    uid = _require_int(data, 'uid', lo=0)
+    row = db.query_one(
+        "SELECT aoi_type, latitude, longitude, radius FROM interest_areas WHERE uid=?",
+        [uid])
+    if row is None:
+        raise HTTPError(404, "AOI not found")
+    # Purge is only defined for exclusion zones — see purge_database.
+    # The UI only offers the button for exclusions; reject anything
+    # else with a 400 instead of letting the ValueError become a 500.
+    if row[0] != "exclusion":
+        raise HTTPError(400, "purge is only defined for exclusion zones")
+    db.purge_database(*row)
+
+
+def _dispatch_aoi_action(action, db):
+    if action == "new":
+        _aoi_action_new(db)
+    elif action == "del":
+        _aoi_action_del(db)
+    elif action == "purge":
+        _aoi_action_purge(db)
+    else:
+        raise HTTPError(400, "unknown action")
+
+
 def create_routes(config, ms, db, receiver_manager):
     app = Bottle()
 
     @app.route('/static/<filepath:path>', name='static')
     def server_static(filepath):
         resp = static_file(filepath, root='./static')
-        resp.set_header(
-            'Cache-Control', _NO_CACHE)
+        resp.set_header('Cache-Control', _NO_CACHE)
         return resp
 
     @app.get('/')
     @app.get('/index')
     @app.get('/cesium')
     def cesium():
-        response.set_header(
-            'Cache-Control', _NO_CACHE)
+        response.set_header('Cache-Control', _NO_CACHE)
         return template('cesium.tpl',
                         {'access_token': config.access_token,
                          'epsilon': ms.eps,
@@ -129,48 +274,22 @@ def create_routes(config, ms, db, receiver_manager):
 
     @app.get('/update')
     def update_cesium():
-        ms.min_conf = float(
-            request.query.minconf) if request.query.minconf else ms.min_conf
-        ms.min_power = float(
-            request.query.minpower) if request.query.minpower else ms.min_power
-        if request.query.rx == "true":
-            ms.receiving = True
-        elif request.query.rx == "false":
-            ms.receiving = False
-        if request.query.lob_history == "true":
-            ms.lob_history_enabled = True
-        elif request.query.lob_history == "false":
-            ms.lob_history_enabled = False
+        _apply_cesium_updates(ms, request.query)
         return "OK"
 
     @app.get('/rx_params')
     def rx_params():
         # No rx.update() here — the run_loop polls every ~1s; this endpoint
         # just returns cached state for the UI cards.
-        all_rx = {'receivers': {}}
-        rx_properties = []
-        with receiver_manager.lock():
-            snapshot = list(enumerate(receiver_manager.receivers))
-        for index, x in snapshot:
-            rx = x.receiver_dict()
-            rx['uid'] = index
-            rx_properties.append(rx)
-        all_rx['receivers'] = rx_properties
         response.headers['Content-Type'] = _JSON_CT
-        return json.dumps(all_rx)
+        return json.dumps({'receivers': _snapshot_rx_properties(receiver_manager)})
 
     @app.get('/output.czml')
     def tx_czml_out():
         eps = request.query.eps if request.query.eps else str(ms.eps)
         min_samp = request.query.minpts if request.query.minpts else str(ms.min_samp)
-        if request.query.plotpts == "true":
-            plotallintersects = True
-        elif request.query.plotpts == "false":
-            plotallintersects = False
-        else:
-            plotallintersects = ms.plotintersects
-        response.set_header(
-            'Cache-Control', _NO_CACHE)
+        plotallintersects = _resolve_plotallintersects(request.query, ms)
+        response.set_header('Cache-Control', _NO_CACHE)
         output = geo.write_czml(*geo.process_data(db, eps, min_samp), plotallintersects, eps)
         return str(output)
 
@@ -182,105 +301,21 @@ def create_routes(config, ms, db, receiver_manager):
 
     @app.put('/rx_params/<action>')
     def update_rx(action):
-        if action == "new":
-            data = _read_json_body(required_keys=('station_url',))
-            url = data['station_url']
-            if not isinstance(url, str):
-                raise HTTPError(400, "station_url must be a string")
-            url = url.replace('\n', '').strip()
-            _validate_receiver_url(url)
-            receiver_manager.add(url)
-        elif action == "del":
-            data = _read_json_body(required_keys=('uid',))
-            index, _ = _rx_resolve(data, receiver_manager)
-            receiver_manager.remove(index)
-        elif action == "activate":
-            data = _read_json_body(required_keys=('uid', 'state'))
-            _, rx = _rx_resolve(data, receiver_manager)
-            state = bool(data['state'])
-            rx.isActive = state
-            if state:
-                rx.error_count = 0
-                rx.last_error = ""
-                rx.next_retry_time = 0
-                rx.next_probe_time = 0
-                rx.max_retries = 0
-            else:
-                rx.next_probe_time = 0
-        else:
-            try:
-                index = int(action)
-            except ValueError:
-                raise HTTPError(400, "action must be 'new', 'del', 'activate', or an integer index")
-            data = _read_json_body(required_keys=('mobile', 'inverted', 'single'))
-            rx = receiver_manager.get_by_index(index)
-            if rx is None:
-                raise HTTPError(400, "receiver index out of range")
-            rx.isMobile = bool(data['mobile'])
-            rx.inverted = bool(data['inverted'])
-            rx.isSingle = bool(data['single'])
-            # Don't call rx.update() here — that's a 5s blocking HTTP fetch
-            # in a request handler. The polling loop calls update() every
-            # ~1s and will apply the new isMobile/inverted/isSingle flags
-            # on the next cycle (raw_doa interpretation reads them by ref).
-            # The redirect target /rx_params returns cached state anyway,
-            # so the synchronous fetch wasn't even visible to the client.
-            receiver_manager.save_to_db()
+        _dispatch_rx_action(action, receiver_manager)
         return redirect('/rx_params')
 
     @app.get('/interest_areas')
     def load_interest_areas():
-        all_aoi = {'aois': {}}
-        aoi_properties = []
-        for x in db.fetch_aoi_data():
-            aoi = {
-                'uid': x[0], 'aoi_type': x[1],
-                'latitude': x[2], 'longitude': x[3], 'radius': x[4]
-            }
-            aoi_properties.append(aoi)
-        all_aoi['aois'] = aoi_properties
+        aoi_properties = [
+            {'uid': x[0], 'aoi_type': x[1], 'latitude': x[2], 'longitude': x[3], 'radius': x[4]}
+            for x in db.fetch_aoi_data()
+        ]
         response.headers['Content-Type'] = _JSON_CT
-        return json.dumps(all_aoi)
+        return json.dumps({'aois': aoi_properties})
 
     @app.put('/interest_areas/<action>')
     def handle_interest_areas(action):
-        if action == "new":
-            data = _read_json_body(required_keys=('aoi_type', 'latitude', 'longitude', 'radius'))
-            if "" in data.values():
-                raise HTTPError(400, "AOI fields must not be empty")
-            aoi_type = data['aoi_type']
-            if aoi_type not in ('aoi', 'exclusion'):
-                raise HTTPError(400, "aoi_type must be 'aoi' or 'exclusion'")
-            # Earth's circumference is ~40,000 km; cap radius well above any
-            # realistic AOI to keep downstream geodesy from running away.
-            lat = _require_float(data, 'latitude', lo=-90.0, hi=90.0)
-            lon = _require_float(data, 'longitude', lo=-180.0, hi=180.0)
-            radius = _require_float(data, 'radius', lo=1.0, hi=20_000_000.0)
-            db.add_aoi(aoi_type, lat, lon, radius)
-        elif action == "del":
-            data = _read_json_body(required_keys=('uid',))
-            uid = _require_int(data, 'uid', lo=0)
-            command = "UPDATE intersects SET aoi_id=? WHERE aoi_id=?"
-            db.execute(command, [(-1, uid)], wait=True)
-            to_table = (str(uid),)
-            command = "DELETE FROM interest_areas WHERE uid=?"
-            db.execute(command, [to_table], wait=True)
-            db.commit_and_invalidate_aoi_cache()
-        elif action == "purge":
-            data = _read_json_body(required_keys=('uid',))
-            uid = _require_int(data, 'uid', lo=0)
-            row = db.query_one("SELECT aoi_type, latitude, longitude, radius FROM interest_areas WHERE uid=?",
-                               [uid])
-            if row is None:
-                raise HTTPError(404, "AOI not found")
-            # Purge is only defined for exclusion zones — see purge_database.
-            # The UI only offers the button for exclusions; reject anything
-            # else with a 400 instead of letting the ValueError become a 500.
-            if row[0] != "exclusion":
-                raise HTTPError(400, "purge is only defined for exclusion zones")
-            db.purge_database(*row)
-        else:
-            raise HTTPError(400, "unknown action")
+        _dispatch_aoi_action(action, db)
 
     @app.get('/run_all_aoi_rules')
     def run_aoi_rules():
@@ -289,14 +324,12 @@ def create_routes(config, ms, db, receiver_manager):
 
     @app.get('/receivers.czml')
     def rx_czml():
-        response.set_header(
-            'Cache-Control', _NO_CACHE)
+        response.set_header('Cache-Control', _NO_CACHE)
         return geo.write_rx_czml(receiver_manager, ms)
 
     @app.get('/lob_history.czml')
     def lob_history():
-        response.set_header(
-            'Cache-Control', _NO_CACHE)
+        response.set_header('Cache-Control', _NO_CACHE)
         params = {
             'start': request.query.start,
             'end': request.query.end,
@@ -309,8 +342,7 @@ def create_routes(config, ms, db, receiver_manager):
 
     @app.get('/aoi.czml')
     def aoi_czml():
-        response.set_header(
-            'Cache-Control', _NO_CACHE)
+        response.set_header('Cache-Control', _NO_CACHE)
         return geo.wr_aoi_czml(db)
 
     return app
