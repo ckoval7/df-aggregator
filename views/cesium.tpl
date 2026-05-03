@@ -853,7 +853,6 @@
       }).then(function(fresh) {
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
-        statusBar.fetchPipelineStats();
         return fresh;
       }).catch(function(error) {
         console.error('Error loading transmitters CZML:', error);
@@ -895,6 +894,7 @@
   <script src="/static/lob_history.js"></script>
   <script src="/static/mobile.js"></script>
   <script src="/static/mobile_scrub.js"></script>
+  <script src="/static/sse_client.js"></script>
 
   <!-- ===== Init & Filter Wiring ===== -->
   <script>

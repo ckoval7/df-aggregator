@@ -1,5 +1,4 @@
-globalThis.refreshrate = 2500;
-globalThis.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+// Polling is replaced by SSE. reloadRX is still called after user actions.
 
 function updateRx(callBack, id) {
   fetch("/rx_params")
@@ -177,7 +176,6 @@ function editReceivers(rx_json, uid) {
     fetch('/rx_params/' + uid, otherParams)
       .then(function() {
         card.classList.remove('editing');
-        globalThis.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
         loadRx(function(rx_json) {
           createReceivers(rx_json);
           statusBar.updateReceiverStats(rx_json);
@@ -187,7 +185,6 @@ function editReceivers(rx_json, uid) {
     return;
   }
 
-  clearInterval(autoRefresh);
   card.classList.add('editing');
 
   const isMobileChecked = rx.mobile ? 'checked' : '';
@@ -215,7 +212,7 @@ function editReceivers(rx_json, uid) {
   editHtml += '</div>';
   editHtml += '<div style="margin-top:8px; display:flex; gap:6px;">';
   editHtml += '<button class="btn btn-primary" style="flex:1" data-action="edit" data-uid="' + uid + '">Save</button>';
-  editHtml += '<button class="btn btn-ghost" style="flex:0" onclick="autoRefresh=setInterval(function(){reloadRX()},refreshrate);loadRx(function(r){createReceivers(r);statusBar.updateReceiverStats(r)})">Cancel</button>';
+  editHtml += '<button class="btn btn-ghost" style="flex:0" onclick="loadRx(function(r){createReceivers(r);statusBar.updateReceiverStats(r)})">Cancel</button>';
   editHtml += '</div>';
 
   body.innerHTML = editHtml;
@@ -244,4 +241,31 @@ function refreshRx(rx_json, id) {
 
 function loadRx(action) {
   updateRx(action, null);
+}
+
+function applyTelemetryUpdates(payload) {
+  const receivers = (payload && payload.receivers) ? payload.receivers : [];
+  for (const t of receivers) {
+    const card = document.getElementById('rx-' + t.uid);
+    if (!card) continue;
+    if (card.classList.contains('editing')) continue;
+
+    // Translate telemetry payload to the shape buildRxCardHtml expects.
+    const rxLike = {
+      uid: t.uid,
+      station_id: t.station_id,
+      active: t.active,
+      latitude: t.latitude,
+      longitude: t.longitude,
+      heading: t.heading,
+      frequency: t.frequency,
+      signal: t.power,
+      conf: t.confidence,
+    };
+    const result = buildRxCardHtml(rxLike);
+    card.className = 'card rx-card ' + result.stateClass;
+    card.innerHTML = result.html;
+  }
+  // Action buttons need their listeners re-bound after innerHTML rewrite.
+  wireRxCardActions();
 }
