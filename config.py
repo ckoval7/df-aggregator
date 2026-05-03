@@ -51,8 +51,3 @@ RECEIVER_MAX_RETRIES_TRANSIENT = 5
 RECEIVER_MAX_RETRIES_PERSISTENT = 2
 RECEIVER_BACKOFF_BASE_S = 2
 RECEIVER_PROBE_INTERVAL_S = 30
-
-
-def clear(debugging):
-    if not debugging:
-        print('\033[2J\033[H', end='', flush=True)

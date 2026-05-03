@@ -1,5 +1,6 @@
 import gzip
 import json
+import logging
 import socket
 from urllib.parse import urlsplit
 
@@ -7,6 +8,8 @@ from bottle import Bottle, run, request, response, redirect, template, static_fi
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 import geo
+
+log = logging.getLogger(__name__)
 
 
 # NOTE: there is intentionally no authentication on these routes. The default
@@ -413,5 +416,5 @@ def start_server(config, app):
         run(app=GzipMiddleware(app), host=config.ip, port=config.port, quiet=True,
             server=GeventWebSocketServer, debug=config.debugging)
     except OSError:
-        print(f"Port {config.port} seems to be in use. Please select another port or " +
-              "check if another instance of DFA is already running.")
+        log.error("Port %d seems to be in use. Please select another port or "
+                  "check if another instance of DFA is already running.", config.port)

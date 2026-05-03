@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 import threading
 import queue
@@ -7,6 +8,8 @@ import numpy as np
 
 import vincenty as v
 from config import AppConfig
+
+log = logging.getLogger(__name__)
 
 # WGS-84 equatorial radius — same constant used by vincenty.haversine, kept
 # local so the vectorized path doesn't reach into another module's globals.
@@ -159,8 +162,9 @@ class Database:
                 else:
                     c.executemany(command, items)
             except Exception as ex:
-                print(f"Database writer error on '{command[:60] if isinstance(command, str) else command}': "
-                      f"{type(ex).__name__}: {ex}")
+                log.error("Database writer error on '%s': %s: %s",
+                          command[:60] if isinstance(command, str) else command,
+                          type(ex).__name__, ex)
                 if reply_q is not None:
                     reply_q.put(ex)
                 continue
@@ -240,7 +244,7 @@ class Database:
         if delete_these:
             self.execute("DELETE FROM intersects WHERE id=?", delete_these, wait=False)
             self.commit()
-        print(f"I purged {len(delete_these)} intersects.")
+        log.info("Purged %d intersects.", len(delete_these))
 
     def run_aoi_rules(self):
         # Re-assign every intersection's aoi_id according to the current AOI
@@ -266,7 +270,8 @@ class Database:
             self.execute("UPDATE intersects SET aoi_id=?", (-1,), wait=True)
             self.commit_and_invalidate_aoi_cache()
             stoptime = time.time()
-            print(f"Purged 0 intersections and sorted 0 intersections into 0 AOIs in {stoptime - starttime} seconds.")
+            log.info("Purged 0 intersections and sorted 0 intersections into 0 AOIs in %.3f seconds.",
+                     stoptime - starttime)
             return "OK"
 
         if intersect_list:
@@ -330,5 +335,6 @@ class Database:
             self.execute("UPDATE intersects SET aoi_id=? WHERE id=?", keep_list, wait=True)
         self.commit_and_invalidate_aoi_cache()
         stoptime = time.time()
-        print(f"Purged {purged} intersections and sorted {sorted_count} intersections into {n_aoi} AOIs in {stoptime - starttime} seconds.")
+        log.info("Purged %d intersections and sorted %d intersections into %d AOIs in %.3f seconds.",
+                 purged, sorted_count, n_aoi, stoptime - starttime)
         return "OK"

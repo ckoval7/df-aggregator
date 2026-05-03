@@ -25,16 +25,20 @@ if (version_info.major != 3 or version_info.minor < 6):
     quit()
 
 import argparse
+import logging
+import re
 import signal
 import threading
 import time
 from os import kill, getpid
 
-from config import AppConfig, MathSettings, clear
+from config import AppConfig, MathSettings
 from database import Database
 from receivers import ReceiverManager
 import geo
 import web
+
+log = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
@@ -73,12 +77,43 @@ if __name__ == '__main__':
                         help="Port number to serve from (default: 8080)",
                         metavar="NUMBER", type=int, default=8080)
     parser.add_argument("--debug", dest="debugging",
-                        help="Don't clear screen; show errors and warnings",
+                        help="Enable DEBUG-level logging and Bottle debug mode",
                         action="store_true")
+    parser.add_argument("--log-file", dest="log_file",
+                        help="Also write logs to this file",
+                        metavar="PATH")
     parser.add_argument("--no-lob-history", dest="no_lob_history",
                         help="Disable LOB history recording",
                         action="store_true")
     options = parser.parse_args()
+
+    root_level = logging.DEBUG if options.debugging else logging.INFO
+    handlers = [logging.StreamHandler()]
+    if options.log_file:
+        handlers.append(logging.FileHandler(options.log_file))
+    for h in handlers:
+        h.setLevel(root_level)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=handlers,
+    )
+
+    # gevent's WSGI handler logs every request at INFO, including the 2.5s UI
+    # polls — too chatty. Demote successful (2xx/3xx) responses to DEBUG;
+    # keep 4xx/5xx visible at INFO so error responses still show up.
+    _access_log_re = re.compile(r'" (\d{3}) ')
+
+    def _demote_successful_access(record):
+        msg = record.getMessage()
+        m = _access_log_re.search(msg)
+        if m and m.group(1)[0] in ('2', '3'):
+            record.levelno = logging.DEBUG
+            record.levelname = "DEBUG"
+        return True
+
+    logging.getLogger("geventwebsocket.handler").addFilter(_demote_successful_access)
 
     access_token = None
     if options.token_file:
@@ -103,8 +138,7 @@ if __name__ == '__main__':
     rx_mgr = ReceiverManager(db)
 
     def finish():
-        clear(app_config.debugging)
-        print("Processing, please wait.")
+        log.info("Processing, please wait.")
         ms.receiving = False
         rx_mgr.save_to_db()
         db.close()
@@ -130,12 +164,13 @@ if __name__ == '__main__':
                     receiver_url = x.replace('\n', '')
                     rx_mgr.add(receiver_url)
 
+        prev_receiving = None
         while True:
+            if ms.receiving != prev_receiving:
+                log.info("Receiver running" if ms.receiving else "Receiver paused")
+                prev_receiving = ms.receiving
             if ms.receiving:
                 rx_mgr.run_loop(app_config, ms)
-            clear(app_config.debugging)
-            if not app_config.debugging:
-                print("Receiver Paused")
             time.sleep(1)
 
     except KeyboardInterrupt:

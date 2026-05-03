@@ -9,6 +9,7 @@
 #lembda1: longitude of the start point, decimal degrees
 #alpha12: bearing, decimal degrees
 #s: Distance to endpoint, meters
+import logging
 import sys
 from math import atan
 from math import atan2
@@ -22,6 +23,8 @@ from math import tan
 a=6378137.0                             # radius at equator in meters (WGS-84)
 f=1/298.257223563                       # flattening of the ellipsoid (WGS-84)
 b=(1-f)*a
+
+log = logging.getLogger(__name__)
 
 def haversine(lat1, lon1, lat2, lon2):
     # convert decimal degrees to radians
@@ -125,8 +128,9 @@ def inverse(coord1,coord2,maxIter=200,tol=10**-12):
         # the last-iteration distance so behavior degrades rather than
         # crashing the polling loop, but the print makes the failure
         # diagnosable if it ever surfaces.
-        print(f"vincenty.inverse: did not converge after {maxIter} iters "
-              f"for {coord1} -> {coord2}; result is approximate")
+        log.warning("vincenty.inverse: did not converge after %d iters "
+                    "for %s -> %s; result is approximate",
+                    maxIter, coord1, coord2)
 
     u_sq=cos_sq_alpha*((a**2-b**2)/b**2)
     A=1+(u_sq/16384)*(4096+u_sq*(-768+u_sq*(320-175*u_sq)))
@@ -181,8 +185,9 @@ def direct(phi1, lembda1, alpha12, s, maxIter=200): #lat, lon, bearing, distance
     while ( abs( (last_sigma - sigma) / sigma) > 1.0e-9 ):
         iters += 1
         if iters > maxIter:
-            print(f"vincenty.direct: did not converge after {maxIter} iters "
-                  f"for ({phi1},{lembda1}) brg={alpha12} s={s}; result is approximate")
+            log.warning("vincenty.direct: did not converge after %d iters "
+                        "for (%s,%s) brg=%s s=%s; result is approximate",
+                        maxIter, phi1, lembda1, alpha12, s)
             break
         two_sigma_m = 2 * sigma1 + sigma
         delta_sigma = B * sin(sigma) * ( cos(two_sigma_m) \

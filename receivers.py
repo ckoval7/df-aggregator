@@ -1,3 +1,4 @@
+import logging
 import time
 import threading
 import urllib.request
@@ -15,8 +16,10 @@ from config import (LOB_DRAW_DISTANCE_METERS, MAX_TIME_DIFF_MS,
     MIN_SPATIAL_DIVERSITY_METERS, MIN_LOB_PAIR_BEARING_DIFF_DEG,
     RECEIVER_MAX_RETRIES_TRANSIENT,
     RECEIVER_MAX_RETRIES_PERSISTENT, RECEIVER_BACKOFF_BASE_S,
-    RECEIVER_PROBE_INTERVAL_S, clear)
+    RECEIVER_PROBE_INTERVAL_S)
 from geo import plot_intersects
+
+log = logging.getLogger(__name__)
 
 
 # Secure XML parser: receiver responses come from arbitrary network endpoints,
@@ -153,9 +156,9 @@ class Receiver:
             self.max_retries = max_retries
             backoff = min(RECEIVER_BACKOFF_BASE_S ** self.error_count, 64)
             self.next_retry_time = time.time() + backoff
-            print(f"{ex} — {self.station_url} "
-                  f"({error_type} error {self.error_count}/{max_retries}, "
-                  f"retry in {backoff}s)")
+            log.error("%s — %s (%s error %d/%d, retry in %ds)",
+                      ex, self.station_url, error_type,
+                      self.error_count, max_retries, backoff)
             if first_run or self.error_count >= max_retries:
                 if first_run:
                     self.station_id = "Unknown"
@@ -173,9 +176,10 @@ class Receiver:
                 self.next_retry_time = 0
                 self.next_probe_time = time.time() + RECEIVER_PROBE_INTERVAL_S
                 self.max_retries = 0
-                print(
-                    f"Problem connecting to {self.station_url}, receiver deactivated. "
-                    f"Will auto-probe in {RECEIVER_PROBE_INTERVAL_S}s.")
+                log.error(
+                    "Problem connecting to %s, receiver deactivated. "
+                    "Will auto-probe in %ds.",
+                    self.station_url, RECEIVER_PROBE_INTERVAL_S)
 
     def receiver_dict(self):
         return ({'station_id': self.station_id, 'station_url': self.station_url,
@@ -231,7 +235,7 @@ class ReceiverManager:
         # any concurrent /rx_params read.
         with self._lock:
             if any(x.station_url == receiver_url for x in self.receivers):
-                print("Duplicate receiver, ignoring.")
+                log.warning("Duplicate receiver, ignoring.")
                 return
         new_rx_obj = Receiver(receiver_url)
         new_rx = new_rx_obj.receiver_dict()
@@ -246,8 +250,8 @@ class ReceiverManager:
             # INSERT OR IGNORE skipped because some other receiver already
             # had this station_id (URL was new but device reports a colliding
             # station_id). Surface it instead of crashing on row[0].
-            print(f"Receiver at {receiver_url} reports station_id "
-                  f"{new_rx['station_id']!r}, which is already registered. Ignoring.")
+            log.warning("Receiver at %s reports station_id %r, which is already registered. Ignoring.",
+                        receiver_url, new_rx['station_id'])
             return
         new_rx_obj.isMobile = bool(row[0])
         new_rx_obj.isSingle = bool(row[1])
@@ -255,10 +259,10 @@ class ReceiverManager:
             # Re-check for duplicates: another thread could have added the
             # same URL while we were doing network I/O above.
             if any(x.station_url == receiver_url for x in self.receivers):
-                print("Duplicate receiver, ignoring.")
+                log.warning("Duplicate receiver, ignoring.")
                 return
             self.receivers.append(new_rx_obj)
-        print("Created new DF Station at " + receiver_url)
+        log.info("Created new DF Station at %s", receiver_url)
 
     def remove(self, index):
         with self._lock:
@@ -282,15 +286,15 @@ class ReceiverManager:
         try:
             rx_list = self.db.query("SELECT station_url FROM receivers")
         except Exception as ex:
-            print(f"Could not read receivers from DB: {type(ex).__name__}: {ex}")
+            log.error("Could not read receivers from DB: %s: %s", type(ex).__name__, ex)
             return
         for x in rx_list:
             try:
                 receiver_url = x[0].replace('\n', '')
                 self.add(receiver_url)
             except Exception as ex:
-                print(f"Failed to load receiver row {x!r}: "
-                      f"{type(ex).__name__}: {ex}")
+                log.error("Failed to load receiver row %r: %s: %s",
+                          x, type(ex).__name__, ex)
 
     def save_to_db(self):
         # Snapshot under the lock; do the DB writes outside it so a slow
@@ -310,14 +314,7 @@ class ReceiverManager:
         self.db.commit()
 
     def run_loop(self, config, ms):
-        clear(config.debugging)
-        dots = 0
-
         while ms.receiving:
-            if not config.debugging:
-                print("Receiving" + dots * '.')
-                print("Press Control+C to process data and exit.")
-
             # Take one snapshot per cycle and iterate it everywhere below.
             # Iterating self.receivers directly would race with add()/remove()
             # on the web thread (Python list iterators don't tolerate
@@ -341,16 +338,16 @@ class ReceiverManager:
                             continue
                         rx.update()
                 except IOError:
-                    print("Problem connecting to receiver.")
+                    log.error("Problem connecting to receiver.")
 
             for rx in receivers_snapshot:
                 if not rx.isActive and rx.next_probe_time > 0 and now >= rx.next_probe_time:
-                    print(f"Probing deactivated receiver {rx.station_url}...")
+                    log.info("Probing deactivated receiver %s...", rx.station_url)
                     rx.update()
                     if rx.error_count == 0:
                         rx.isActive = True
                         rx.next_probe_time = 0
-                        print(f"Receiver {rx.station_url} reactivated successfully.")
+                        log.info("Receiver %s reactivated successfully.", rx.station_url)
                     else:
                         rx.next_probe_time = now + RECEIVER_PROBE_INTERVAL_S
 
@@ -381,7 +378,7 @@ class ReceiverManager:
                         intersection = plot_intersects(rx_x.latitude, rx_x.longitude,
                                                        rx_x.doa, rx_y.latitude, rx_y.longitude, rx_y.doa)
                         if intersection:
-                            print(intersection)
+                            log.debug("%s", intersection)
                             latest_doa_time = max(latest_doa_time, rx_x.doa_time, rx_y.doa_time)
                             d2_accum[x].append(v.haversine(
                                 rx_x.latitude, rx_x.longitude, *intersection))
@@ -456,12 +453,7 @@ class ReceiverManager:
                                         (time, latitude, longitude, num_parents, confidence, aoi_id)
                                         VALUES (?,?,?,?,?,?)'''
                                         self.db.execute(command, (to_table,), wait=True)
-                    print(f"Computed and kept {keep_count} intersections.")
+                    log.debug("Computed and kept %d intersections.", keep_count)
 
             self.db.commit()
             time.sleep(1)
-            if dots > 5:
-                dots = 1
-            else:
-                dots += 1
-            clear(config.debugging)

@@ -1,9 +1,12 @@
+import logging
 import math
 import time
 import threading
 from datetime import datetime, timezone
 from colorsys import hsv_to_rgb
 import multiprocessing as _mp
+
+log = logging.getLogger(__name__)
 
 # Use a private 'forkserver' context (not set_start_method, which mutates the
 # global default) to avoid fork() deadlocks when the web server / db-writer
@@ -27,7 +30,7 @@ import vincenty as v
 from config import (LOB_DRAW_DISTANCE_METERS, HEADING_DRAW_DISTANCE_METERS,
     MAX_INTERSECTION_DISTANCE_METERS, BEARING_CHECK_TOLERANCE_DEG,
     AUTOEPS_SLOPE_THRESHOLD, AUTOEPS_SAMPLE_SIZE, GAUSSIAN_ELLIPSE_SIGMA,
-    MAX_INTERSECTS_PER_AOI, clear)
+    MAX_INTERSECTS_PER_AOI)
 
 
 pipeline_stats_cache = {}
@@ -146,12 +149,12 @@ def process_data(db, epsilon, min_samp):
     postprocess_queue = []
 
     for aoi in aoi_list:
-        print(f"Checking AOI {aoi}.")
+        log.debug("Checking AOI %s.", aoi)
         rows = db.query('''SELECT longitude, latitude, time FROM intersects
             WHERE aoi_id=? ORDER BY confidence DESC LIMIT ?''', [aoi, MAX_INTERSECTS_PER_AOI])
         intersect_array = np.array(rows)
         if intersect_array.size == 0:
-            print(f"No Intersections in AOI {aoi}.")
+            log.debug("No Intersections in AOI %s.", aoi)
             stats_by_aoi[aoi] = {"aoi_id": aoi, "input": 0, "in_cluster": 0, "clusters": 0, "outliers": 0}
             continue
 
@@ -180,9 +183,9 @@ def process_data(db, epsilon, min_samp):
 
         if epsilon == "auto":
             aoi_eps = autoeps_calc(X)
-            print(f"min_samp: {aoi_min_samp}, eps: {aoi_eps}")
+            log.debug("min_samp: %s, eps: %s", aoi_min_samp, aoi_eps)
             if aoi_eps <= 0:
-                print("Could not determine a valid epsilon, skipping clustering for this AOI.")
+                log.warning("Could not determine a valid epsilon, skipping clustering for this AOI.")
                 stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": 0, "clusters": 0, "outliers": n_input}
                 continue
         else:
@@ -201,7 +204,7 @@ def process_data(db, epsilon, min_samp):
     labels_by_aoi = {}
     dbscan_failed = False
     if cluster_jobs:
-        print(f"Computing Clusters for {len(cluster_jobs)} AOIs.")
+        log.debug("Computing Clusters for %d AOIs.", len(cluster_jobs))
         result_q = _dbscan_ctx.Queue()
         starttime = time.time()
         dbproc = _dbscan_ctx.Process(target=do_dbscan_batch, args=(cluster_jobs, result_q))
@@ -211,7 +214,7 @@ def process_data(db, epsilon, min_samp):
         try:
             labels_by_aoi = result_q.get(timeout=timeout_s)
         except Exception:
-            print("DBSCAN took too long, terminated.")
+            log.warning("DBSCAN took too long, terminated.")
             dbproc.terminate()
             dbproc.join(timeout=5)
             dbproc.close()
@@ -223,7 +226,7 @@ def process_data(db, epsilon, min_samp):
                 dbproc.join(timeout=5)
             dbproc.close()
             total_dbscan_ms = (time.time() - starttime) * 1000
-            print(f"DBSCAN took {total_dbscan_ms / 1000:.3f} seconds for all AOIs.")
+            log.debug("DBSCAN took %.3f seconds for all AOIs.", total_dbscan_ms / 1000)
 
     for aoi, intersect_array, n_input, n_points in postprocess_queue:
         labels = labels_by_aoi.get(aoi) if not dbscan_failed else None
@@ -235,8 +238,8 @@ def process_data(db, epsilon, min_samp):
         n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
         n_noise_ = list(labels).count(-1)
         n_in_cluster = n_points - n_noise_
-        print('Number of clusters: %d' % n_clusters_)
-        print('Outliers Removed: %d' % n_noise_)
+        log.debug("Number of clusters: %d", n_clusters_)
+        log.debug("Outliers Removed: %d", n_noise_)
 
         stats_by_aoi[aoi] = {"aoi_id": aoi, "input": n_input, "in_cluster": n_in_cluster, "clusters": n_clusters_, "outliers": n_noise_}
 
@@ -264,7 +267,7 @@ def process_data(db, epsilon, min_samp):
                 [semi_major_m, semi_minor_m, rotation, *clustermean.tolist()])
 
         for x in likely_location:
-            print(x[::-1])
+            log.debug("%s", x[::-1])
 
         for x in intersect_array:
             if x[-1] >= 0:
@@ -332,7 +335,7 @@ def write_geojson(best_point, all_the_points, geofile):
                     [best_point, all_the_points])))
             else:
                 file1.write(str(FeatureCollection([all_the_points])))
-        print(f"Wrote file {geofile}")
+        log.info("Wrote file %s", geofile)
 
 
 def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
