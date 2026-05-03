@@ -1,5 +1,5 @@
-window.refreshrate = 2500;
-window.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+globalThis.refreshrate = 2500;
+globalThis.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
 
 function updateRx(callBack, id) {
   fetch("/rx_params")
@@ -18,7 +18,7 @@ function makeNewRx(url) {
       loadRx(function(rx_json) {
         createReceivers(rx_json);
         statusBar.updateReceiverStats(rx_json);
-        if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
+        if (globalThis.mobileUI) mobileUI.updateReceiverStats(rx_json);
       });
       reloadRX();
     });
@@ -39,7 +39,7 @@ function deleteReceiver(uid) {
       loadRx(function(rx_json) {
         createReceivers(rx_json);
         statusBar.updateReceiverStats(rx_json);
-        if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
+        if (globalThis.mobileUI) mobileUI.updateReceiverStats(rx_json);
       });
       reloadRX();
     });
@@ -56,7 +56,7 @@ function activateReceiver(uid, state) {
       loadRx(function(rx_json) {
         refreshRx(rx_json);
         statusBar.updateReceiverStats(rx_json);
-        if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
+        if (globalThis.mobileUI) mobileUI.updateReceiverStats(rx_json);
       });
       reloadRX();
     });
@@ -177,7 +177,7 @@ function editReceivers(rx_json, uid) {
     fetch('/rx_params/' + uid, otherParams)
       .then(function() {
         card.classList.remove('editing');
-        window.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+        globalThis.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
         loadRx(function(rx_json) {
           createReceivers(rx_json);
           statusBar.updateReceiverStats(rx_json);

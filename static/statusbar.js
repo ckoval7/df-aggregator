@@ -150,7 +150,7 @@ const statusBar = {
       warn = 'No intersections in time window';
     }
     this._setPipelineWarn(warn);
-    if (window.mobileUI) window.mobileUI.updatePipelineStats(data);
+    if (globalThis.mobileUI) globalThis.mobileUI.updatePipelineStats(data);
   },
 
   _setPipelineWarn: function(msg) {

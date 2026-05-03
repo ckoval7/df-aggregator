@@ -193,7 +193,7 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   if (isHistoryMode) {
     viewer.dataSources.remove(lobHistoryDataSource);
   }
-  window.lobHistoryDataSource = new Cesium.CzmlDataSource();
+  globalThis.lobHistoryDataSource = new Cesium.CzmlDataSource();
 
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
     viewer.dataSources.add(lobHistoryDataSource);
@@ -201,7 +201,7 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
     viewer.clock.clockRange = Cesium.ClockRange.CLAMPED;
     enterHistoryMode();
     const merged = renderTimelineHighlights(lobHistoryDataSource);
-    if (window.mScrub) mScrub.show(startMs, endMs, merged);
+    if (globalThis.mScrub) mScrub.show(startMs, endMs, merged);
     spinner.style.visibility = "hidden";
     spinner.style.zIndex = "0";
   }).catch(function(error) {
@@ -228,15 +228,15 @@ function enterHistoryMode() {
   document.getElementById("loadHistoryBtn").innerHTML =
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Reload History';
   statusBar.setMode(false);
-  if (window.mobileUI) mobileUI.setMode(false);
+  if (globalThis.mobileUI) mobileUI.setMode(false);
 }
 
 function exitHistoryMode() {
   clearTimelineHighlights();
-  if (window.mScrub) mScrub.hide();
+  if (globalThis.mScrub) mScrub.hide();
   isHistoryMode = false;
   viewer.dataSources.remove(lobHistoryDataSource);
-  window.lobHistoryDataSource = new Cesium.CzmlDataSource();
+  globalThis.lobHistoryDataSource = new Cesium.CzmlDataSource();
 
   viewer.automaticallyTrackDataSourceClocks = true;
   viewer.clock.clockRange = Cesium.ClockRange.UNBOUNDED;
@@ -247,7 +247,7 @@ function exitHistoryMode() {
   document.querySelector(".cesium-viewer-animationContainer").classList.remove("history-visible");
   document.querySelector(".cesium-viewer-timelineContainer").classList.remove("history-visible");
 
-  window.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+  globalThis.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
   reloadRX();
 
   const liveBtn = document.getElementById("liveBtn");
@@ -258,5 +258,5 @@ function exitHistoryMode() {
   document.getElementById("loadHistoryBtn").innerHTML =
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Load History';
   statusBar.setMode(true);
-  if (window.mobileUI) mobileUI.setMode(true);
+  if (globalThis.mobileUI) mobileUI.setMode(true);
 }

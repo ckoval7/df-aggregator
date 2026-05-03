@@ -156,13 +156,13 @@
     onTick();
   }
 
-  const orientationMq = window.matchMedia('(orientation: portrait)');
+  const orientationMq = globalThis.matchMedia('(orientation: portrait)');
   orientationMq.addEventListener('change', onOrientationChange);
 
   let currentMerged = [];
 
 
-  window.mScrub = {
+  globalThis.mScrub = {
     show: function(start, end, merged) {
       startMs = start;
       endMs = end;

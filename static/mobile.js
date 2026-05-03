@@ -271,7 +271,7 @@
   }
 
   // Expose update functions so desktop JS can call them after data loads
-  window.mobileUI = {
+  globalThis.mobileUI = {
     updateReceiverStats: function(rxJson) {
       const receivers = rxJson.receivers;
       const total = Object.keys(receivers).length;

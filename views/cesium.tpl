@@ -635,7 +635,7 @@
     var cesiumToolbar = document.querySelector('.cesium-viewer-toolbar');
     var statusbarEl = document.querySelector('.statusbar');
     var clockEl = document.querySelector('.clock');
-    if (cesiumToolbar && statusbarEl && clockEl && window.innerWidth > 768) {
+    if (cesiumToolbar && statusbarEl && clockEl && globalThis.innerWidth > 768) {
       statusbarEl.insertBefore(cesiumToolbar, clockEl);
     }
 
@@ -649,7 +649,7 @@
 
     var scene = viewer.scene;
     if (!scene.pickPositionSupported) {
-      window.alert("This browser does not support pickPosition.");
+      globalThis.alert("This browser does not support pickPosition.");
     }
 
     var handler;
@@ -803,7 +803,7 @@
           loadRx(function(rx_json) {
             refreshRx(rx_json);
             statusBar.updateReceiverStats(rx_json);
-            if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
+            if (globalThis.mobileUI) mobileUI.updateReceiverStats(rx_json);
           });
           loadAllCzml();
         });
@@ -903,12 +903,12 @@
     loadRx(function(rx_json, id) {
       createReceivers(rx_json, id);
       statusBar.updateReceiverStats(rx_json);
-      if (window.mobileUI) mobileUI.updateReceiverStats(rx_json);
+      if (globalThis.mobileUI) mobileUI.updateReceiverStats(rx_json);
     });
     loadAoi(function(aoi_json, id) {
       createAois(aoi_json, id);
       statusBar.updateAoiStats(aoi_json);
-      if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
+      if (globalThis.mobileUI) mobileUI.updateAoiStats(aoi_json);
     });
 
     function saveFilters() {
@@ -984,7 +984,7 @@
       var recPill = document.getElementById("rec-pill");
       if (recPill) recPill.style.display = lobToggle.classList.contains("on") ? "" : "none";
 
-      if (window.mobileUI) {
+      if (globalThis.mobileUI) {
         var mPower = document.getElementById('m-powerRange');
         var mConf = document.getElementById('m-confRange');
         var mEps = document.getElementById('m-epsilonRange');

@@ -15,7 +15,7 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
       loadAoi(function(aoi_json) {
         createAois(aoi_json);
         statusBar.updateAoiStats(aoi_json);
-        if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
+        if (globalThis.mobileUI) mobileUI.updateAoiStats(aoi_json);
       });
       reloadAoi();
     });
@@ -32,7 +32,7 @@ function deleteAoi(uid) {
       loadAoi(function(aoi_json) {
         createAois(aoi_json);
         statusBar.updateAoiStats(aoi_json);
-        if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
+        if (globalThis.mobileUI) mobileUI.updateAoiStats(aoi_json);
       });
       reloadAoi();
       reloadTx();
@@ -50,7 +50,7 @@ function purgeAoi(uid) {
       loadAoi(function(aoi_json) {
         createAois(aoi_json);
         statusBar.updateAoiStats(aoi_json);
-        if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
+        if (globalThis.mobileUI) mobileUI.updateAoiStats(aoi_json);
       });
       reloadAoi();
       reloadTx();
@@ -63,7 +63,7 @@ function runAoi() {
       loadAoi(function(aoi_json) {
         createAois(aoi_json);
         statusBar.updateAoiStats(aoi_json);
-        if (window.mobileUI) mobileUI.updateAoiStats(aoi_json);
+        if (globalThis.mobileUI) mobileUI.updateAoiStats(aoi_json);
       });
       reloadAoi();
       reloadTx();
