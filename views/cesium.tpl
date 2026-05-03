@@ -675,7 +675,7 @@
       var bestEntity = null;
       for (var i = 0; i < pickedObjects.length; i++) {
         var entity = pickedObjects[i].id;
-        if (entity && entity.point) {
+        if (entity?.point) {
           bestEntity = entity;
           break;
         }
@@ -1054,10 +1054,9 @@
         var val = Number.parseFloat(this.value) + (e.deltaY < 0 ? step : -step);
         this.value = Math.min(Number.parseFloat(this.max), Math.max(Number.parseFloat(this.min), val));
         this.dispatchEvent(new Event('input'));
-        var self = this;
         clearTimeout(wheelTimer);
-        wheelTimer = setTimeout(function() {
-          self.dispatchEvent(new PointerEvent('pointerup'));
+        wheelTimer = setTimeout(() => {
+          this.dispatchEvent(new PointerEvent('pointerup'));
         }, 300);
       }, {passive: false});
     });
