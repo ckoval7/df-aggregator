@@ -773,8 +773,31 @@
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     }
 
+    // Loads CZML into a fresh CzmlDataSource, adds it, then removes whatever
+    // installed instance it superseded — *without destroying*, since destroying
+    // clears DataSourceDisplay._visualizers and crashes the render loop with
+    // "can't access property length, o is undefined" if a frame fires before
+    // re-add. We can't reuse a single data source across .load() calls either:
+    // entities reappear with the same id and old polyline primitives silently
+    // stay on screen with the original positions.
+    //
+    // currentRef is read at install-time (inside .then), not call-time, so
+    // overlapping swaps (slider triggers a refresh while the 2.5s tick is mid-
+    // flight) don't orphan the loser's data source in the viewer.
+    function swapDataSource(currentRef, url, assign) {
+      var fresh = new Cesium.CzmlDataSource();
+      return fresh.load(url).then(function() {
+        var prev = currentRef();
+        viewer.dataSources.add(fresh);
+        if (prev && prev !== fresh && viewer.dataSources.contains(prev)) {
+          viewer.dataSources.remove(prev, false);
+        }
+        if (assign) assign(fresh);
+        return fresh;
+      });
+    }
+
     function updateParams(parameter) {
-      clearOld();
       fetch("/update?" + (parameter || ""))
         .then(function() {
           loadRx(function(rx_json) {
@@ -822,29 +845,33 @@
           parameter += "plotpts=false&";
         }
       }
-      var promise1 = transmittersDataSource.load('/output.czml?' + parameter);
-      promise1.then(function(dataSource1) {
+      // Return the promise so callers (e.g. viewer.flyTo on initial load) can wait
+      // for the fresh data source to be populated before reading its entities.
+      return swapDataSource(function() { return transmittersDataSource; }, '/output.czml?' + parameter, function(fresh) {
+        transmittersDataSource = fresh;
+      }).then(function(fresh) {
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
         statusBar.fetchPipelineStats();
+        return fresh;
       }).catch(function(error) {
         console.error('Error loading transmitters CZML:', error);
         spinner.style.visibility = "hidden";
         spinner.style.zIndex = "0";
       });
-      viewer.dataSources.add(transmittersDataSource);
-      return transmittersDataSource;
     }
 
     function loadRxCzml() {
-      receiversDataSource.load('/receivers.czml');
-      viewer.dataSources.add(receiversDataSource);
+      swapDataSource(function() { return receiversDataSource; }, '/receivers.czml', function(fresh) {
+        receiversDataSource = fresh;
+      });
       return receiversDataSource;
     }
 
     function loadAoiCzml() {
-      aoiDataSource.load('/aoi.czml');
-      viewer.dataSources.add(aoiDataSource);
+      swapDataSource(function() { return aoiDataSource; }, '/aoi.czml', function(fresh) {
+        aoiDataSource = fresh;
+      });
       return aoiDataSource;
     }
 
@@ -854,26 +881,9 @@
       return loadTxCzml();
     }
 
-    function clearOld() {
-      viewer.dataSources.remove(receiversDataSource, true);
-      viewer.dataSources.remove(aoiDataSource, true);
-      viewer.dataSources.remove(transmittersDataSource, true);
-    }
-
-    function reloadRX() {
-      viewer.dataSources.remove(receiversDataSource, true);
-      loadRxCzml();
-    }
-
-    function reloadAoi() {
-      viewer.dataSources.remove(aoiDataSource, true);
-      loadAoiCzml();
-    }
-
-    function reloadTx() {
-      viewer.dataSources.remove(transmittersDataSource, true);
-      loadTxCzml();
-    }
+    function reloadRX() { loadRxCzml(); }
+    function reloadAoi() { loadAoiCzml(); }
+    function reloadTx() { loadTxCzml(); }
   </script>
 
   <!-- ===== Component Scripts ===== -->
