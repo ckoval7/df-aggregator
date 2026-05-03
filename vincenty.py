@@ -55,9 +55,9 @@ def get_heading(coord1, coord2):
     lon1 = radians(coord1[1])
     lat2 = radians(coord2[0])
     lon2 = radians(coord2[1])
-    bearing_plot_X = cos(lat2) * sin(lon2 - lon1)
-    bearing_plot_Y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(lon1 - lon2)
-    heading = degrees(atan2(bearing_plot_X, bearing_plot_Y))
+    bearing_plot_x = cos(lat2) * sin(lon2 - lon1)
+    bearing_plot_y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(lon1 - lon2)
+    heading = degrees(atan2(bearing_plot_x, bearing_plot_y))
     if heading < 0:
         heading += 360
     return heading
@@ -86,7 +86,7 @@ def inverse(coord1, coord2, max_iter=200, tol=10**-12):
 
     L = radians(L_2 - L_1)
 
-    Lambda = L  # set initial value of lambda to L
+    lambda_ = L  # set initial value of lambda to L
 
     sin_u1 = sin(u_1)
     cos_u1 = cos(u_1)
@@ -100,10 +100,10 @@ def inverse(coord1, coord2, max_iter=200, tol=10**-12):
     cos_sigma = 1.0
     sigma = 0.0
     for _ in range(0, max_iter):
-        cos_lambda = cos(Lambda)
-        sin_lambda = sin(Lambda)
+        cos_lambda = cos(lambda_)
+        sin_lambda = sin(lambda_)
         sin_sigma = sqrt(
-            (cos_u2 * sin(Lambda)) ** 2
+            (cos_u2 * sin(lambda_)) ** 2
             + (cos_u1 * sin_u2 - sin_u1 * cos_u2 * cos_lambda) ** 2
         )
         if sin_sigma == 0:
@@ -126,15 +126,15 @@ def inverse(coord1, coord2, max_iter=200, tol=10**-12):
         else:
             cos2_sigma_m = cos_sigma - ((2 * sin_u1 * sin_u2) / cos_sq_alpha)
         C = (f / 16) * cos_sq_alpha * (4 + f * (4 - 3 * cos_sq_alpha))
-        Lambda_prev = Lambda
-        Lambda = L + (1 - C) * f * sin_alpha * (
+        lambda_prev = lambda_
+        lambda_ = L + (1 - C) * f * sin_alpha * (
             sigma
             + C
             * sin_sigma
             * (cos2_sigma_m + C * cos_sigma * (-1 + 2 * cos2_sigma_m**2))
         )
 
-        if abs(Lambda_prev - Lambda) <= tol:
+        if abs(lambda_prev - lambda_) <= tol:
             converged = True
             break
 
@@ -190,20 +190,20 @@ def direct(phi1, lembda1, alpha12, s, max_iter=200):  # lat, lon, bearing, dista
     if s == 0:
         return (phi1, lembda1)
 
-    piD4 = atan(1.0)
-    two_pi = piD4 * 8.0
-    phi1 = phi1 * piD4 / 45.0
-    lembda1 = lembda1 * piD4 / 45.0
-    alpha12 = alpha12 * piD4 / 45.0
+    pi_d4 = atan(1.0)
+    two_pi = pi_d4 * 8.0
+    phi1 = phi1 * pi_d4 / 45.0
+    lembda1 = lembda1 * pi_d4 / 45.0
+    alpha12 = alpha12 * pi_d4 / 45.0
     if alpha12 < 0.0:
         alpha12 = alpha12 + two_pi
     if alpha12 > two_pi:
         alpha12 = alpha12 - two_pi
-    TanU1 = (1 - f) * tan(phi1)
-    U1 = atan(TanU1)
-    sigma1 = atan2(TanU1, cos(alpha12))
-    Sinalpha = cos(U1) * sin(alpha12)
-    cosalpha_sq = 1.0 - Sinalpha * Sinalpha
+    tan_u1 = (1 - f) * tan(phi1)
+    U1 = atan(tan_u1)
+    sigma1 = atan2(tan_u1, cos(alpha12))
+    sin_alpha = cos(U1) * sin(alpha12)
+    cosalpha_sq = 1.0 - sin_alpha * sin_alpha
     u2 = cosalpha_sq * (a * a - b * b) / (b * b)
     A = 1.0 + (u2 / 16384) * (4096 + u2 * (-768 + u2 * (320 - 175 * u2)))
     B = (u2 / 1024) * (256 + u2 * (-128 + u2 * (74 - 47 * u2)))
@@ -259,7 +259,7 @@ def direct(phi1, lembda1, alpha12, s, max_iter=200):  # lat, lon, bearing, dista
         (
             (1 - f)
             * sqrt(
-                Sinalpha**2
+                sin_alpha**2
                 + (sin(U1) * sin(sigma) - cos(U1) * cos(sigma) * cos(alpha12)) ** 2
             )
         ),
@@ -269,7 +269,7 @@ def direct(phi1, lembda1, alpha12, s, max_iter=200):  # lat, lon, bearing, dista
         (cos(U1) * cos(sigma) - sin(U1) * sin(sigma) * cos(alpha12)),
     )
     C = (f / 16) * cosalpha_sq * (4 + f * (4 - 3 * cosalpha_sq))
-    omega = lembda - (1 - C) * f * Sinalpha * (
+    omega = lembda - (1 - C) * f * sin_alpha * (
         sigma
         + C
         * sin(sigma)
@@ -277,16 +277,16 @@ def direct(phi1, lembda1, alpha12, s, max_iter=200):  # lat, lon, bearing, dista
     )
     lembda2 = lembda1 + omega
     alpha21 = atan2(
-        Sinalpha, (-sin(U1) * sin(sigma) + cos(U1) * cos(sigma) * cos(alpha12))
+        sin_alpha, (-sin(U1) * sin(sigma) + cos(U1) * cos(sigma) * cos(alpha12))
     )
     alpha21 = alpha21 + two_pi / 2.0
     if alpha21 < 0.0:
         alpha21 = alpha21 + two_pi
     if alpha21 > two_pi:
         alpha21 = alpha21 - two_pi
-    phi2 = phi2 * 45.0 / piD4
-    lembda2 = lembda2 * 45.0 / piD4
-    alpha21 = alpha21 * 45.0 / piD4
+    phi2 = phi2 * 45.0 / pi_d4
+    lembda2 = lembda2 * 45.0 / pi_d4
+    alpha21 = alpha21 * 45.0 / pi_d4
     return (phi2, lembda2)  # , alpha21
 
 
