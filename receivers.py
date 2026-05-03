@@ -264,35 +264,39 @@ def telemetry_fingerprint(receivers_list):
 def _rx_config_payload(receivers_list):
     out = []
     for i, r in enumerate(receivers_list):
-        out.append({
-            "uid": i,
-            "station_id": r.station_id,
-            "station_url": r.station_url,
-            "active": r.isActive,
-            "auto": r.isAuto,
-            "mobile": r.isMobile,
-            "single": r.isSingle,
-            "inverted": r.inverted,
-        })
+        out.append(
+            {
+                "uid": i,
+                "station_id": r.station_id,
+                "station_url": r.station_url,
+                "active": r.isActive,
+                "auto": r.isAuto,
+                "mobile": r.isMobile,
+                "single": r.isSingle,
+                "inverted": r.inverted,
+            }
+        )
     return {"receivers": out}
 
 
 def _rx_telemetry_payload(receivers_list):
     out = []
     for i, r in enumerate(receivers_list):
-        out.append({
-            "uid": i,
-            "station_id": r.station_id,  # needed for card-body rebuild on the client
-            "active": r.isActive,
-            "doa": r.doa,
-            "doa_time": r.doa_time,
-            "power": r.power,
-            "confidence": r.confidence,
-            "frequency": r.frequency,
-            "latitude": r.latitude,
-            "longitude": r.longitude,
-            "heading": r.heading,
-        })
+        out.append(
+            {
+                "uid": i,
+                "station_id": r.station_id,  # needed for card-body rebuild on the client
+                "active": r.isActive,
+                "doa": r.doa,
+                "doa_time": r.doa_time,
+                "power": r.power,
+                "confidence": r.confidence,
+                "frequency": r.frequency,
+                "latitude": r.latitude,
+                "longitude": r.longitude,
+                "heading": r.heading,
+            }
+        )
     return {"receivers": out}
 
 

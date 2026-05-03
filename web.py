@@ -357,8 +357,7 @@ def create_routes(config, ms, db, receiver_manager, broker):
                 while True:
                     frame = channel.get(timeout=None)
                     yield (
-                        f"event: {frame.event_type}\n"
-                        f"data: {frame.data_json}\n\n"
+                        f"event: {frame.event_type}\n" f"data: {frame.data_json}\n\n"
                     )
             finally:
                 broker.unsubscribe(channel)

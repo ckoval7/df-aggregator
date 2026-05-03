@@ -9,6 +9,7 @@ Thread model: ``publish`` and ``subscribe``/``unsubscribe`` are safe to call
 from any thread. A single daemon thread fans out heartbeat frames every
 ``heartbeat_interval_s`` seconds.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,9 +22,9 @@ import threading
 # Assert at import that those private attributes still exist so a future Python
 # upgrade fails loud instead of silently corrupting the counter.
 _q_check = queue.Queue()
-assert all(hasattr(_q_check, a) for a in ("mutex", "queue", "unfinished_tasks", "not_full")), (
-    "queue.Queue internals changed — ClientChannel.put_nowait needs updating"
-)
+assert all(
+    hasattr(_q_check, a) for a in ("mutex", "queue", "unfinished_tasks", "not_full")
+), "queue.Queue internals changed — ClientChannel.put_nowait needs updating"
 del _q_check
 from dataclasses import dataclass
 from typing import Optional
@@ -69,7 +70,9 @@ class ClientChannel:
                         break
             self._q.put_nowait(frame)
         except queue.Full:
-            log.debug("SSE client queue full (no evictable non-heartbeat slot); dropping new frame")
+            log.debug(
+                "SSE client queue full (no evictable non-heartbeat slot); dropping new frame"
+            )
 
 
 class Broker:
@@ -88,7 +91,9 @@ class Broker:
         try:
             data_json = json.dumps(payload, separators=(",", ":"))
         except (TypeError, ValueError):
-            log.warning("SSE publish: payload not JSON-serializable for event %r", event_type)
+            log.warning(
+                "SSE publish: payload not JSON-serializable for event %r", event_type
+            )
             return
         frame = Frame(event_type=event_type, data_json=data_json)
         with self._lock:
