@@ -1,5 +1,14 @@
 ## Recent Changes (May 2026):
 
+### Server-Sent Events (SSE) Push Architecture
+- **SSE broker implementation** — `sse_broker.py` provides a fan-out broker with per-client bounded queues and overflow-drop policy
+- **Live receiver updates via SSE** — receiver configuration and telemetry now push to connected clients instead of being polled
+- **AOI configuration pushed via SSE** — AOI mutations broadcast real-time updates to all connected clients
+- **Incremental DOM patching** — receiver cards and AOI lists update without full-page refresh
+- **Connection status indicator** — status bar shows live SSE connection state with visual pill
+- **Heartbeat mechanism** — daemon thread sends periodic heartbeats to detect stale connections
+- **History mode isolation** — SSE CZML refresh suppressed during timeline scrubbing to prevent snap-back
+
 ### UI Redesign
 - **Complete frontend rewrite** — new design token CSS system, restructured layout, and rewritten JS/CSS for a modern look
 - **Status bar** — Cesium toolbar integrated into a persistent status bar with pipeline stats (receiver count, intersection rate, cluster count)
