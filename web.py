@@ -1,9 +1,96 @@
+import gzip
 import json
+import socket
+from urllib.parse import urlsplit
 
-from bottle import route, run, request, get, put, response, redirect, template, static_file, app as bottle_app
+from bottle import route, run, request, get, put, response, redirect, template, static_file, app as bottle_app, HTTPError
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 import geo
+
+
+# NOTE: there is intentionally no authentication on these routes. The default
+# bind is 127.0.0.1 (see config.AppConfig). If you bind to a non-loopback
+# address (e.g. --ip 0.0.0.0), anyone on that network can mutate state. Adding
+# auth is a product decision (token? basic auth? reverse-proxy?) and is out of
+# scope here — the validation below only narrows the blast radius of malformed
+# or hostile payloads, it does not authorize callers.
+
+
+def _read_json_body(required_keys=()):
+    try:
+        data = json.load(request.body)
+    except (ValueError, TypeError):
+        raise HTTPError(400, "malformed JSON body")
+    if not isinstance(data, dict):
+        raise HTTPError(400, "JSON body must be an object")
+    for k in required_keys:
+        if k not in data:
+            raise HTTPError(400, f"missing required field: {k}")
+    return data
+
+
+def _require_int(data, key, lo=None, hi=None):
+    try:
+        value = int(data[key])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPError(400, f"field '{key}' must be an integer")
+    if lo is not None and value < lo:
+        raise HTTPError(400, f"field '{key}' below minimum {lo}")
+    if hi is not None and value > hi:
+        raise HTTPError(400, f"field '{key}' above maximum {hi}")
+    return value
+
+
+def _require_float(data, key, lo=None, hi=None):
+    try:
+        value = float(data[key])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPError(400, f"field '{key}' must be a number")
+    if value != value:  # NaN
+        raise HTTPError(400, f"field '{key}' must be finite")
+    if lo is not None and value < lo:
+        raise HTTPError(400, f"field '{key}' below minimum {lo}")
+    if hi is not None and value > hi:
+        raise HTTPError(400, f"field '{key}' above maximum {hi}")
+    return value
+
+
+def _rx_resolve(data, receiver_manager):
+    # Returns the receiver object for the given uid, raising 400 if it's
+    # gone. Resolution is atomic on the manager's lock — callers must not
+    # then re-index `receiver_manager.receivers[uid]` (TOCTOU with remove()).
+    idx = _require_int(data, 'uid', lo=0)
+    rx = receiver_manager.get_by_index(idx)
+    if rx is None:
+        raise HTTPError(400, "uid out of range")
+    return idx, rx
+
+
+# Receiver URL validation. KrakenSDR boxes live on the same LAN (often the
+# same host) as the aggregator, so loopback / RFC1918 / link-local addresses
+# are the *normal* case — we deliberately do NOT block them. We only reject
+# things that are clearly not a receiver:
+#   - non-http(s) schemes (file://, gopher://, etc.)
+#   - missing host
+#   - hosts that don't resolve
+# Combined with the no-redirect opener in receivers.py, that's the layer.
+# Real SSRF mitigation here would mean an allowlist of operator-trusted hosts;
+# adding auth (see top-of-file note) is the more honest fix.
+def _validate_receiver_url(url):
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        raise HTTPError(400, "invalid receiver URL")
+    if parts.scheme not in ('http', 'https'):
+        raise HTTPError(400, "receiver URL must be http or https")
+    host = parts.hostname
+    if not host:
+        raise HTTPError(400, "receiver URL must include a host")
+    try:
+        socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        raise HTTPError(400, "receiver host did not resolve")
 
 
 def create_routes(config, ms, db, receiver_manager):
@@ -50,9 +137,13 @@ def create_routes(config, ms, db, receiver_manager):
 
     @get('/rx_params')
     def rx_params():
+        # No rx.update() here — the run_loop polls every ~1s; this endpoint
+        # just returns cached state for the UI cards.
         all_rx = {'receivers': {}}
         rx_properties = []
-        for index, x in enumerate(receiver_manager.receivers):
+        with receiver_manager.lock():
+            snapshot = list(enumerate(receiver_manager.receivers))
+        for index, x in snapshot:
             rx = x.receiver_dict()
             rx['uid'] = index
             rx_properties.append(rx)
@@ -83,34 +174,50 @@ def create_routes(config, ms, db, receiver_manager):
 
     @put('/rx_params/<action>')
     def update_rx(action):
-        data = json.load(request.body)
         if action == "new":
-            receiver_url = data['station_url'].replace('\n', '')
-            receiver_manager.add(receiver_url)
+            data = _read_json_body(required_keys=('station_url',))
+            url = data['station_url']
+            if not isinstance(url, str):
+                raise HTTPError(400, "station_url must be a string")
+            url = url.replace('\n', '').strip()
+            _validate_receiver_url(url)
+            receiver_manager.add(url)
         elif action == "del":
-            index = int(data['uid'])
+            data = _read_json_body(required_keys=('uid',))
+            index, _ = _rx_resolve(data, receiver_manager)
             receiver_manager.remove(index)
         elif action == "activate":
-            index = int(data['uid'])
-            receiver_manager.receivers[index].isActive = data['state']
-            if data['state']:
-                receiver_manager.receivers[index].error_count = 0
-                receiver_manager.receivers[index].last_error = ""
-                receiver_manager.receivers[index].next_retry_time = 0
-                receiver_manager.receivers[index].next_probe_time = 0
-                receiver_manager.receivers[index].max_retries = 0
+            data = _read_json_body(required_keys=('uid', 'state'))
+            _, rx = _rx_resolve(data, receiver_manager)
+            state = bool(data['state'])
+            rx.isActive = state
+            if state:
+                rx.error_count = 0
+                rx.last_error = ""
+                rx.next_retry_time = 0
+                rx.next_probe_time = 0
+                rx.max_retries = 0
             else:
-                receiver_manager.receivers[index].next_probe_time = 0
+                rx.next_probe_time = 0
         else:
-            action = int(action)
             try:
-                receiver_manager.receivers[action].isMobile = data['mobile']
-                receiver_manager.receivers[action].inverted = data['inverted']
-                receiver_manager.receivers[action].isSingle = data['single']
-                receiver_manager.receivers[action].update()
-                receiver_manager.save_to_db()
-            except IndexError:
-                print("I got some bad data. Doing nothing out of spite.")
+                index = int(action)
+            except ValueError:
+                raise HTTPError(400, "action must be 'new', 'del', 'activate', or an integer index")
+            data = _read_json_body(required_keys=('mobile', 'inverted', 'single'))
+            rx = receiver_manager.get_by_index(index)
+            if rx is None:
+                raise HTTPError(400, "receiver index out of range")
+            rx.isMobile = bool(data['mobile'])
+            rx.inverted = bool(data['inverted'])
+            rx.isSingle = bool(data['single'])
+            # Don't call rx.update() here — that's a 5s blocking HTTP fetch
+            # in a request handler. The polling loop calls update() every
+            # ~1s and will apply the new isMobile/inverted/isSingle flags
+            # on the next cycle (raw_doa interpretation reads them by ref).
+            # The redirect target /rx_params returns cached state anyway,
+            # so the synchronous fetch wasn't even visible to the client.
+            receiver_manager.save_to_db()
         return redirect('/rx_params')
 
     @get('/interest_areas')
@@ -129,25 +236,43 @@ def create_routes(config, ms, db, receiver_manager):
 
     @put('/interest_areas/<action>')
     def handle_interest_areas(action):
-        data = json.load(request.body)
-        if action == "new" and not "" in data.values():
+        if action == "new":
+            data = _read_json_body(required_keys=('aoi_type', 'latitude', 'longitude', 'radius'))
+            if "" in data.values():
+                raise HTTPError(400, "AOI fields must not be empty")
             aoi_type = data['aoi_type']
-            lat = data['latitude']
-            lon = data['longitude']
-            radius = data['radius']
+            if aoi_type not in ('aoi', 'exclusion'):
+                raise HTTPError(400, "aoi_type must be 'aoi' or 'exclusion'")
+            # Earth's circumference is ~40,000 km; cap radius well above any
+            # realistic AOI to keep downstream geodesy from running away.
+            lat = _require_float(data, 'latitude', lo=-90.0, hi=90.0)
+            lon = _require_float(data, 'longitude', lo=-180.0, hi=180.0)
+            radius = _require_float(data, 'radius', lo=1.0, hi=20_000_000.0)
             db.add_aoi(aoi_type, lat, lon, radius)
         elif action == "del":
+            data = _read_json_body(required_keys=('uid',))
+            uid = _require_int(data, 'uid', lo=0)
             command = "UPDATE intersects SET aoi_id=? WHERE aoi_id=?"
-            db.execute(command, [(-1, data['uid'])], wait=True)
-            to_table = (str(data['uid']),)
+            db.execute(command, [(-1, uid)], wait=True)
+            to_table = (str(uid),)
             command = "DELETE FROM interest_areas WHERE uid=?"
             db.execute(command, [to_table], wait=True)
-            db.commit()
-            db.invalidate_aoi_cache()
+            db.commit_and_invalidate_aoi_cache()
         elif action == "purge":
+            data = _read_json_body(required_keys=('uid',))
+            uid = _require_int(data, 'uid', lo=0)
             row = db.query_one("SELECT aoi_type, latitude, longitude, radius FROM interest_areas WHERE uid=?",
-                               [data['uid']])
+                               [uid])
+            if row is None:
+                raise HTTPError(404, "AOI not found")
+            # Purge is only defined for exclusion zones — see purge_database.
+            # The UI only offers the button for exclusions; reject anything
+            # else with a 400 instead of letting the ValueError become a 500.
+            if row[0] != "exclusion":
+                raise HTTPError(400, "purge is only defined for exclusion zones")
             db.purge_database(*row)
+        else:
+            raise HTTPError(400, "unknown action")
 
     @get('/run_all_aoi_rules')
     def run_aoi_rules():
@@ -250,16 +375,31 @@ class GzipMiddleware:
             start_response(status, headers)
             return [body]
 
-        import gzip as gzip_mod
-        compressed = gzip_mod.compress(body, compresslevel=6)
+        compressed = gzip.compress(body, compresslevel=6)
 
-        new_headers = [
-            (name, value) for name, value in headers
-            if name.lower() not in ('content-length', 'content-encoding', 'vary')
-        ]
+        # Merge Accept-Encoding into any existing Vary token list rather
+        # than replacing it. Stripping an upstream `Vary: Cookie` would tell
+        # caches a per-user response is safe to share — silent correctness
+        # bug if a future route ever needs cookie-varying caching.
+        existing_vary_tokens = []
+        new_headers = []
+        for name, value in headers:
+            lname = name.lower()
+            if lname in ('content-length', 'content-encoding'):
+                continue
+            if lname == 'vary':
+                existing_vary_tokens.extend(
+                    t.strip() for t in value.split(',') if t.strip())
+                continue
+            new_headers.append((name, value))
+
+        vary_tokens = list(existing_vary_tokens)
+        if not any(t.lower() == 'accept-encoding' for t in vary_tokens):
+            vary_tokens.append('Accept-Encoding')
+
         new_headers.append(('Content-Encoding', 'gzip'))
         new_headers.append(('Content-Length', str(len(compressed))))
-        new_headers.append(('Vary', 'Accept-Encoding'))
+        new_headers.append(('Vary', ', '.join(vary_tokens)))
 
         start_response(status, new_headers)
         return [compressed]

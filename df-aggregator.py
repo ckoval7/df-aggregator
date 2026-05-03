@@ -24,12 +24,6 @@ if (version_info.major != 3 or version_info.minor < 6):
     print("Your python version is out of date, please update to 3.6 or newer.")
     quit()
 
-from multiprocessing import set_start_method
-try:
-    set_start_method('forkserver')
-except RuntimeError:
-    pass
-
 import argparse
 import signal
 import threading

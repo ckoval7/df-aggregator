@@ -39,6 +39,10 @@ AUTOEPS_SAMPLE_SIZE = 2000
 
 # Processing Constants
 BEARING_CHECK_TOLERANCE_DEG = 5
+# Single-receiver mobile mode: only intersect a current LOB with a historical
+# one if their bearings differ by at least this many degrees. Bearings closer
+# than this are too near-parallel to triangulate meaningfully.
+MIN_LOB_PAIR_BEARING_DIFF_DEG = 5
 AUTOEPS_SLOPE_THRESHOLD = 0.003
 GAUSSIAN_ELLIPSE_SIGMA = 3.0
 

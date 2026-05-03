@@ -1,5 +1,4 @@
 import time
-import sqlite3
 import threading
 import urllib.request
 import http.client
@@ -13,18 +12,41 @@ from lxml import etree
 import vincenty as v
 from config import (LOB_DRAW_DISTANCE_METERS, MAX_TIME_DIFF_MS,
     SINGLE_RX_MIN_TIME_DIFF_MS, HISTORICAL_LOB_WINDOW_MS,
-    MIN_SPATIAL_DIVERSITY_METERS, RECEIVER_MAX_RETRIES_TRANSIENT,
+    MIN_SPATIAL_DIVERSITY_METERS, MIN_LOB_PAIR_BEARING_DIFF_DEG,
+    RECEIVER_MAX_RETRIES_TRANSIENT,
     RECEIVER_MAX_RETRIES_PERSISTENT, RECEIVER_BACKOFF_BASE_S,
     RECEIVER_PROBE_INTERVAL_S, clear)
 from geo import plot_intersects
 
 
+# Secure XML parser: receiver responses come from arbitrary network endpoints,
+# so disable entity resolution and DTD loading to prevent XXE attacks.
 _secure_parser = etree.XMLParser(
     resolve_entities=False,
     remove_comments=True,
     dtd_validation=False,
     load_dtd=False
 )
+
+
+# HTTP client policy for receiver polling — intentional choices, do not "fix":
+#   - Stdlib urllib (not requests): receivers are KrakenSDR boxes on a LAN
+#     speaking a tiny fixed XML protocol; pulling in `requests` adds a
+#     dependency for zero functional gain.
+#   - 5s timeout: receivers are polled ~once per second on a LAN; 5s is already
+#     generous. Larger timeouts would stall the polling loop on a dead box.
+#   - No custom User-Agent: receiver firmware does not inspect UA. The default
+#     `Python-urllib/3.x` is fine.
+#   - Redirects disabled: a redirecting receiver would point us at an
+#     unintended endpoint whose body we'd then parse as XML. Fail loudly
+#     instead — the resulting 3xx surfaces as HTTPError and is routed through
+#     _classify_error's retry path.
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_no_redirect_opener = urllib.request.build_opener(_NoRedirectHandler())
 
 
 def _classify_error(ex):
@@ -66,11 +88,30 @@ class receiver:
         self.next_retry_time = 0
         self.next_probe_time = 0
         self.max_retries = 0
+        self.latitude = 0.0
+        self.longitude = 0.0
+        self.heading = 0.0
+        self.raw_doa = 0.0
+        self.doa = 0.0
+        self.frequency = 0.0
+        self.power = 0.0
+        self.confidence = 0
+        self.doa_time = 0
+        self.isMobile = False
+        self.isSingle = False
+        self.previous_doa_time = 0
+        self.d_2_last_intersection = [LOB_DRAW_DISTANCE_METERS]
+        self.station_id = "Unknown"
         self.update(first_run=True)
 
     def update(self, first_run=False):
         try:
-            with urllib.request.urlopen(self.station_url, timeout=5) as resp:
+            # Read the raw bytes first, then hand to the secure parser — never
+            # let lxml fetch the URL itself (would bypass _secure_parser hardening).
+            # Uses _no_redirect_opener (see module-level policy comment) — do
+            # not swap back to bare urlopen() or to requests.get().
+            req = urllib.request.Request(self.station_url, method='GET')
+            with _no_redirect_opener.open(req, timeout=5) as resp:
                 xml_data = resp.read()
             xml_contents = etree.fromstring(xml_data, parser=_secure_parser)
             xml_station_id = xml_contents.find('STATION_ID')
@@ -150,30 +191,18 @@ class receiver:
         else:
             return LOB_DRAW_DISTANCE_METERS
 
-    latitude = 0.0
-    longitude = 0.0
-    heading = 0.0
-    raw_doa = 0.0
-    doa = 0.0
-    frequency = 0.0
-    power = 0.0
-    confidence = 0
-    doa_time = 0
-    isMobile = False
-    isSingle = False
-    previous_doa_time = 0
-    last_processed_at = 0
-    d_2_last_intersection = [LOB_DRAW_DISTANCE_METERS]
-    last_error = ""
-    next_retry_time = 0
-    next_probe_time = 0
-    max_retries = 0
-
 
 class ReceiverManager:
     def __init__(self, db):
         self.db = db
         self.receivers = []
+        # Guards the *structure* of self.receivers (append/del) and the
+        # write-back of d_2_last_intersection. Per-receiver field reads and
+        # writes (isActive, error_count, doa, ...) are not guarded — they
+        # rely on CPython's atomic-attribute-write guarantee. Iteration over
+        # the list MUST go through a snapshot taken under the lock; never
+        # iterate self.receivers directly from a worker thread, since add()
+        # and remove() can mutate it underneath you.
         self._lock = threading.Lock()
 
     @contextmanager
@@ -181,43 +210,92 @@ class ReceiverManager:
         with self._lock:
             yield
 
+    def _snapshot(self):
+        with self._lock:
+            return list(self.receivers)
+
+    def get_by_index(self, index):
+        # Resolve uid -> receiver object atomically. Callers that look up a
+        # receiver and then mutate it should use this and operate on the
+        # returned object — indexing self.receivers twice (once to bound-check,
+        # once to mutate) has a TOCTOU window with concurrent remove().
+        with self._lock:
+            if not 0 <= index < len(self.receivers):
+                return None
+            return self.receivers[index]
+
     def add(self, receiver_url):
-        try:
+        # Build the receiver outside the lock — receiver.__init__ calls
+        # update(), which does HTTP I/O and can take seconds. Holding the
+        # lock across that would block the polling loop's snapshot and
+        # any concurrent /rx_params read.
+        with self._lock:
             if any(x.station_url == receiver_url for x in self.receivers):
                 print("Duplicate receiver, ignoring.")
-            else:
-                self.receivers.append(receiver(receiver_url))
-                new_rx = self.receivers[-1].receiver_dict()
-                to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
-                            new_rx['mobile'], new_rx['single'], new_rx['latitude'], new_rx['longitude']]
-                command = "INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)"
-                self.db.execute(command, [to_table], wait=True)
-                self.db.commit(wait=True)
-                row = self.db.query_one("SELECT isMobile, isSingle FROM receivers WHERE station_id = ?",
-                                        [new_rx['station_id']])
-                self.receivers[-1].isMobile = bool(row[0])
-                self.receivers[-1].isSingle = bool(row[1])
-                print("Created new DF Station at " + receiver_url)
-        except AttributeError:
-            pass
+                return
+        new_rx_obj = receiver(receiver_url)
+        new_rx = new_rx_obj.receiver_dict()
+        to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
+                    new_rx['mobile'], new_rx['single'], new_rx['latitude'], new_rx['longitude']]
+        command = "INSERT OR IGNORE INTO receivers VALUES (?,?,?,?,?,?,?)"
+        self.db.execute(command, [to_table], wait=True)
+        self.db.commit(wait=True)
+        row = self.db.query_one("SELECT isMobile, isSingle FROM receivers WHERE station_id = ?",
+                                [new_rx['station_id']])
+        if row is None:
+            # INSERT OR IGNORE skipped because some other receiver already
+            # had this station_id (URL was new but device reports a colliding
+            # station_id). Surface it instead of crashing on row[0].
+            print(f"Receiver at {receiver_url} reports station_id "
+                  f"{new_rx['station_id']!r}, which is already registered. Ignoring.")
+            return
+        new_rx_obj.isMobile = bool(row[0])
+        new_rx_obj.isSingle = bool(row[1])
+        with self._lock:
+            # Re-check for duplicates: another thread could have added the
+            # same URL while we were doing network I/O above.
+            if any(x.station_url == receiver_url for x in self.receivers):
+                print("Duplicate receiver, ignoring.")
+                return
+            self.receivers.append(new_rx_obj)
+        print("Created new DF Station at " + receiver_url)
 
     def remove(self, index):
+        with self._lock:
+            if not 0 <= index < len(self.receivers):
+                return
+            station_id = self.receivers[index].station_id
+            del self.receivers[index]
+        # DB write happens outside the lock — sqlite I/O can take a moment
+        # and the in-memory list is already consistent.
         command = "DELETE FROM receivers WHERE station_id=?"
-        self.db.execute(command, [(self.receivers[index].station_id,)], wait=True)
+        self.db.execute(command, [(station_id,)], wait=True)
         self.db.commit()
-        del self.receivers[index]
 
     def read_from_db(self):
+        # Loaded once at startup. The previous `except Exception: pass`
+        # around the whole loop meant that one bad row killed the load of
+        # every subsequent row, *and* that DB-level failures (corrupt
+        # sqlite, missing table) silently produced an empty receiver list.
+        # Per-row try/except + a print at least makes failures visible while
+        # letting the rest of the receivers load.
         try:
             rx_list = self.db.query("SELECT station_url FROM receivers")
-            for x in rx_list:
+        except Exception as ex:
+            print(f"Could not read receivers from DB: {type(ex).__name__}: {ex}")
+            return
+        for x in rx_list:
+            try:
                 receiver_url = x[0].replace('\n', '')
                 self.add(receiver_url)
-        except Exception:
-            pass
+            except Exception as ex:
+                print(f"Failed to load receiver row {x!r}: "
+                      f"{type(ex).__name__}: {ex}")
 
     def save_to_db(self):
-        for item in self.receivers:
+        # Snapshot under the lock; do the DB writes outside it so a slow
+        # writer thread can't stall add()/remove() on the web side.
+        for item in self._snapshot():
             rx = item.receiver_dict()
             to_table = [rx['auto'], rx['mobile'], rx['single'],
                         rx['latitude'], rx['longitude'], rx['station_id']]
@@ -235,16 +313,28 @@ class ReceiverManager:
         clear(config.debugging)
         dots = 0
 
-        conn = sqlite3.connect(config.database_name)
-        c = conn.cursor()
-
         while ms.receiving:
             if not config.debugging:
                 print("Receiving" + dots * '.')
                 print("Press Control+C to process data and exit.")
 
+            # Take one snapshot per cycle and iterate it everywhere below.
+            # Iterating self.receivers directly would race with add()/remove()
+            # on the web thread (Python list iterators don't tolerate
+            # structural changes mid-iteration). Per-attribute reads through
+            # the snapshot are safe because the snapshot pins the *receiver
+            # objects*, not their field values — concurrent attribute writes
+            # remain individually atomic.
+            with self._lock:
+                for rx in self.receivers:
+                    rx.d_2_last_intersection = []
+                receivers_snapshot = list(self.receivers)
+                rx_snapshot = list(enumerate(self.receivers))
+
+            # Poll receivers outside the lock — network I/O can take seconds
+            # and we don't want to block the web server / CZML generator.
             now = time.time()
-            for rx in self.receivers:
+            for rx in receivers_snapshot:
                 try:
                     if rx.isActive:
                         if rx.error_count > 0 and now < rx.next_retry_time:
@@ -253,7 +343,7 @@ class ReceiverManager:
                 except IOError:
                     print("Problem connecting to receiver.")
 
-            for rx in self.receivers:
+            for rx in receivers_snapshot:
                 if not rx.isActive and rx.next_probe_time > 0 and now >= rx.next_probe_time:
                     print(f"Probing deactivated receiver {rx.station_url}...")
                     rx.update()
@@ -264,12 +354,7 @@ class ReceiverManager:
                     else:
                         rx.next_probe_time = now + RECEIVER_PROBE_INTERVAL_S
 
-            with self._lock:
-                for rx in self.receivers:
-                    rx.d_2_last_intersection = []
-                rx_snapshot = [(i, rx) for i, rx in enumerate(self.receivers)]
-
-            for rx in self.receivers:
+            for rx in receivers_snapshot:
                 is_single_rx = rx.isSingle and rx.isMobile
                 if rx.isActive and rx.doa_time > rx.previous_doa_time and (ms.lob_history_enabled or is_single_rx):
                     to_lobs = [rx.doa_time, rx.station_id, rx.latitude,
@@ -322,7 +407,7 @@ class ReceiverManager:
                     VALUES (?,?,?,?,?,?)'''
                     self.db.execute(command, (to_table,), wait=True)
 
-            for rx in self.receivers:
+            for rx in receivers_snapshot:
                 if (rx.isSingle and rx.isMobile and rx.isActive and
                     rx.confidence >= ms.min_conf and
                     rx.power >= ms.min_power and
@@ -330,9 +415,10 @@ class ReceiverManager:
                     current_doa = [rx.doa_time, rx.station_id, rx.latitude,
                                    rx.longitude, rx.confidence, rx.doa]
                     min_time = rx.doa_time - HISTORICAL_LOB_WINDOW_MS
-                    c.execute('''SELECT latitude, longitude, confidence, lob FROM lobs
-                     WHERE station_id = ? AND time > ?''', [rx.station_id, min_time])
-                    lob_array = c.fetchall()
+                    lob_array = self.db.query(
+                        '''SELECT latitude, longitude, confidence, lob FROM lobs
+                         WHERE station_id = ? AND time > ?''',
+                        [rx.station_id, min_time])
                     current_time = current_doa[0]
                     lat_rxa = current_doa[2]
                     lon_rxa = current_doa[3]
@@ -348,8 +434,13 @@ class ReceiverManager:
                             spacial_diversity, z = v.inverse(
                                 (lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
                             min_diversity = MIN_SPATIAL_DIVERSITY_METERS
+                            # angular_diff, not abs() — wrap-aware compass
+                            # difference. Plain abs() reports 358° between
+                            # bearings 359° and 1° (actually 2° apart),
+                            # accepting near-parallel pairs that produce
+                            # poor-quality far intersections.
                             if (spacial_diversity > min_diversity and
-                                    abs(doa_rxa - doa_rxb) > 5):
+                                    v.angular_diff_deg(doa_rxa, doa_rxb) > MIN_LOB_PAIR_BEARING_DIFF_DEG):
                                 intersection = plot_intersects(lat_rxa, lon_rxa,
                                                                doa_rxa, lat_rxb, lon_rxb, doa_rxb)
                                 if intersection:
@@ -374,5 +465,3 @@ class ReceiverManager:
             else:
                 dots += 1
             clear(config.debugging)
-
-        conn.close()
