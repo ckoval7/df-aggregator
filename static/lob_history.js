@@ -217,7 +217,6 @@ document.getElementById("liveBtn").addEventListener("click", function() {
 
 function enterHistoryMode() {
   isHistoryMode = true;
-  clearInterval(autoRefresh);
   document.querySelector(".cesium-viewer-animationContainer").classList.add("history-visible");
   document.querySelector(".cesium-viewer-timelineContainer").classList.add("history-visible");
   const liveBtn = document.getElementById("liveBtn");
@@ -246,7 +245,6 @@ function exitHistoryMode() {
   document.querySelector(".cesium-viewer-animationContainer").classList.remove("history-visible");
   document.querySelector(".cesium-viewer-timelineContainer").classList.remove("history-visible");
 
-  globalThis.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
   reloadRX();
 
   const liveBtn = document.getElementById("liveBtn");

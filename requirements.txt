@@ -1,7 +1,7 @@
 bottle>=0.12.19
-bottle-websocket>=0.2.9
 geojson>=2.5.0
 numpy>=1.13.3
 lxml>=4.2.1
 czml3>=3.0.0
 scikit_learn>=0.23.2
+waitress>=2.1.2

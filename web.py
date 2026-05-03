@@ -15,7 +15,6 @@ from bottle import (
     static_file,
     HTTPError,
 )
-from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 import geo
 
@@ -251,20 +250,43 @@ def _aoi_action_purge(db):
     db.purge_database(*row)
 
 
-def _dispatch_aoi_action(action, db):
+def _aoi_payload(db):
+    return {
+        "aois": [
+            {
+                "uid": x[0],
+                "aoi_type": x[1],
+                "latitude": x[2],
+                "longitude": x[3],
+                "radius": x[4],
+            }
+            for x in db.fetch_aoi_data()
+        ]
+    }
+
+
+def _dispatch_aoi_action(action, db, broker):
     match action:
         case "new":
             _aoi_action_new(db)
+            broker.publish("aoi_config", _aoi_payload(db))
         case "del":
             _aoi_action_del(db)
+            broker.publish("aoi_config", _aoi_payload(db))
         case "purge":
+            # Purge mutates intersects only — the AOI list itself is unchanged,
+            # so the sidebar payload stays the same and no event is needed.
             _aoi_action_purge(db)
         case _:
             raise HTTPError(400, "unknown action")
 
 
-def create_routes(config, ms, db, receiver_manager):
+def create_routes(config, ms, db, receiver_manager, broker):
     app = Bottle()
+
+    # Seed the broker so the first subscriber's snapshot replay carries the
+    # current AOI list without waiting for a mutation.
+    broker.publish("aoi_config", _aoi_payload(db))
 
     @app.route("/static/<filepath:path>", name="static")
     def server_static(filepath):
@@ -323,6 +345,23 @@ def create_routes(config, ms, db, receiver_manager):
         response.set_header("Cache-Control", _NO_CACHE)
         return json.dumps(geo.get_pipeline_stats())
 
+    @app.get("/events")
+    def sse_events():
+        response.content_type = "text/event-stream"
+        response.set_header("Cache-Control", "no-cache")
+        response.set_header("X-Accel-Buffering", "no")
+        channel = broker.subscribe()
+
+        def gen():
+            try:
+                while True:
+                    frame = channel.get(timeout=None)
+                    yield f"event: {frame.event_type}\ndata: {frame.data_json}\n\n"
+            finally:
+                broker.unsubscribe(channel)
+
+        return gen()
+
     @app.put("/rx_params/<action>")
     def update_rx(action):
         _dispatch_rx_action(action, receiver_manager)
@@ -330,22 +369,12 @@ def create_routes(config, ms, db, receiver_manager):
 
     @app.get("/interest_areas")
     def load_interest_areas():
-        aoi_properties = [
-            {
-                "uid": x[0],
-                "aoi_type": x[1],
-                "latitude": x[2],
-                "longitude": x[3],
-                "radius": x[4],
-            }
-            for x in db.fetch_aoi_data()
-        ]
         response.headers["Content-Type"] = _JSON_CT
-        return json.dumps({"aois": aoi_properties})
+        return json.dumps(_aoi_payload(db))
 
     @app.put("/interest_areas/<action>")
     def handle_interest_areas(action):
-        _dispatch_aoi_action(action, db)
+        _dispatch_aoi_action(action, db, broker)
 
     @app.get("/run_all_aoi_rules")
     def run_aoi_rules():
@@ -391,13 +420,6 @@ class GzipMiddleware:
     def __init__(self, wsgi_app):
         self.app = wsgi_app
 
-    @staticmethod
-    def _is_websocket_upgrade(environ):
-        return (
-            environ.get("HTTP_UPGRADE", "").lower() == "websocket"
-            and "upgrade" in environ.get("HTTP_CONNECTION", "").lower()
-        )
-
     def _is_compressible(self, headers):
         content_type = ""
         for name, value in headers:
@@ -436,9 +458,11 @@ class GzipMiddleware:
         return new_headers
 
     def __call__(self, environ, start_response):
-        if self._is_websocket_upgrade(environ) or "gzip" not in environ.get(
-            "HTTP_ACCEPT_ENCODING", ""
-        ):
+        # SSE responses are streaming generators; the buffer-and-compress path
+        # below would never yield. Bypass entirely for the events endpoint.
+        if environ.get("PATH_INFO") == "/events":
+            return self.app(environ, start_response)
+        if "gzip" not in environ.get("HTTP_ACCEPT_ENCODING", ""):
             return self.app(environ, start_response)
 
         captured_status = []
@@ -485,8 +509,10 @@ def start_server(config, app):
             host=config.ip,
             port=config.port,
             quiet=True,
-            server=GeventWebSocketServer,
+            server="waitress",
             debug=config.debugging,
+            connection_limit=64,
+            threads=8,
         )
     except OSError:
         log.error(

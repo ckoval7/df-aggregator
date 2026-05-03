@@ -31,7 +31,6 @@ if version_info.major != 3 or version_info.minor < 6:
 
 import argparse
 import logging
-import re
 import signal
 import threading
 import time
@@ -40,6 +39,7 @@ from os import kill, getpid
 from config import AppConfig, MathSettings
 from database import Database
 from receivers import ReceiverManager
+from sse_broker import Broker
 import geo
 import web
 
@@ -171,21 +171,6 @@ if __name__ == "__main__":
         handlers=handlers,
     )
 
-    # gevent's WSGI handler logs every request at INFO, including the 2.5s UI
-    # polls — too chatty. Demote successful (2xx/3xx) responses to DEBUG;
-    # keep 4xx/5xx visible at INFO so error responses still show up.
-    _access_log_re = re.compile(r'" (\d{3}) ')
-
-    def _demote_successful_access(record):
-        msg = record.getMessage()
-        m = _access_log_re.search(msg)
-        if m and m.group(1)[0] in ("2", "3"):
-            record.levelno = logging.DEBUG
-            record.levelname = "DEBUG"
-        return True
-
-    logging.getLogger("geventwebsocket.handler").addFilter(_demote_successful_access)
-
     access_token = None
     if options.token_file:
         with open(options.token_file, "r") as token:
@@ -206,7 +191,8 @@ if __name__ == "__main__":
     ms.lob_history_enabled = not options.no_lob_history
 
     db = Database(app_config)
-    rx_mgr = ReceiverManager(db)
+    broker = Broker(heartbeat_interval_s=10.0)
+    rx_mgr = ReceiverManager(db, broker=broker)
 
     def finish():
         log.info("Processing, please wait.")
@@ -217,13 +203,17 @@ if __name__ == "__main__":
             geo.write_geojson(
                 *geo.process_data(db, ms.eps, ms.min_samp)[:2], app_config.geofile
             )
+        # SIGTERM, not sys.exit(): the web thread blocks in accept() and
+        # ignores SystemExit raised in the main thread, so Ctrl+C alone
+        # leaves the process hung until you hit it again. The kernel reaps
+        # us regardless.
         kill(getpid(), signal.SIGTERM)
 
     dbwriter = threading.Thread(target=db.writer_loop)
     dbwriter.daemon = True
     dbwriter.start()
 
-    web_app = web.create_routes(app_config, ms, db, rx_mgr)
+    web_app = web.create_routes(app_config, ms, db, rx_mgr, broker)
     web_thread = threading.Thread(target=web.start_server, args=(app_config, web_app))
     web_thread.daemon = True
     web_thread.start()
@@ -244,6 +234,11 @@ if __name__ == "__main__":
                 prev_receiving = ms.receiving
             if ms.receiving:
                 rx_mgr.run_loop(ms)
+            else:
+                # While paused, run_loop doesn't run, but receivers can still
+                # be added/removed/activated via web actions. Tick the publish
+                # path so other tabs see those changes.
+                rx_mgr._publish_changes()
             time.sleep(1)
 
     except KeyboardInterrupt:

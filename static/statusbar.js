@@ -16,6 +16,7 @@ const statusBar = {
     this.els.freqUnit = document.getElementById('stat-freq-unit');
     this.els.freqStat = document.getElementById('stat-freq');
     this.els.modePill = document.getElementById('stat-mode-pill');
+    this.els.connPill = document.getElementById('conn-pill');
     this.els.clockTime = document.getElementById('clock-time');
     this.els.clockDate = document.getElementById('clock-date');
     this.els.dbIntersections = document.getElementById('stat-db-intersections');
@@ -98,6 +99,19 @@ const statusBar = {
     } else {
       this.els.modePill.className = 'mode-pill history';
       this.els.modePill.innerHTML = '<span class="dot dot-accent"></span>HISTORY';
+    }
+  },
+
+  setConnected: function(isConnected) {
+    if (!this.els?.connPill) return;
+    if (isConnected) {
+      this.els.connPill.classList.remove('disconnected');
+      this.els.connPill.classList.add('connected');
+      this.els.connPill.title = 'Server connection: live';
+    } else {
+      this.els.connPill.classList.remove('connected');
+      this.els.connPill.classList.add('disconnected');
+      this.els.connPill.title = 'Server connection: lost (auto-reconnecting)';
     }
   },
 

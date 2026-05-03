@@ -2,6 +2,12 @@
 
 ## Recent Changes (May 2026):
 
+### Server-Sent Events (SSE) Push Architecture
+- **Live receiver updates** — receiver configuration and telemetry pushed to clients via SSE instead of polling
+- **Real-time AOI synchronization** — AOI mutations broadcast to all connected clients for instant updates
+- **Incremental DOM patching** — efficient client-side updates without full page refresh
+- **Heartbeat monitoring** — detects and closes stale connections automatically
+
 ### UI Redesign
 - **Complete frontend rewrite** — new design token CSS system, restructured layout, and rewritten JS/CSS for a modern look
 - **Status bar** — Cesium toolbar integrated into a persistent status bar with pipeline stats (receiver count, intersection rate, cluster count)
