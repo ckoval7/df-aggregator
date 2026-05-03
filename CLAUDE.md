@@ -68,6 +68,8 @@ Browser ← CesiumJS ← CZML ← geo.write_czml() ← geo.process_data()
 
 Browser ← SSE ← sse_broker.Broker ← rx_mgr._publish_changes()
                                             (rx_config / rx_telemetry events)
+                                  ← web.py AOI mutation handlers
+                                            (aoi_config events)
                     ↑
             GET /events (web.py)
 ```
@@ -112,7 +114,7 @@ PRAGMAs set by the writer at startup: `journal_mode=WAL`, `synchronous=NORMAL`, 
 | `GET /aoi.czml` | AOI boundary polygons as CZML |
 | `GET /lob_history.czml` | Replay LOBs in a time window (used by the timeline scrubber) |
 | `GET /api/pipeline-stats` | Pipeline counters JSON (consumed by the status bar) |
-| `GET /events` | SSE stream (`text/event-stream`); pushes `rx_config`, `rx_telemetry`, `pipeline`, and `heartbeat` events |
+| `GET /events` | SSE stream (`text/event-stream`); pushes `rx_config`, `rx_telemetry`, `aoi_config`, and `heartbeat` events |
 | `GET /static/<path>` | Static assets |
 
 **Security:** there is intentionally no authentication. Default bind is `127.0.0.1`; binding to a non-loopback address exposes mutating endpoints to the network. Receiver URL validation only blocks non-http(s) schemes and unresolvable hosts — RFC1918/loopback are allowed because receivers normally live on the LAN. Adding auth is a product decision (see top-of-file note in `web.py`).

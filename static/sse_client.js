@@ -16,9 +16,12 @@
       if (typeof loadRxCzml === 'function') loadRxCzml();
     });
 
-    es.addEventListener('pipeline', function(e) {
+    es.addEventListener('aoi_config', function(e) {
       var data = JSON.parse(e.data);
-      if (globalThis.statusBar) statusBar.updatePipelineStats(data);
+      if (typeof createAois === 'function') createAois(data);
+      if (globalThis.statusBar) statusBar.updateAoiStats(data);
+      if (globalThis.mobileUI) mobileUI.updateAoiStats(data);
+      if (typeof loadAoiCzml === 'function') loadAoiCzml();
     });
 
     es.addEventListener('heartbeat', function() {

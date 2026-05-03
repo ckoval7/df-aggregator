@@ -5,6 +5,7 @@ function fmtCount(n) {
 
 const statusBar = {
   els: {},
+  _pipelineTimer: null,
 
   init: function() {
     this.els.rxCount = document.getElementById('stat-rx-count');
@@ -106,12 +107,22 @@ const statusBar = {
     if (isConnected) {
       this.els.connPill.classList.remove('disconnected');
       this.els.connPill.classList.add('connected');
-      this.els.connPill.textContent = 'LIVE';
+      this.els.connPill.title = 'Server connection: live';
     } else {
       this.els.connPill.classList.remove('connected');
       this.els.connPill.classList.add('disconnected');
-      this.els.connPill.textContent = 'DISCONNECTED';
+      this.els.connPill.title = 'Server connection: lost (auto-reconnecting)';
     }
+  },
+
+  fetchPipelineStats: function() {
+    if (this._pipelineTimer) clearTimeout(this._pipelineTimer);
+    this._pipelineTimer = setTimeout(() => {
+      fetch('/api/pipeline-stats')
+        .then(function(r) { return r.json(); })
+        .then((data) => { this.updatePipelineStats(data); })
+        .catch(function() {});
+    }, 250);
   },
 
   updatePipelineStats: function(data) {

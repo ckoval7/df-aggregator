@@ -192,7 +192,6 @@ if __name__ == "__main__":
 
     db = Database(app_config)
     broker = Broker(heartbeat_interval_s=10.0)
-    geo.set_broker(broker)
     rx_mgr = ReceiverManager(db, broker=broker)
 
     def finish():

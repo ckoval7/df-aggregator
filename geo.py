@@ -49,15 +49,6 @@ from config import (
 pipeline_stats_cache = {}
 pipeline_stats_lock = threading.Lock()
 
-# Optional broker injected by df-aggregator at startup. ``None`` keeps geo.py
-# safe to import in unit tests that don't need SSE.
-_broker = None
-
-
-def set_broker(broker):
-    global _broker
-    _broker = broker
-
 
 def plot_polar(lat_a, lon_a, lat_a2, lon_a2):
     p1_lat1_rad = math.radians(lat_a)
@@ -446,8 +437,6 @@ def _update_pipeline_stats(
     }
     with pipeline_stats_lock:
         pipeline_stats_cache = stats
-    if _broker is not None:
-        _broker.publish("pipeline", stats)
 
 
 def get_pipeline_stats():
