@@ -261,8 +261,43 @@ def telemetry_fingerprint(receivers_list):
     )
 
 
+def _rx_config_payload(receivers_list):
+    out = []
+    for i, r in enumerate(receivers_list):
+        out.append({
+            "uid": i,
+            "station_id": r.station_id,
+            "station_url": r.station_url,
+            "active": r.isActive,
+            "auto": r.isAuto,
+            "mobile": r.isMobile,
+            "single": r.isSingle,
+            "inverted": r.inverted,
+        })
+    return {"receivers": out}
+
+
+def _rx_telemetry_payload(receivers_list):
+    out = []
+    for i, r in enumerate(receivers_list):
+        out.append({
+            "uid": i,
+            "station_id": r.station_id,  # needed for card-body rebuild on the client
+            "active": r.isActive,
+            "doa": r.doa,
+            "doa_time": r.doa_time,
+            "power": r.power,
+            "confidence": r.confidence,
+            "frequency": r.frequency,
+            "latitude": r.latitude,
+            "longitude": r.longitude,
+            "heading": r.heading,
+        })
+    return {"receivers": out}
+
+
 class ReceiverManager:
-    def __init__(self, db):
+    def __init__(self, db, broker=None):
         self.db = db
         self.receivers = []
         # Guards the *structure* of self.receivers (append/del) and the
@@ -273,6 +308,9 @@ class ReceiverManager:
         # iterate self.receivers directly from a worker thread, since add()
         # and remove() can mutate it underneath you.
         self._lock = threading.Lock()
+        self.broker = broker
+        self._last_struct_fp = None
+        self._last_tele_fp = None
 
     @contextmanager
     def lock(self):
@@ -625,4 +663,18 @@ class ReceiverManager:
             self._record_aggregate_intersection(intersect_list, latest_doa_time)
             self._process_single_rx(receivers_snapshot, ms)
             self.db.commit()
+            self._publish_changes()
             time.sleep(1)
+
+    def _publish_changes(self):
+        if self.broker is None:
+            return
+        snap = self._snapshot()
+        struct_fp = struct_fingerprint(snap)
+        if struct_fp != self._last_struct_fp:
+            self._last_struct_fp = struct_fp
+            self.broker.publish("rx_config", _rx_config_payload(snap))
+        tele_fp = telemetry_fingerprint(snap)
+        if tele_fp != self._last_tele_fp:
+            self._last_tele_fp = tele_fp
+            self.broker.publish("rx_telemetry", _rx_telemetry_payload(snap))
