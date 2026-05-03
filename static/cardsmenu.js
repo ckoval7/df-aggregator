@@ -1,7 +1,7 @@
 // Receiver add form
-var addRxBtn = document.getElementById("add-rx-btn");
-var newRxForm = document.getElementById("new-rx-form");
-var newRxUrl = document.getElementById("new-rx-url");
+const addRxBtn = document.getElementById("add-rx-btn");
+const newRxForm = document.getElementById("new-rx-form");
+const newRxUrl = document.getElementById("new-rx-url");
 
 addRxBtn.addEventListener("click", function() {
   newRxForm.classList.toggle("hidden");
@@ -12,7 +12,7 @@ addRxBtn.addEventListener("click", function() {
 });
 
 document.getElementById("save-new-rx").addEventListener("click", function() {
-  var url = newRxUrl.value.trim();
+  const url = newRxUrl.value.trim();
   if (url) {
     makeNewRx(url);
   }
@@ -24,11 +24,11 @@ document.getElementById("cancel-new-rx").addEventListener("click", function() {
 });
 
 // AOI add form
-var addAoiBtn = document.getElementById("add-aoi-btn");
-var newAoiForm = document.getElementById("new-aoi-form");
-var aoiLat = document.getElementById("aoi-new-lat");
-var aoiLon = document.getElementById("aoi-new-lon");
-var aoiRadius = document.getElementById("aoi-new-radius");
+const addAoiBtn = document.getElementById("add-aoi-btn");
+const newAoiForm = document.getElementById("new-aoi-form");
+const aoiLat = document.getElementById("aoi-new-lat");
+const aoiLon = document.getElementById("aoi-new-lon");
+const aoiRadius = document.getElementById("aoi-new-radius");
 
 addAoiBtn.addEventListener("click", function() {
   if (!newAoiForm.classList.contains("hidden")) {
@@ -58,11 +58,11 @@ document.getElementById("cancel-new-aoi").addEventListener("click", function() {
 });
 
 // Exclusion add form
-var addExBtn = document.getElementById("add-exclusion-btn");
-var newExForm = document.getElementById("new-exclusion-form");
-var exLat = document.getElementById("exclusion-new-lat");
-var exLon = document.getElementById("exclusion-new-lon");
-var exRadius = document.getElementById("exclusion-new-radius");
+const addExBtn = document.getElementById("add-exclusion-btn");
+const newExForm = document.getElementById("new-exclusion-form");
+const exLat = document.getElementById("exclusion-new-lat");
+const exLon = document.getElementById("exclusion-new-lon");
+const exRadius = document.getElementById("exclusion-new-radius");
 
 addExBtn.addEventListener("click", function() {
   if (!newExForm.classList.contains("hidden")) {
@@ -93,7 +93,7 @@ document.getElementById("cancel-new-exclusion").addEventListener("click", functi
 
 // AOI Rules
 document.getElementById("run-aoi-rules-btn").addEventListener("click", function() {
-  var confirmed = confirm(
+  const confirmed = confirm(
     "Did you define every AOI first?\n" +
     "You are about to delete every intersection outside of the currently defined AOIs. " +
     "This cannot be undone! When in doubt, backup your database."

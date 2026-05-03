@@ -1,4 +1,9 @@
-var statusBar = {
+function fmtCount(n) {
+  if (n == null) return '—';
+  return n.toLocaleString();
+}
+
+const statusBar = {
   els: {},
   _pipelineTimer: null,
 
@@ -26,24 +31,23 @@ var statusBar = {
   },
 
   startClock: function() {
-    var self = this;
-    function tick() {
-      var now = new Date();
-      self.els.clockTime.textContent = now.toISOString().slice(11, 19) + ' UTC';
-      var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-      var day = String(now.getUTCDate()).padStart(2, '0');
-      self.els.clockDate.textContent = day + ' ' + months[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
-    }
+    const tick = () => {
+      const now = new Date();
+      this.els.clockTime.textContent = now.toISOString().slice(11, 19) + ' UTC';
+      const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+      const day = String(now.getUTCDate()).padStart(2, '0');
+      this.els.clockDate.textContent = day + ' ' + months[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
+    };
     tick();
     setInterval(tick, 1000);
   },
 
   updateReceiverStats: function(rxJson) {
-    var receivers = rxJson.receivers;
-    var total = Object.keys(receivers).length;
-    var online = 0;
-    var freqs = {};
-    for (var i = 0; i < total; i++) {
+    const receivers = rxJson.receivers;
+    const total = Object.keys(receivers).length;
+    let online = 0;
+    const freqs = {};
+    for (let i = 0; i < total; i++) {
       if (receivers[i].active) {
         online++;
         freqs[receivers[i].frequency] = true;
@@ -52,7 +56,7 @@ var statusBar = {
     this.els.rxCount.textContent = online;
     this.els.rxTotal.textContent = '/' + total;
 
-    var uniqueFreqs = Object.keys(freqs);
+    const uniqueFreqs = Object.keys(freqs);
     if (uniqueFreqs.length === 0) {
       this.els.freqValue.textContent = '—';
       this.els.freqUnit.textContent = 'no active rx';
@@ -73,10 +77,10 @@ var statusBar = {
   },
 
   updateAoiStats: function(aoiJson) {
-    var aois = aoiJson.aois;
-    var aoiCount = 0;
-    var exCount = 0;
-    for (var i = 0; i < aois.length; i++) {
+    const aois = aoiJson.aois;
+    let aoiCount = 0;
+    let exCount = 0;
+    for (let i = 0; i < aois.length; i++) {
       if (aois[i].aoi_type === 'exclusion') {
         exCount++;
       } else {
@@ -98,24 +102,18 @@ var statusBar = {
   },
 
   fetchPipelineStats: function() {
-    var self = this;
     if (this._pipelineTimer) clearTimeout(this._pipelineTimer);
-    this._pipelineTimer = setTimeout(function() {
+    this._pipelineTimer = setTimeout(() => {
       fetch('/api/pipeline-stats')
         .then(function(r) { return r.json(); })
-        .then(function(data) { self.updatePipelineStats(data); })
+        .then((data) => { this.updatePipelineStats(data); })
         .catch(function() {});
     }, 250);
   },
 
   updatePipelineStats: function(data) {
-    var fmt = function(n) {
-      if (n == null) return '—';
-      return n.toLocaleString();
-    };
-
-    var dbInt = data.db_intersections || 0;
-    this.els.dbIntersections.textContent = fmt(dbInt);
+    const dbInt = data.db_intersections || 0;
+    this.els.dbIntersections.textContent = fmtCount(dbInt);
 
     if (!data.clustering_enabled) {
       this.els.inclusterWrap.style.display = 'none';
@@ -131,24 +129,23 @@ var statusBar = {
     this.els.arrow1.style.display = '';
     this.els.arrow2.style.display = '';
 
-    var totals = data.totals || {};
-    var inCluster = totals.in_cluster || 0;
-    var clusters = totals.clusters || 0;
-    var outliers = totals.outliers_removed || 0;
+    const totals = data.totals || {};
+    const inCluster = totals.in_cluster || 0;
+    const clusters = totals.clusters || 0;
 
-    this.els.inCluster.textContent = fmt(inCluster);
-    this.els.clusters.textContent = fmt(clusters);
+    this.els.inCluster.textContent = fmtCount(inCluster);
+    this.els.clusters.textContent = fmtCount(clusters);
 
-    var tooltip = '';
+    let tooltip = '';
     if (data.per_aoi && data.per_aoi.length > 1) {
       tooltip = data.per_aoi.map(function(a) {
-        var label = a.aoi_id === -1 ? 'Global' : 'AOI-' + a.aoi_id;
-        return label + ': ' + fmt(a.in_cluster) + ' in clusters / ' + fmt(a.clusters) + ' clusters';
+        const label = a.aoi_id === -1 ? 'Global' : 'AOI-' + a.aoi_id;
+        return label + ': ' + fmtCount(a.in_cluster) + ' in clusters / ' + fmtCount(a.clusters) + ' clusters';
       }).join('\n');
     }
     this.els.pipelineGroup.title = tooltip;
 
-    var warn = '';
+    let warn = '';
     if (dbInt === 0) {
       warn = 'No intersections in time window';
     }

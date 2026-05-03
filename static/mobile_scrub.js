@@ -1,15 +1,15 @@
 (function() {
-  var track = document.getElementById('m-scrub-track');
-  var timeLabel = document.getElementById('m-scrub-time');
-  var startLabel = document.getElementById('m-scrub-start');
-  var endLabel = document.getElementById('m-scrub-end');
-  var scrubEl = document.getElementById('m-scrub');
+  const track = document.getElementById('m-scrub-track');
+  const timeLabel = document.getElementById('m-scrub-time');
+  const startLabel = document.getElementById('m-scrub-start');
+  const endLabel = document.getElementById('m-scrub-end');
+  const scrubEl = document.getElementById('m-scrub');
 
-  var startMs, endMs, totalSpan;
-  var tickListener;
-  var dragging = false;
-  var wasAnimating = false;
-  var head;
+  let startMs, endMs, totalSpan;
+  let tickListener;
+  let dragging = false;
+  let wasAnimating = false;
+  let head;
 
 
   function isVertical() {
@@ -27,9 +27,9 @@
   }
 
   function touchToFraction(touch) {
-    var rect = track.getBoundingClientRect();
+    const rect = track.getBoundingClientRect();
     if (isVertical()) {
-      var raw = (touch.clientY - rect.top) / rect.height;
+      const raw = (touch.clientY - rect.top) / rect.height;
       return 1 - Math.max(0, Math.min(1, raw));
     } else {
       return Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
@@ -39,7 +39,7 @@
   function positionHead(frac) {
     if (!head) return;
     if (isVertical()) {
-      var pct = (1 - frac) * 100;
+      const pct = (1 - frac) * 100;
       head.style.top = pct + '%';
       head.style.left = '';
     } else {
@@ -50,7 +50,7 @@
 
   function positionTimeLabel(frac) {
     if (isVertical()) {
-      var pct = (1 - frac) * 100;
+      const pct = (1 - frac) * 100;
       timeLabel.style.top = pct + '%';
       timeLabel.style.transform = 'translateY(-50%)';
       timeLabel.style.left = '';
@@ -63,7 +63,7 @@
   }
 
   function formatUTC(ms) {
-    var d = new Date(ms);
+    const d = new Date(ms);
     return String(d.getUTCHours()).padStart(2, '0') + ':' +
            String(d.getUTCMinutes()).padStart(2, '0') + ':' +
            String(d.getUTCSeconds()).padStart(2, '0');
@@ -79,8 +79,8 @@
   }
 
   function setClockTime(frac) {
-    var ms = fractionToTime(frac);
-    var jd = Cesium.JulianDate.fromDate(new Date(ms));
+    const ms = fractionToTime(frac);
+    const jd = Cesium.JulianDate.fromDate(new Date(ms));
     viewer.clock.currentTime = jd;
     updateTimeText(ms);
     positionHead(frac);
@@ -89,23 +89,23 @@
 
   function onTick() {
     if (dragging) return;
-    var now = Cesium.JulianDate.toDate(viewer.clock.currentTime).getTime();
-    var frac = timeToFraction(now);
+    const now = Cesium.JulianDate.toDate(viewer.clock.currentTime).getTime();
+    const frac = timeToFraction(now);
     positionHead(frac);
     positionTimeLabel(frac);
     updateTimeText(now);
   }
 
   function renderHighlights(merged) {
-    for (var i = 0; i < merged.length; i++) {
-      var fracStart = timeToFraction(merged[i][0]);
-      var fracEnd = timeToFraction(merged[i][1]);
-      var el = document.createElement('div');
+    for (let i = 0; i < merged.length; i++) {
+      const fracStart = timeToFraction(merged[i][0]);
+      const fracEnd = timeToFraction(merged[i][1]);
+      const el = document.createElement('div');
       el.className = 'm-scrub-hl';
 
       if (isVertical()) {
-        var topPct = (1 - fracEnd) * 100;
-        var heightPct = (fracEnd - fracStart) * 100;
+        const topPct = (1 - fracEnd) * 100;
+        const heightPct = (fracEnd - fracStart) * 100;
         el.style.top = topPct + '%';
         el.style.height = heightPct + '%';
       } else {
@@ -126,14 +126,14 @@
     dragging = true;
     wasAnimating = viewer.clock.shouldAnimate;
     viewer.clock.shouldAnimate = false;
-    var frac = touchToFraction(e.touches[0]);
+    const frac = touchToFraction(e.touches[0]);
     setClockTime(frac);
   }
 
   function onTouchMove(e) {
     if (!dragging) return;
     e.preventDefault();
-    var frac = touchToFraction(e.touches[0]);
+    const frac = touchToFraction(e.touches[0]);
     setClockTime(frac);
   }
 
@@ -156,10 +156,10 @@
     onTick();
   }
 
-  var orientationMq = window.matchMedia('(orientation: portrait)');
+  const orientationMq = window.matchMedia('(orientation: portrait)');
   orientationMq.addEventListener('change', onOrientationChange);
 
-  var currentMerged = [];
+  let currentMerged = [];
 
 
   window.mScrub = {
@@ -179,8 +179,8 @@
       renderHighlights(merged);
       updateBoundLabels();
 
-      var now = Cesium.JulianDate.toDate(viewer.clock.currentTime).getTime();
-      var frac = timeToFraction(now);
+      const now = Cesium.JulianDate.toDate(viewer.clock.currentTime).getTime();
+      const frac = timeToFraction(now);
       positionHead(frac);
       positionTimeLabel(frac);
       updateTimeText(now);

@@ -1,17 +1,17 @@
-var HIGHLIGHT_GAP_THRESHOLD_MS = 10000;
-var highlightRanges = [];
-var isHistoryMode = false;
+const HIGHLIGHT_GAP_THRESHOLD_MS = 10000;
+let highlightRanges = [];
+let isHistoryMode = false;
 
 function extractIntervals(dataSource) {
-  var intervals = [];
-  var entities = dataSource.entities.values;
-  for (var i = 0; i < entities.length; i++) {
-    var entity = entities[i];
+  const intervals = [];
+  const entities = dataSource.entities.values;
+  for (let i = 0; i < entities.length; i++) {
+    const entity = entities[i];
     if (entity.availability) {
-      for (var j = 0; j < entity.availability.length; j++) {
-        var interval = entity.availability.get(j);
-        var startMs = Cesium.JulianDate.toDate(interval.start).getTime();
-        var stopMs = Cesium.JulianDate.toDate(interval.stop).getTime();
+      for (let j = 0; j < entity.availability.length; j++) {
+        const interval = entity.availability.get(j);
+        const startMs = Cesium.JulianDate.toDate(interval.start).getTime();
+        const stopMs = Cesium.JulianDate.toDate(interval.stop).getTime();
         intervals.push([startMs, stopMs]);
       }
     }
@@ -22,9 +22,9 @@ function extractIntervals(dataSource) {
 
 function mergeIntervals(intervals) {
   if (intervals.length === 0) return [];
-  var merged = [[intervals[0][0], intervals[0][1]]];
-  for (var i = 1; i < intervals.length; i++) {
-    var last = merged[merged.length - 1];
+  const merged = [[intervals[0][0], intervals[0][1]]];
+  for (let i = 1; i < intervals.length; i++) {
+    const last = merged[merged.length - 1];
     if (intervals[i][0] - last[1] <= HIGHLIGHT_GAP_THRESHOLD_MS) {
       last[1] = Math.max(last[1], intervals[i][1]);
     } else {
@@ -36,12 +36,12 @@ function mergeIntervals(intervals) {
 
 function renderTimelineHighlights(dataSource) {
   clearTimelineHighlights();
-  var intervals = extractIntervals(dataSource);
-  var merged = mergeIntervals(intervals);
+  const intervals = extractIntervals(dataSource);
+  const merged = mergeIntervals(intervals);
 
-  var color = Cesium.Color.GREEN.withAlpha(0.4);
-  for (var i = 0; i < merged.length; i++) {
-    var range = viewer.timeline.addHighlightRange(color, 5);
+  const color = Cesium.Color.GREEN.withAlpha(0.4);
+  for (let i = 0; i < merged.length; i++) {
+    const range = viewer.timeline.addHighlightRange(color, 5);
     range.setRange(
       Cesium.JulianDate.fromDate(new Date(merged[i][0])),
       Cesium.JulianDate.fromDate(new Date(merged[i][1]))
@@ -56,9 +56,9 @@ function renderTimelineHighlights(dataSource) {
 
 function clearTimelineHighlights() {
   if (highlightRanges.length > 0) {
-    var allRanges = viewer.timeline._highlightRanges;
-    for (var i = 0; i < highlightRanges.length; i++) {
-      var idx = allRanges.indexOf(highlightRanges[i]);
+    const allRanges = viewer.timeline._highlightRanges;
+    for (let i = 0; i < highlightRanges.length; i++) {
+      const idx = allRanges.indexOf(highlightRanges[i]);
       if (idx !== -1) { allRanges.splice(idx, 1); }
     }
     highlightRanges = [];
@@ -69,58 +69,58 @@ function clearTimelineHighlights() {
 
 function renderScrubHighlights(merged) {
   clearScrubHighlights();
-  var track = document.getElementById("scrub-track");
-  var axis = document.getElementById("scrub-axis");
+  const track = document.getElementById("scrub-track");
+  const axis = document.getElementById("scrub-axis");
   if (merged.length === 0) return;
 
-  var startVal = document.getElementById("history_start").value;
-  var endVal = document.getElementById("history_end").value;
-  var startMs = startVal ? new Date(startVal).getTime() : merged[0][0];
-  var endMs = endVal ? new Date(endVal).getTime() : merged[merged.length - 1][1];
-  var totalSpan = endMs - startMs;
+  const startVal = document.getElementById("history_start").value;
+  const endVal = document.getElementById("history_end").value;
+  const startMs = startVal ? new Date(startVal).getTime() : merged[0][0];
+  const endMs = endVal ? new Date(endVal).getTime() : merged[merged.length - 1][1];
+  const totalSpan = endMs - startMs;
   if (totalSpan <= 0) return;
 
-  for (var i = 0; i < merged.length; i++) {
-    var leftPct = ((merged[i][0] - startMs) / totalSpan) * 100;
-    var widthPct = ((merged[i][1] - merged[i][0]) / totalSpan) * 100;
-    var el = document.createElement('div');
+  for (let i = 0; i < merged.length; i++) {
+    const leftPct = ((merged[i][0] - startMs) / totalSpan) * 100;
+    const widthPct = ((merged[i][1] - merged[i][0]) / totalSpan) * 100;
+    const el = document.createElement('div');
     el.className = 'scrub-highlight';
     el.style.left = Math.max(0, leftPct) + '%';
     el.style.width = Math.min(widthPct, 100 - leftPct) + '%';
     track.appendChild(el);
   }
 
-  var nowMs = Date.now();
+  const nowMs = Date.now();
   if (nowMs >= startMs && nowMs <= endMs) {
-    var headPct = ((nowMs - startMs) / totalSpan) * 100;
-    var head = document.createElement('div');
+    const headPct = ((nowMs - startMs) / totalSpan) * 100;
+    const head = document.createElement('div');
     head.className = 'scrub-head';
     head.style.left = headPct + '%';
     track.appendChild(head);
   }
 
   axis.innerHTML = '';
-  for (var t = 0; t < 4; t++) {
-    var tickMs = startMs + (totalSpan * t / 3);
-    var d = new Date(tickMs);
-    var label = document.createElement('span');
+  for (let t = 0; t < 4; t++) {
+    const tickMs = startMs + (totalSpan * t / 3);
+    const d = new Date(tickMs);
+    const label = document.createElement('span');
     label.textContent = String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
     axis.appendChild(label);
   }
 }
 
 function clearScrubHighlights() {
-  var track = document.getElementById("scrub-track");
+  const track = document.getElementById("scrub-track");
   track.querySelectorAll('.scrub-highlight, .scrub-head').forEach(function(e) { e.remove(); });
   document.getElementById("scrub-axis").innerHTML = '';
 }
 
 // Record History toggle
-var lobHistoryToggle = document.getElementById("lob-history-toggle");
-var recPill = document.getElementById("rec-pill");
+const lobHistoryToggle = document.getElementById("lob-history-toggle");
+const recPill = document.getElementById("rec-pill");
 lobHistoryToggle.addEventListener("click", function() {
   lobHistoryToggle.classList.toggle("on");
-  var isOn = lobHistoryToggle.classList.contains("on");
+  const isOn = lobHistoryToggle.classList.contains("on");
   fetch("/update?lob_history=" + (isOn ? "true" : "false"));
   recPill.style.display = isOn ? "" : "none";
   if (typeof saveFilters === "function") saveFilters();
@@ -130,21 +130,21 @@ if (lobHistoryToggle.classList.contains("on")) {
 }
 
 // Time range presets
-var presetGroup = document.getElementById("time-presets");
+const presetGroup = document.getElementById("time-presets");
 presetGroup.querySelectorAll('.seg-btn').forEach(function(btn) {
   btn.addEventListener("click", function() {
     presetGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
-    var minutes = parseInt(btn.getAttribute("data-minutes"));
-    var now = new Date();
-    var start = new Date(now.getTime() - minutes * 60000);
+    const minutes = parseInt(btn.getAttribute("data-minutes"));
+    const now = new Date();
+    const start = new Date(now.getTime() - minutes * 60000);
     document.getElementById("history_start").value = toLocalISOString(start);
     document.getElementById("history_end").value = toLocalISOString(now);
   });
 });
 
 // Mode segmented control
-var modeGroup = document.getElementById("history-mode-group");
+const modeGroup = document.getElementById("history-mode-group");
 modeGroup.querySelectorAll('.seg-btn').forEach(function(btn) {
   btn.addEventListener("click", function() {
     modeGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -153,54 +153,54 @@ modeGroup.querySelectorAll('.seg-btn').forEach(function(btn) {
 });
 
 function toLocalISOString(date) {
-  var offset = date.getTimezoneOffset();
-  var local = new Date(date.getTime() - offset * 60000);
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
   return local.toISOString().slice(0, 19);
 }
 
 (function setDefaults() {
-  var now = new Date();
-  var start = new Date(now.getTime() - 3600000);
+  const now = new Date();
+  const start = new Date(now.getTime() - 3600000);
   document.getElementById("history_start").value = toLocalISOString(start);
   document.getElementById("history_end").value = toLocalISOString(now);
 })();
 
 // Load History
 document.getElementById("loadHistoryBtn").addEventListener("click", function() {
-  var startInput = document.getElementById("history_start").value;
-  var endInput = document.getElementById("history_end").value;
+  const startInput = document.getElementById("history_start").value;
+  const endInput = document.getElementById("history_end").value;
 
   if (!startInput || !endInput) {
     alert("Please select a time range.");
     return;
   }
 
-  var startMs = new Date(startInput).getTime();
-  var endMs = new Date(endInput).getTime();
-  var activeMode = modeGroup.querySelector('.seg-btn.active');
-  var mode = activeMode ? activeMode.getAttribute('data-mode') : 'flash';
-  var freqInput = document.getElementById("history_frequency").value;
+  const startMs = new Date(startInput).getTime();
+  const endMs = new Date(endInput).getTime();
+  const activeMode = modeGroup.querySelector('.seg-btn.active');
+  const mode = activeMode ? activeMode.getAttribute('data-mode') : 'flash';
+  const freqInput = document.getElementById("history_frequency").value;
 
-  var params = "start=" + startMs + "&end=" + endMs + "&mode=" + mode;
+  let params = "start=" + startMs + "&end=" + endMs + "&mode=" + mode;
   if (freqInput) {
     params += "&frequency=" + freqInput;
   }
 
-  var spinner = document.getElementById("loader");
+  const spinner = document.getElementById("loader");
   spinner.style.visibility = "visible";
   spinner.style.zIndex = "10";
 
   if (isHistoryMode) {
     viewer.dataSources.remove(lobHistoryDataSource);
   }
-  lobHistoryDataSource = new Cesium.CzmlDataSource();
+  window.lobHistoryDataSource = new Cesium.CzmlDataSource();
 
   lobHistoryDataSource.load("/lob_history.czml?" + params).then(function() {
     viewer.dataSources.add(lobHistoryDataSource);
     viewer.automaticallyTrackDataSourceClocks = false;
     viewer.clock.clockRange = Cesium.ClockRange.CLAMPED;
     enterHistoryMode();
-    var merged = renderTimelineHighlights(lobHistoryDataSource);
+    const merged = renderTimelineHighlights(lobHistoryDataSource);
     if (window.mScrub) mScrub.show(startMs, endMs, merged);
     spinner.style.visibility = "hidden";
     spinner.style.zIndex = "0";
@@ -221,7 +221,7 @@ function enterHistoryMode() {
   clearInterval(autoRefresh);
   document.querySelector(".cesium-viewer-animationContainer").classList.add("history-visible");
   document.querySelector(".cesium-viewer-timelineContainer").classList.add("history-visible");
-  var liveBtn = document.getElementById("liveBtn");
+  const liveBtn = document.getElementById("liveBtn");
   liveBtn.style.display = "";
   liveBtn.className = "btn btn-live";
   liveBtn.innerHTML = '<span class="live-dot"></span>LIVE';
@@ -236,7 +236,7 @@ function exitHistoryMode() {
   if (window.mScrub) mScrub.hide();
   isHistoryMode = false;
   viewer.dataSources.remove(lobHistoryDataSource);
-  lobHistoryDataSource = new Cesium.CzmlDataSource();
+  window.lobHistoryDataSource = new Cesium.CzmlDataSource();
 
   viewer.automaticallyTrackDataSourceClocks = true;
   viewer.clock.clockRange = Cesium.ClockRange.UNBOUNDED;
@@ -247,10 +247,10 @@ function exitHistoryMode() {
   document.querySelector(".cesium-viewer-animationContainer").classList.remove("history-visible");
   document.querySelector(".cesium-viewer-timelineContainer").classList.remove("history-visible");
 
-  autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+  window.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
   reloadRX();
 
-  var liveBtn = document.getElementById("liveBtn");
+  const liveBtn = document.getElementById("liveBtn");
   liveBtn.style.display = "none";
   liveBtn.className = "btn btn-ghost";
   liveBtn.innerHTML = '<span class="live-dot"></span>Go Live';

@@ -1,18 +1,19 @@
 (function() {
-  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function fmt(n) { return n == null ? '—' : n.toLocaleString(); }
 
-  var mTopbar = document.getElementById('m-topbar');
-  var mTopbarRow = document.getElementById('m-topbar-row');
-  var mBurger = document.getElementById('m-burger');
-  var mScrim = document.getElementById('m-scrim');
-  var mDrawer = document.getElementById('m-drawer');
-  var mDrawerClose = document.getElementById('m-drawer-close');
-  var mSheetScrim = document.getElementById('m-sheet-scrim');
-  var mSheet = document.getElementById('m-sheet');
-  var mSheetClose = document.getElementById('m-sheet-close');
+  const mTopbar = document.getElementById('m-topbar');
+  const mTopbarRow = document.getElementById('m-topbar-row');
+  const mBurger = document.getElementById('m-burger');
+  const mScrim = document.getElementById('m-scrim');
+  const mDrawer = document.getElementById('m-drawer');
+  const mDrawerClose = document.getElementById('m-drawer-close');
+  const mSheetScrim = document.getElementById('m-sheet-scrim');
+  const mSheet = document.getElementById('m-sheet');
+  const mSheetClose = document.getElementById('m-sheet-close');
 
 
-  var mTopExpanded = false;
+  let mTopExpanded = false;
 
   // ── Status strip expand / collapse ──
   mTopbarRow.addEventListener('click', function(e) {
@@ -42,8 +43,8 @@
   mDrawerClose.addEventListener('click', closeDrawer);
 
   // ── Tabs ──
-  var tabButtons = mDrawer.querySelectorAll('.m-drawer-tab');
-  var tabPanes = mDrawer.querySelectorAll('.m-tab-pane');
+  const tabButtons = mDrawer.querySelectorAll('.m-drawer-tab');
+  const tabPanes = mDrawer.querySelectorAll('.m-tab-pane');
 
   function switchTab(key) {
     tabButtons.forEach(function(btn) {
@@ -77,21 +78,21 @@
 
   // ── Sync sheet datetime inputs with desktop inputs ──
   function syncSheetInputs() {
-    var dStart = document.getElementById('history_start');
-    var dEnd = document.getElementById('history_end');
-    var mStart = document.getElementById('m-history-start');
-    var mEnd = document.getElementById('m-history-end');
+    const dStart = document.getElementById('history_start');
+    const dEnd = document.getElementById('history_end');
+    const mStart = document.getElementById('m-history-start');
+    const mEnd = document.getElementById('m-history-end');
     if (dStart && mStart) mStart.value = dStart.value;
     if (dEnd && mEnd) mEnd.value = dEnd.value;
   }
 
   // ── Filters tab wiring ──
   function mWireToggle(mId, desktopId, onChange) {
-    var mEl = document.getElementById(mId);
-    var dEl = document.getElementById(desktopId);
+    const mEl = document.getElementById(mId);
+    const dEl = document.getElementById(desktopId);
     mEl.addEventListener('click', function() {
       mEl.classList.toggle('on');
-      var isOn = mEl.classList.contains('on');
+      const isOn = mEl.classList.contains('on');
       if (dEl) {
         if (isOn && !dEl.classList.contains('on')) dEl.classList.add('on');
         else if (!isOn && dEl.classList.contains('on')) dEl.classList.remove('on');
@@ -112,19 +113,19 @@
   });
   mWireToggle('m-lob-history-toggle', 'lob-history-toggle', function(on) {
     fetch('/update?lob_history=' + (on ? 'true' : 'false'));
-    var recPill = document.getElementById('rec-pill');
+    const recPill = document.getElementById('rec-pill');
     if (recPill) recPill.style.display = on ? '' : 'none';
   });
 
   // Slider wiring
   function mWireSlider(mSliderId, mValId, desktopSliderId, desktopValId, autoAt0, paramBuilder) {
-    var mSlider = document.getElementById(mSliderId);
-    var mVal = document.getElementById(mValId);
-    var dSlider = document.getElementById(desktopSliderId);
-    var dVal = document.getElementById(desktopValId);
+    const mSlider = document.getElementById(mSliderId);
+    const mVal = document.getElementById(mValId);
+    const dSlider = document.getElementById(desktopSliderId);
+    const dVal = document.getElementById(desktopValId);
 
     mSlider.addEventListener('input', function() {
-      var v = mSlider.value;
+      const v = mSlider.value;
       if (autoAt0 && parseFloat(v) === 0) {
         mVal.textContent = 'AUTO';
         mVal.className = 'm-filt-val auto';
@@ -165,52 +166,52 @@
   });
 
   // ── History tab wiring ──
-  var mTimePresets = document.getElementById('m-time-presets');
+  const mTimePresets = document.getElementById('m-time-presets');
   mTimePresets.querySelectorAll('button').forEach(function(btn) {
     btn.addEventListener('click', function() {
       mTimePresets.querySelectorAll('button').forEach(function(b) { b.classList.remove('active'); });
       btn.classList.add('active');
-      var minutes = parseInt(btn.getAttribute('data-minutes'));
-      var now = new Date();
-      var start = new Date(now.getTime() - minutes * 60000);
+      const minutes = parseInt(btn.getAttribute('data-minutes'));
+      const now = new Date();
+      const start = new Date(now.getTime() - minutes * 60000);
       document.getElementById('history_start').value = toLocalISOString(start);
       document.getElementById('history_end').value = toLocalISOString(now);
       mUpdateWindowDisplay();
       // Sync desktop presets
-      var dPresets = document.getElementById('time-presets');
+      const dPresets = document.getElementById('time-presets');
       if (dPresets) {
         dPresets.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
-        var matching = dPresets.querySelector('[data-minutes="' + minutes + '"]');
+        const matching = dPresets.querySelector('[data-minutes="' + minutes + '"]');
         if (matching) matching.classList.add('active');
       }
     });
   });
 
-  var mModeGroup = document.getElementById('m-mode-group');
+  const mModeGroup = document.getElementById('m-mode-group');
   mModeGroup.querySelectorAll('button').forEach(function(btn) {
     btn.addEventListener('click', function() {
       mModeGroup.querySelectorAll('button').forEach(function(b) { b.classList.remove('active'); });
       btn.classList.add('active');
       // Sync desktop mode
-      var dModeGroup = document.getElementById('history-mode-group');
+      const dModeGroup = document.getElementById('history-mode-group');
       if (dModeGroup) {
         dModeGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
-        var matching = dModeGroup.querySelector('[data-mode="' + btn.getAttribute('data-mode') + '"]');
+        const matching = dModeGroup.querySelector('[data-mode="' + btn.getAttribute('data-mode') + '"]');
         if (matching) matching.classList.add('active');
       }
     });
   });
 
   // ── Go Live button — only active during history mode ──
-  var mLiveBtn = document.getElementById('m-live-btn');
+  const mLiveBtn = document.getElementById('m-live-btn');
   mLiveBtn.addEventListener('click', function() {
     if (typeof isHistoryMode !== 'undefined' && isHistoryMode) {
       exitHistoryMode();
     }
   });
 
-  var mLoadMainBtn = document.getElementById('m-load-history-main-btn');
-  var clockIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ';
+  const mLoadMainBtn = document.getElementById('m-load-history-main-btn');
+  const clockIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ';
 
   function mSetLiveState(isLive) {
     if (isLive) {
@@ -232,13 +233,13 @@
 
   // ── Load History (sheet) — sync inputs to desktop and reuse desktop handler ──
   document.getElementById('m-load-history-btn').addEventListener('click', function() {
-    var startVal = document.getElementById('m-history-start').value;
-    var endVal = document.getElementById('m-history-end').value;
+    const startVal = document.getElementById('m-history-start').value;
+    const endVal = document.getElementById('m-history-end').value;
     if (!startVal || !endVal) return;
 
     document.getElementById('history_start').value = startVal;
     document.getElementById('history_end').value = endVal;
-    var mFreq = document.getElementById('m-history-freq').value;
+    const mFreq = document.getElementById('m-history-freq').value;
     document.getElementById('history_frequency').value = mFreq || '';
 
     closeSheet();
@@ -246,18 +247,18 @@
   });
 
   function mUpdateWindowDisplay() {
-    var startEl = document.getElementById('history_start');
-    var endEl = document.getElementById('history_end');
-    var fromEl = document.getElementById('m-window-from');
-    var toEl = document.getElementById('m-window-to');
+    const startEl = document.getElementById('history_start');
+    const endEl = document.getElementById('history_end');
+    const fromEl = document.getElementById('m-window-from');
+    const toEl = document.getElementById('m-window-to');
     fromEl.textContent = startEl.value ? startEl.value.replace('T', ' ') : '—';
     toEl.textContent = endEl.value ? endEl.value.replace('T', ' ') : '—';
   }
 
   // ── Mobile stats updates ──
   function mUpdateModePill(isLive) {
-    var pill = document.getElementById('m-mode-pill');
-    var meterMode = document.getElementById('m-meter-mode');
+    const pill = document.getElementById('m-mode-pill');
+    const meterMode = document.getElementById('m-meter-mode');
     if (isLive) {
       pill.className = 'm-mode live';
       pill.innerHTML = '<span class="m-rec-dot"></span>LIVE';
@@ -272,11 +273,11 @@
   // Expose update functions so desktop JS can call them after data loads
   window.mobileUI = {
     updateReceiverStats: function(rxJson) {
-      var receivers = rxJson.receivers;
-      var total = Object.keys(receivers).length;
-      var online = 0;
-      var freqs = {};
-      for (var i = 0; i < total; i++) {
+      const receivers = rxJson.receivers;
+      const total = Object.keys(receivers).length;
+      let online = 0;
+      const freqs = {};
+      for (let i = 0; i < total; i++) {
         if (receivers[i].active) {
           online++;
           freqs[receivers[i].frequency] = true;
@@ -286,8 +287,8 @@
       // Strip cells
       document.getElementById('m-stat-rx').innerHTML = online + '<span style="color:var(--fg-3)">/' + total + '</span>';
 
-      var uniqueFreqs = Object.keys(freqs);
-      var freqEl = document.getElementById('m-stat-freq');
+      const uniqueFreqs = Object.keys(freqs);
+      const freqEl = document.getElementById('m-stat-freq');
       if (uniqueFreqs.length === 0) {
         freqEl.textContent = '—';
         freqEl.style.color = '';
@@ -302,7 +303,7 @@
       // Expanded meters
       document.getElementById('m-meter-rx').innerHTML = '<span class="m-dot m-dot-good" style="display:inline-block;margin-right:6px"></span>' + online + ' <span class="unit">/ ' + total + ' online</span>';
 
-      var mFreqMeter = document.getElementById('m-meter-freq');
+      const mFreqMeter = document.getElementById('m-meter-freq');
       if (uniqueFreqs.length === 0) {
         mFreqMeter.innerHTML = '— <span class="unit">no active rx</span>';
       } else if (uniqueFreqs.length === 1) {
@@ -322,10 +323,10 @@
     },
 
     updateAoiStats: function(aoiJson) {
-      var aois = aoiJson.aois;
-      var aoiCount = 0;
-      var exCount = 0;
-      for (var i = 0; i < aois.length; i++) {
+      const aois = aoiJson.aois;
+      let aoiCount = 0;
+      let exCount = 0;
+      for (let i = 0; i < aois.length; i++) {
         if (aois[i].aoi_type === 'exclusion') exCount++;
         else aoiCount++;
       }
@@ -338,17 +339,16 @@
     },
 
     updatePipelineStats: function(data) {
-      var fmt = function(n) { return n == null ? '—' : n.toLocaleString(); };
-      var dbInt = data.db_intersections || 0;
+      const dbInt = data.db_intersections || 0;
       document.getElementById('m-pipe-intersects').textContent = fmt(dbInt);
 
-      var inclusterWrap = document.getElementById('m-pipe-incluster-wrap');
-      var clustersWrap = document.getElementById('m-pipe-clusters-wrap');
-      var arrow1 = document.getElementById('m-pipe-arrow-1');
-      var arrow2 = document.getElementById('m-pipe-arrow-2');
-      var warnEl = document.getElementById('m-pipe-warn');
-      var warnText = document.getElementById('m-pipe-warn-text');
-      var clustEl = document.getElementById('m-stat-clust');
+      const inclusterWrap = document.getElementById('m-pipe-incluster-wrap');
+      const clustersWrap = document.getElementById('m-pipe-clusters-wrap');
+      const arrow1 = document.getElementById('m-pipe-arrow-1');
+      const arrow2 = document.getElementById('m-pipe-arrow-2');
+      const warnEl = document.getElementById('m-pipe-warn');
+      const warnText = document.getElementById('m-pipe-warn-text');
+      const clustEl = document.getElementById('m-stat-clust');
 
       if (!data.clustering_enabled) {
         inclusterWrap.style.display = 'none';
@@ -370,9 +370,9 @@
       arrow1.style.display = '';
       arrow2.style.display = '';
 
-      var totals = data.totals || {};
-      var inCluster = totals.in_cluster || 0;
-      var clusters = totals.clusters || 0;
+      const totals = data.totals || {};
+      const inCluster = totals.in_cluster || 0;
+      const clusters = totals.clusters || 0;
 
       document.getElementById('m-pipe-incluster').textContent = fmt(inCluster);
       document.getElementById('m-pipe-clusters').textContent = fmt(clusters);
@@ -390,7 +390,7 @@
         inclusterWrap.className = 'm-pipe-step';
       }
 
-      var warn = '';
+      let warn = '';
       if (dbInt === 0) {
         warn = 'No intersections in time window';
       }
@@ -409,17 +409,17 @@
 
   // ── Build mobile receiver cards ──
   function mBuildReceiverCards(rxJson) {
-    var container = document.getElementById('m-rx-cards');
+    const container = document.getElementById('m-rx-cards');
     container.innerHTML = '';
-    var receivers = rxJson.receivers;
-    var total = Object.keys(receivers).length;
+    const receivers = rxJson.receivers;
+    const total = Object.keys(receivers).length;
 
-    for (var i = 0; i < total; i++) {
-      var rx = receivers[i];
-      var card = document.createElement('div');
+    for (let i = 0; i < total; i++) {
+      const rx = receivers[i];
+      const card = document.createElement('div');
       card.className = 'm-card';
 
-      var html = '<div class="m-rxhead">';
+      let html = '<div class="m-rxhead">';
       html += '<span class="m-dot ' + (rx.active ? 'm-dot-good' : 'm-dot-bad') + '"></span>';
       html += '<span class="m-rxid">' + esc(rx.station_id) + '</span>';
       html += '<span class="m-rxpill ' + (rx.active ? 'on' : 'off') + '">' + (rx.active ? 'ONLINE' : 'OFFLINE') + '</span>';
@@ -434,8 +434,8 @@
       html += '</div>';
 
       if (rx.active) {
-        var sig = rx.signal || 0;
-        var conf = rx.conf || 0;
+        const sig = rx.signal || 0;
+        const conf = rx.conf || 0;
         html += '<div class="m-meterbar">';
         html += '<div class="m-mlbl">SIG</div>';
         html += '<div class="m-mtrack"><div class="m-mfill" style="width:' + sig + '%"></div></div>';
@@ -455,8 +455,8 @@
     // Wire toggles
     container.querySelectorAll('.m-rx-toggle').forEach(function(toggle) {
       toggle.addEventListener('click', function() {
-        var uid = parseInt(toggle.getAttribute('data-uid'));
-        var isCurrentlyOn = toggle.classList.contains('on');
+        const uid = parseInt(toggle.getAttribute('data-uid'));
+        const isCurrentlyOn = toggle.classList.contains('on');
         activateReceiver(uid, !isCurrentlyOn);
       });
     });
@@ -464,22 +464,22 @@
 
   // ── Build mobile AOI cards ──
   function mBuildAoiCards(aoiJson) {
-    var aoiContainer = document.getElementById('m-aoi-cards');
-    var exContainer = document.getElementById('m-exclusion-cards');
+    const aoiContainer = document.getElementById('m-aoi-cards');
+    const exContainer = document.getElementById('m-exclusion-cards');
     aoiContainer.innerHTML = '';
     exContainer.innerHTML = '';
 
-    var aois = aoiJson.aois;
-    for (var i = 0; i < aois.length; i++) {
-      var aoi = aois[i];
-      var isExclusion = aoi.aoi_type === 'exclusion';
-      var kind = isExclusion ? 'exclusion' : 'aoi';
-      var dotClass = isExclusion ? 'm-dot-warn' : 'm-dot-acc';
+    const aois = aoiJson.aois;
+    for (let i = 0; i < aois.length; i++) {
+      const aoi = aois[i];
+      const isExclusion = aoi.aoi_type === 'exclusion';
+      const kind = isExclusion ? 'exclusion' : 'aoi';
+      const dotClass = isExclusion ? 'm-dot-warn' : 'm-dot-acc';
 
-      var card = document.createElement('div');
+      const card = document.createElement('div');
       card.className = 'm-card ' + kind;
 
-      var html = '<div class="m-aoi-head">';
+      let html = '<div class="m-aoi-head">';
       html += '<span class="m-dot ' + dotClass + '"></span>';
       html += '<span class="m-aoi-label">' + esc(aoi.label || kind.toUpperCase() + '-' + aoi.uid) + '</span>';
       html += '<button class="m-remove-btn" data-uid="' + aoi.uid + '">Remove</button>';
@@ -504,7 +504,7 @@
 
   // ── Mobile add buttons ──
   document.getElementById('m-add-rx-btn').addEventListener('click', function() {
-    var url = prompt('Enter receiver URL (e.g. http://receiver:8081/doa):');
+    const url = prompt('Enter receiver URL (e.g. http://receiver:8081/doa):');
     if (url && url.trim()) {
       makeNewRx(url.trim());
     }
@@ -512,9 +512,9 @@
 
   document.getElementById('m-add-aoi-btn').addEventListener('click', function() {
     closeDrawer();
-    var lat = document.getElementById('aoi-new-lat');
-    var lon = document.getElementById('aoi-new-lon');
-    var rad = document.getElementById('aoi-new-radius');
+    const lat = document.getElementById('aoi-new-lat');
+    const lon = document.getElementById('aoi-new-lon');
+    const rad = document.getElementById('aoi-new-radius');
     lat.value = '';
     lon.value = '';
     rad.value = '';
@@ -523,9 +523,9 @@
 
   document.getElementById('m-add-exclusion-btn').addEventListener('click', function() {
     closeDrawer();
-    var lat = document.getElementById('exclusion-new-lat');
-    var lon = document.getElementById('exclusion-new-lon');
-    var rad = document.getElementById('exclusion-new-radius');
+    const lat = document.getElementById('exclusion-new-lat');
+    const lon = document.getElementById('exclusion-new-lon');
+    const rad = document.getElementById('exclusion-new-radius');
     lat.value = '';
     lon.value = '';
     rad.value = '';

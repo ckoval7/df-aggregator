@@ -5,7 +5,7 @@ function updateAoi(callBack, id) {
 }
 
 function makeNewAoi(aoi_type, latitude, longitude, radius) {
-  var otherParams = {
+  const otherParams = {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ aoi_type: aoi_type, latitude: latitude, longitude: longitude, radius: radius }),
     method: "PUT"
@@ -22,7 +22,7 @@ function makeNewAoi(aoi_type, latitude, longitude, radius) {
 }
 
 function deleteAoi(uid) {
-  var otherParams = {
+  const otherParams = {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ uid: uid }),
     method: "PUT"
@@ -40,7 +40,7 @@ function deleteAoi(uid) {
 }
 
 function purgeAoi(uid) {
-  var otherParams = {
+  const otherParams = {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ uid: uid }),
     method: "PUT"
@@ -76,25 +76,25 @@ function destroyAoiCards() {
 
 function createAois(aoi_json, id) {
   destroyAoiCards();
-  var interest_areas = aoi_json.aois;
-  var aoiContainer = document.getElementById("aoi-cards");
-  var exContainer = document.getElementById("exclusion-cards");
-  var aoiCount = 0;
-  var exCount = 0;
+  const interest_areas = aoi_json.aois;
+  const aoiContainer = document.getElementById("aoi-cards");
+  const exContainer = document.getElementById("exclusion-cards");
+  let aoiCount = 0;
+  let exCount = 0;
 
-  for (var i = 0; i < interest_areas.length; i++) {
-    var aoi = interest_areas[i];
-    var isExclusion = aoi.aoi_type === 'exclusion';
-    var kind = isExclusion ? 'exclusion' : 'aoi';
-    var dotClass = isExclusion ? 'dot-warn' : 'dot-accent';
+  for (let i = 0; i < interest_areas.length; i++) {
+    const aoi = interest_areas[i];
+    const isExclusion = aoi.aoi_type === 'exclusion';
+    const kind = isExclusion ? 'exclusion' : 'aoi';
+    const dotClass = isExclusion ? 'dot-warn' : 'dot-accent';
 
     if (isExclusion) { exCount++; } else { aoiCount++; }
 
-    var card = document.createElement('div');
+    const card = document.createElement('div');
     card.className = 'card aoi-card ' + kind;
     card.id = 'aoi-' + aoi.uid;
 
-    var html = '<div class="aoi-head">';
+    let html = '<div class="aoi-head">';
     html += '<span class="dot ' + dotClass + '"></span>';
     html += '<span class="aoi-label">' + (aoi.label || kind.toUpperCase() + '-' + aoi.uid) + '</span>';
     html += '<div style="margin-left:auto; display:flex; gap:4px;">';
@@ -136,7 +136,7 @@ function wireAoiCardActions() {
   });
   document.querySelectorAll('[data-action="purge"]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      var uid = parseInt(btn.getAttribute('data-uid'));
+      const uid = parseInt(btn.getAttribute('data-uid'));
       if (confirm("Purge all intersections inside this exclusion area?\nThis cannot be undone!")) {
         purgeAoi(uid);
       }

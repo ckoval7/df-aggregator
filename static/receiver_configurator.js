@@ -1,5 +1,5 @@
-var refreshrate = 2500;
-var autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+window.refreshrate = 2500;
+window.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
 
 function updateRx(callBack, id) {
   fetch("/rx_params")
@@ -8,7 +8,7 @@ function updateRx(callBack, id) {
 }
 
 function makeNewRx(url) {
-  var otherParams = {
+  const otherParams = {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ station_url: url }),
     method: "PUT"
@@ -29,7 +29,7 @@ function destroyRxCards() {
 }
 
 function deleteReceiver(uid) {
-  var otherParams = {
+  const otherParams = {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ uid: uid }),
     method: "PUT"
@@ -46,7 +46,7 @@ function deleteReceiver(uid) {
 }
 
 function activateReceiver(uid, state) {
-  var otherParams = {
+  const otherParams = {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ uid: uid, state: state }),
     method: "PUT"
@@ -63,14 +63,14 @@ function activateReceiver(uid, state) {
 }
 
 function buildRxCardHtml(rx) {
-  var isActive = rx.active;
-  var stateClass = isActive ? 'active' : 'inactive';
-  var dotClass = isActive ? 'dot-good' : 'dot-bad';
-  var pillClass = isActive ? 'pill-good' : 'pill-mute';
-  var pillText = isActive ? 'ONLINE' : 'OFFLINE';
-  var powerTitle = isActive ? 'Disable' : 'Enable';
+  const isActive = rx.active;
+  const stateClass = isActive ? 'active' : 'inactive';
+  const dotClass = isActive ? 'dot-good' : 'dot-bad';
+  const pillClass = isActive ? 'pill-good' : 'pill-mute';
+  const pillText = isActive ? 'ONLINE' : 'OFFLINE';
+  const powerTitle = isActive ? 'Disable' : 'Enable';
 
-  var html = '<div class="rx-head">';
+  let html = '<div class="rx-head">';
   html += '<span class="dot ' + dotClass + '"></span>';
   html += '<span class="rx-id">' + rx.station_id + '</span>';
   html += '<span class="status-pill ' + pillClass + '">' + pillText + '</span>';
@@ -95,8 +95,8 @@ function buildRxCardHtml(rx) {
   html += '</div>';
 
   if (isActive) {
-    var sig = rx.signal || 0;
-    var conf = rx.conf || 0;
+    const sig = rx.signal || 0;
+    const conf = rx.conf || 0;
     html += '<div class="signal-bar">';
     html += '<div class="signal-label">SIG</div>';
     html += '<div class="signal-track"><div class="signal-fill" style="width:' + sig + '%"></div></div>';
@@ -113,15 +113,15 @@ function buildRxCardHtml(rx) {
 
 function createReceivers(rx_json, id) {
   destroyRxCards();
-  var receivers = rx_json.receivers;
-  var container = document.getElementById("rx-cards");
-  var count = Object.keys(receivers).length;
+  const receivers = rx_json.receivers;
+  const container = document.getElementById("rx-cards");
+  const count = Object.keys(receivers).length;
   document.getElementById("rx-count-pill").textContent = count;
 
-  for (var i = 0; i < count; i++) {
-    var rx = receivers[i];
-    var result = buildRxCardHtml(rx);
-    var card = document.createElement('div');
+  for (let i = 0; i < count; i++) {
+    const rx = receivers[i];
+    const result = buildRxCardHtml(rx);
+    const card = document.createElement('div');
     card.className = 'card rx-card ' + result.stateClass;
     card.id = 'rx-' + rx.uid;
     card.innerHTML = result.html;
@@ -133,13 +133,13 @@ function createReceivers(rx_json, id) {
 function wireRxCardActions() {
   document.getElementById("rx-cards").querySelectorAll('[data-action]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      var uid = parseInt(btn.getAttribute('data-uid'));
-      var action = btn.getAttribute('data-action');
+      let uid = parseInt(btn.getAttribute('data-uid'));
+      let action = btn.getAttribute('data-action');
       if (action === 'delete') {
         deleteReceiver(uid);
       } else if (action === 'activate') {
         updateRx(function(rx_json) {
-          var rx = rx_json.receivers[uid];
+          const rx = rx_json.receivers[uid];
           activateReceiver(uid, !rx.active);
         }, uid);
       } else if (action === 'edit') {
@@ -150,15 +150,15 @@ function wireRxCardActions() {
 }
 
 function editReceivers(rx_json, uid) {
-  var receivers = rx_json.receivers;
-  var rx = receivers[uid];
-  var card = document.getElementById('rx-' + uid);
-  var body = document.getElementById('rx-body-' + uid);
+  const receivers = rx_json.receivers;
+  const rx = receivers[uid];
+  const card = document.getElementById('rx-' + uid);
+  const body = document.getElementById('rx-body-' + uid);
 
   if (card.classList.contains('editing')) {
-    var isMobile = document.getElementById('edit-mobile-' + uid);
-    var isInverted = document.getElementById('edit-invert-' + uid);
-    var isSingle = document.getElementById('edit-single-' + uid);
+    const isMobile = document.getElementById('edit-mobile-' + uid);
+    const isInverted = document.getElementById('edit-invert-' + uid);
+    const isSingle = document.getElementById('edit-single-' + uid);
 
     rx.station_id = document.getElementById('edit-id-' + uid).value;
     rx.latitude = document.getElementById('edit-lat-' + uid).value;
@@ -169,7 +169,7 @@ function editReceivers(rx_json, uid) {
     rx.inverted = isInverted ? isInverted.checked : rx.inverted;
     rx.single = isSingle ? isSingle.checked : false;
 
-    var otherParams = {
+    const otherParams = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(rx),
       method: "PUT"
@@ -177,7 +177,7 @@ function editReceivers(rx_json, uid) {
     fetch('/rx_params/' + uid, otherParams)
       .then(function() {
         card.classList.remove('editing');
-        autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
+        window.autoRefresh = setInterval(function() { reloadRX(); }, refreshrate);
         loadRx(function(rx_json) {
           createReceivers(rx_json);
           statusBar.updateReceiverStats(rx_json);
@@ -190,11 +190,11 @@ function editReceivers(rx_json, uid) {
   clearInterval(autoRefresh);
   card.classList.add('editing');
 
-  var isMobileChecked = rx.mobile ? 'checked' : '';
-  var isInvertedChecked = rx.inverted ? 'checked' : '';
-  var isSingleChecked = rx.single ? 'checked' : '';
+  const isMobileChecked = rx.mobile ? 'checked' : '';
+  const isInvertedChecked = rx.inverted ? 'checked' : '';
+  const isSingleChecked = rx.single ? 'checked' : '';
 
-  var editHtml = '<div class="rx-edit-grid">';
+  let editHtml = '<div class="rx-edit-grid">';
   editHtml += '<label><span>STATION ID</span>';
   editHtml += '<input type="text" id="edit-id-' + uid + '" value="' + rx.station_id + '"></label>';
   editHtml += '<label><span>LATITUDE</span>';
@@ -223,20 +223,20 @@ function editReceivers(rx_json, uid) {
 }
 
 function showReceivers(rx_json, uid) {
-  var receivers = rx_json.receivers;
-  var rx = receivers[uid];
-  var card = document.getElementById('rx-' + uid);
+  const receivers = rx_json.receivers;
+  const rx = receivers[uid];
+  const card = document.getElementById('rx-' + uid);
   if (!card || card.classList.contains('editing')) return;
 
-  var result = buildRxCardHtml(rx);
+  const result = buildRxCardHtml(rx);
   card.className = 'card rx-card ' + result.stateClass;
   card.innerHTML = result.html;
   wireRxCardActions();
 }
 
 function refreshRx(rx_json, id) {
-  var receivers = rx_json.receivers;
-  for (var i = 0; i < Object.keys(receivers).length; i++) {
+  const receivers = rx_json.receivers;
+  for (let i = 0; i < Object.keys(receivers).length; i++) {
     showReceivers(rx_json, receivers[i].uid);
   }
   document.getElementById("rx-count-pill").textContent = Object.keys(receivers).length;
