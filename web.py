@@ -327,7 +327,6 @@ def create_routes(config, ms, db, receiver_manager, broker):
         response.content_type = "text/event-stream"
         response.set_header("Cache-Control", "no-cache")
         response.set_header("X-Accel-Buffering", "no")
-        response.set_header("Connection", "keep-alive")
         channel = broker.subscribe()
 
         def gen():

@@ -40,6 +40,7 @@ from os import kill, getpid
 from config import AppConfig, MathSettings
 from database import Database
 from receivers import ReceiverManager
+from sse_broker import Broker
 import geo
 import web
 
@@ -184,7 +185,7 @@ if __name__ == "__main__":
             record.levelname = "DEBUG"
         return True
 
-    logging.getLogger("geventwebsocket.handler").addFilter(_demote_successful_access)
+    logging.getLogger("waitress").addFilter(_demote_successful_access)
 
     access_token = None
     if options.token_file:
@@ -206,7 +207,9 @@ if __name__ == "__main__":
     ms.lob_history_enabled = not options.no_lob_history
 
     db = Database(app_config)
-    rx_mgr = ReceiverManager(db)
+    broker = Broker(heartbeat_interval_s=10.0)
+    geo.set_broker(broker)
+    rx_mgr = ReceiverManager(db, broker=broker)
 
     def finish():
         log.info("Processing, please wait.")
@@ -227,7 +230,7 @@ if __name__ == "__main__":
     dbwriter.daemon = True
     dbwriter.start()
 
-    web_app = web.create_routes(app_config, ms, db, rx_mgr)
+    web_app = web.create_routes(app_config, ms, db, rx_mgr, broker)
     web_thread = threading.Thread(target=web.start_server, args=(app_config, web_app))
     web_thread.daemon = True
     web_thread.start()
