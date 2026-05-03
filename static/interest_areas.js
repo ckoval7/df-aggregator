@@ -131,12 +131,12 @@ function createAois(aoi_json, id) {
 function wireAoiCardActions() {
   document.querySelectorAll('[data-action="delete-aoi"]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      deleteAoi(Number.parseInt(btn.getAttribute('data-uid')));
+      deleteAoi(Number.parseInt(btn.dataset.uid));
     });
   });
   document.querySelectorAll('[data-action="purge"]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      const uid = Number.parseInt(btn.getAttribute('data-uid'));
+      const uid = Number.parseInt(btn.dataset.uid);
       if (confirm("Purge all intersections inside this exclusion area?\nThis cannot be undone!")) {
         purgeAoi(uid);
       }

@@ -135,7 +135,7 @@ presetGroup.querySelectorAll('.seg-btn').forEach(function(btn) {
   btn.addEventListener("click", function() {
     presetGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
-    const minutes = Number.parseInt(btn.getAttribute("data-minutes"));
+    const minutes = Number.parseInt(btn.dataset.minutes);
     const now = new Date();
     const start = new Date(now.getTime() - minutes * 60000);
     document.getElementById("history_start").value = toLocalISOString(start);
@@ -178,7 +178,7 @@ document.getElementById("loadHistoryBtn").addEventListener("click", function() {
   const startMs = new Date(startInput).getTime();
   const endMs = new Date(endInput).getTime();
   const activeMode = modeGroup.querySelector('.seg-btn.active');
-  const mode = activeMode ? activeMode.getAttribute('data-mode') : 'flash';
+  const mode = activeMode ? activeMode.dataset.mode : 'flash';
   const freqInput = document.getElementById("history_frequency").value;
 
   let params = "start=" + startMs + "&end=" + endMs + "&mode=" + mode;

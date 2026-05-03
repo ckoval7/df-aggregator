@@ -133,8 +133,8 @@ function createReceivers(rx_json, id) {
 function wireRxCardActions() {
   document.getElementById("rx-cards").querySelectorAll('[data-action]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      let uid = Number.parseInt(btn.getAttribute('data-uid'));
-      let action = btn.getAttribute('data-action');
+      let uid = Number.parseInt(btn.dataset.uid);
+      let action = btn.dataset.action;
       if (action === 'delete') {
         deleteReceiver(uid);
       } else if (action === 'activate') {

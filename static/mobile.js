@@ -48,7 +48,7 @@
 
   function switchTab(key) {
     tabButtons.forEach(function(btn) {
-      btn.classList.toggle('active', btn.getAttribute('data-tab') === key);
+      btn.classList.toggle('active', btn.dataset.tab === key);
     });
     tabPanes.forEach(function(pane) {
       pane.classList.toggle('active', pane.id === 'm-pane-' + key);
@@ -57,7 +57,7 @@
 
   tabButtons.forEach(function(btn) {
     btn.addEventListener('click', function() {
-      switchTab(btn.getAttribute('data-tab'));
+      switchTab(btn.dataset.tab);
     });
   });
 
@@ -171,7 +171,7 @@
     btn.addEventListener('click', function() {
       mTimePresets.querySelectorAll('button').forEach(function(b) { b.classList.remove('active'); });
       btn.classList.add('active');
-      const minutes = Number.parseInt(btn.getAttribute('data-minutes'));
+      const minutes = Number.parseInt(btn.dataset.minutes);
       const now = new Date();
       const start = new Date(now.getTime() - minutes * 60000);
       document.getElementById('history_start').value = toLocalISOString(start);
@@ -196,7 +196,7 @@
       const dModeGroup = document.getElementById('history-mode-group');
       if (dModeGroup) {
         dModeGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
-        const matching = dModeGroup.querySelector('[data-mode="' + btn.getAttribute('data-mode') + '"]');
+        const matching = dModeGroup.querySelector('[data-mode="' + btn.dataset.mode + '"]');
         if (matching) matching.classList.add('active');
       }
     });
@@ -455,7 +455,7 @@
     // Wire toggles
     container.querySelectorAll('.m-rx-toggle').forEach(function(toggle) {
       toggle.addEventListener('click', function() {
-        const uid = Number.parseInt(toggle.getAttribute('data-uid'));
+        const uid = Number.parseInt(toggle.dataset.uid);
         const isCurrentlyOn = toggle.classList.contains('on');
         activateReceiver(uid, !isCurrentlyOn);
       });
@@ -497,7 +497,7 @@
     // Wire remove buttons
     document.querySelectorAll('#m-aoi-cards .m-remove-btn, #m-exclusion-cards .m-remove-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        deleteAoi(Number.parseInt(btn.getAttribute('data-uid')));
+        deleteAoi(Number.parseInt(btn.dataset.uid));
       });
     });
   }
@@ -505,7 +505,7 @@
   // ── Mobile add buttons ──
   document.getElementById('m-add-rx-btn').addEventListener('click', function() {
     const url = prompt('Enter receiver URL (e.g. http://receiver:8081/doa):');
-    if (url && url.trim()) {
+    if (url?.trim()) {
       makeNewRx(url.trim());
     }
   });
