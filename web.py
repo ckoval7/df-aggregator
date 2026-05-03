@@ -15,7 +15,6 @@ from bottle import (
     static_file,
     HTTPError,
 )
-from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 import geo
 
@@ -263,7 +262,7 @@ def _dispatch_aoi_action(action, db):
             raise HTTPError(400, "unknown action")
 
 
-def create_routes(config, ms, db, receiver_manager):
+def create_routes(config, ms, db, receiver_manager, broker):
     app = Bottle()
 
     @app.route("/static/<filepath:path>", name="static")
@@ -322,6 +321,27 @@ def create_routes(config, ms, db, receiver_manager):
         response.headers["Content-Type"] = _JSON_CT
         response.set_header("Cache-Control", _NO_CACHE)
         return json.dumps(geo.get_pipeline_stats())
+
+    @app.get("/events")
+    def sse_events():
+        response.content_type = "text/event-stream"
+        response.set_header("Cache-Control", "no-cache")
+        response.set_header("X-Accel-Buffering", "no")
+        response.set_header("Connection", "keep-alive")
+        channel = broker.subscribe()
+
+        def gen():
+            try:
+                while True:
+                    frame = channel.get(timeout=None)
+                    yield (
+                        f"event: {frame.event_type}\n"
+                        f"data: {frame.data_json}\n\n"
+                    )
+            finally:
+                broker.unsubscribe(channel)
+
+        return gen()
 
     @app.put("/rx_params/<action>")
     def update_rx(action):
@@ -391,13 +411,6 @@ class GzipMiddleware:
     def __init__(self, wsgi_app):
         self.app = wsgi_app
 
-    @staticmethod
-    def _is_websocket_upgrade(environ):
-        return (
-            environ.get("HTTP_UPGRADE", "").lower() == "websocket"
-            and "upgrade" in environ.get("HTTP_CONNECTION", "").lower()
-        )
-
     def _is_compressible(self, headers):
         content_type = ""
         for name, value in headers:
@@ -436,9 +449,11 @@ class GzipMiddleware:
         return new_headers
 
     def __call__(self, environ, start_response):
-        if self._is_websocket_upgrade(environ) or "gzip" not in environ.get(
-            "HTTP_ACCEPT_ENCODING", ""
-        ):
+        # SSE responses are streaming generators; the buffer-and-compress path
+        # below would never yield. Bypass entirely for the events endpoint.
+        if environ.get("PATH_INFO") == "/events":
+            return self.app(environ, start_response)
+        if "gzip" not in environ.get("HTTP_ACCEPT_ENCODING", ""):
             return self.app(environ, start_response)
 
         captured_status = []
@@ -485,8 +500,10 @@ def start_server(config, app):
             host=config.ip,
             port=config.port,
             quiet=True,
-            server=GeventWebSocketServer,
+            server="waitress",
             debug=config.debugging,
+            connection_limit=64,
+            threads=8,
         )
     except OSError:
         log.error(
