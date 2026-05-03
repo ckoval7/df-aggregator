@@ -140,6 +140,16 @@ input, select { font-family: inherit; }
 .mode-pill.live { background: var(--bad-soft); color: var(--bad); }
 .mode-pill.history { background: var(--accent-soft); color: var(--accent); }
 
+/* Server connection indicator. Icon-only so it doesn't read as a second
+   "LIVE" label next to the MODE pill. */
+.conn-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px;
+  cursor: help;
+}
+.conn-pill.connected { color: var(--good); background: var(--good-soft); }
+.conn-pill.disconnected { color: var(--bad); background: var(--bad-soft); animation: pulse 1.4s infinite; }
+
 .rec-pill {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--mono); font-size: 12px; font-weight: 700;

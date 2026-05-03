@@ -87,10 +87,10 @@ function buildRxCardHtml(rx) {
 
   html += '<div id="rx-body-' + rx.uid + '">';
   html += '<div class="rx-grid">';
-  html += '<div class="kv"><span class="k">LAT</span><span class="v">' + Number.parseFloat(rx.latitude).toFixed(6) + '°</span></div>';
-  html += '<div class="kv"><span class="k">LON</span><span class="v">' + Number.parseFloat(rx.longitude).toFixed(6) + '°</span></div>';
-  html += '<div class="kv"><span class="k">HDG</span><span class="v">' + rx.heading + '°</span></div>';
-  html += '<div class="kv"><span class="k">FREQ</span><span class="v accent">' + rx.frequency + ' MHz</span></div>';
+  html += '<div class="kv"><span class="k">LAT</span><span class="v" data-field="lat">' + Number.parseFloat(rx.latitude).toFixed(6) + '°</span></div>';
+  html += '<div class="kv"><span class="k">LON</span><span class="v" data-field="lon">' + Number.parseFloat(rx.longitude).toFixed(6) + '°</span></div>';
+  html += '<div class="kv"><span class="k">HDG</span><span class="v" data-field="hdg">' + rx.heading + '°</span></div>';
+  html += '<div class="kv"><span class="k">FREQ</span><span class="v accent" data-field="freq">' + rx.frequency + ' MHz</span></div>';
   html += '</div>';
 
   if (isActive) {
@@ -98,11 +98,11 @@ function buildRxCardHtml(rx) {
     const conf = rx.conf || 0;
     html += '<div class="signal-bar">';
     html += '<div class="signal-label">SIG</div>';
-    html += '<div class="signal-track"><div class="signal-fill" style="width:' + sig + '%"></div></div>';
-    html += '<div class="signal-val">' + sig + '</div>';
+    html += '<div class="signal-track"><div class="signal-fill" data-field="sig-fill" style="width:' + sig + '%"></div></div>';
+    html += '<div class="signal-val" data-field="sig-val">' + sig + '</div>';
     html += '<div class="signal-label">CONF</div>';
-    html += '<div class="signal-track"><div class="signal-fill alt" style="width:' + Math.min(conf, 100) + '%"></div></div>';
-    html += '<div class="signal-val">' + conf + '</div>';
+    html += '<div class="signal-track"><div class="signal-fill alt" data-field="conf-fill" style="width:' + Math.min(conf, 100) + '%"></div></div>';
+    html += '<div class="signal-val" data-field="conf-val">' + conf + '</div>';
     html += '</div>';
   }
   html += '</div>';
@@ -243,29 +243,63 @@ function loadRx(action) {
   updateRx(action, null);
 }
 
+function setFieldText(card, field, value) {
+  const el = card.querySelector('[data-field="' + field + '"]');
+  if (el && el.textContent !== value) el.textContent = value;
+}
+
+function setFieldWidth(card, field, pct) {
+  const el = card.querySelector('[data-field="' + field + '"]');
+  if (!el) return;
+  const w = pct + '%';
+  if (el.style.width !== w) el.style.width = w;
+}
+
 function applyTelemetryUpdates(payload) {
   const receivers = (payload && payload.receivers) ? payload.receivers : [];
+  let needsRebind = false;
   for (const t of receivers) {
     const card = document.getElementById('rx-' + t.uid);
     if (!card) continue;
     if (card.classList.contains('editing')) continue;
 
-    // Translate telemetry payload to the shape buildRxCardHtml expects.
-    const rxLike = {
-      uid: t.uid,
-      station_id: t.station_id,
-      active: t.active,
-      latitude: t.latitude,
-      longitude: t.longitude,
-      heading: t.heading,
-      frequency: t.frequency,
-      signal: t.power,
-      conf: t.confidence,
-    };
-    const result = buildRxCardHtml(rxLike);
-    card.className = 'card rx-card ' + result.stateClass;
-    card.innerHTML = result.html;
+    // Active state flips the card's structure (signal-bar appears/disappears,
+    // dot/pill classes change). Fall back to a full rebuild in that case;
+    // it's rare. Steady-state ticks take the field-level path below.
+    const wasActive = card.classList.contains('active');
+    if (wasActive !== !!t.active) {
+      const rxLike = {
+        uid: t.uid,
+        station_id: t.station_id,
+        active: t.active,
+        latitude: t.latitude,
+        longitude: t.longitude,
+        heading: t.heading,
+        frequency: t.frequency,
+        signal: t.power,
+        conf: t.confidence,
+      };
+      const result = buildRxCardHtml(rxLike);
+      card.className = 'card rx-card ' + result.stateClass;
+      card.innerHTML = result.html;
+      needsRebind = true;
+      continue;
+    }
+
+    setFieldText(card, 'lat', Number.parseFloat(t.latitude).toFixed(6) + '°');
+    setFieldText(card, 'lon', Number.parseFloat(t.longitude).toFixed(6) + '°');
+    setFieldText(card, 'hdg', t.heading + '°');
+    setFieldText(card, 'freq', t.frequency + ' MHz');
+
+    if (t.active) {
+      const sig = t.power || 0;
+      const conf = t.confidence || 0;
+      setFieldWidth(card, 'sig-fill', sig);
+      setFieldText(card, 'sig-val', String(sig));
+      setFieldWidth(card, 'conf-fill', Math.min(conf, 100));
+      setFieldText(card, 'conf-val', String(conf));
+    }
   }
-  // Action buttons need their listeners re-bound after innerHTML rewrite.
-  wireRxCardActions();
+  // Only re-bind action listeners if a card's innerHTML was rewritten.
+  if (needsRebind) wireRxCardActions();
 }

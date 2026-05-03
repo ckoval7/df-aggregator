@@ -250,13 +250,32 @@ def _aoi_action_purge(db):
     db.purge_database(*row)
 
 
-def _dispatch_aoi_action(action, db):
+def _aoi_payload(db):
+    return {
+        "aois": [
+            {
+                "uid": x[0],
+                "aoi_type": x[1],
+                "latitude": x[2],
+                "longitude": x[3],
+                "radius": x[4],
+            }
+            for x in db.fetch_aoi_data()
+        ]
+    }
+
+
+def _dispatch_aoi_action(action, db, broker):
     match action:
         case "new":
             _aoi_action_new(db)
+            broker.publish("aoi_config", _aoi_payload(db))
         case "del":
             _aoi_action_del(db)
+            broker.publish("aoi_config", _aoi_payload(db))
         case "purge":
+            # Purge mutates intersects only — the AOI list itself is unchanged,
+            # so the sidebar payload stays the same and no event is needed.
             _aoi_action_purge(db)
         case _:
             raise HTTPError(400, "unknown action")
@@ -264,6 +283,10 @@ def _dispatch_aoi_action(action, db):
 
 def create_routes(config, ms, db, receiver_manager, broker):
     app = Bottle()
+
+    # Seed the broker so the first subscriber's snapshot replay carries the
+    # current AOI list without waiting for a mutation.
+    broker.publish("aoi_config", _aoi_payload(db))
 
     @app.route("/static/<filepath:path>", name="static")
     def server_static(filepath):
@@ -349,22 +372,12 @@ def create_routes(config, ms, db, receiver_manager, broker):
 
     @app.get("/interest_areas")
     def load_interest_areas():
-        aoi_properties = [
-            {
-                "uid": x[0],
-                "aoi_type": x[1],
-                "latitude": x[2],
-                "longitude": x[3],
-                "radius": x[4],
-            }
-            for x in db.fetch_aoi_data()
-        ]
         response.headers["Content-Type"] = _JSON_CT
-        return json.dumps({"aois": aoi_properties})
+        return json.dumps(_aoi_payload(db))
 
     @app.put("/interest_areas/<action>")
     def handle_interest_areas(action):
-        _dispatch_aoi_action(action, db)
+        _dispatch_aoi_action(action, db, broker)
 
     @app.get("/run_all_aoi_rules")
     def run_aoi_rules():
