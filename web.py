@@ -187,14 +187,15 @@ def _rx_action_configure(action, receiver_manager):
 
 
 def _dispatch_rx_action(action, receiver_manager):
-    if action == "new":
-        _rx_action_new(receiver_manager)
-    elif action == "del":
-        _rx_action_del(receiver_manager)
-    elif action == "activate":
-        _rx_action_activate(receiver_manager)
-    else:
-        _rx_action_configure(action, receiver_manager)
+    match action:
+        case "new":
+            _rx_action_new(receiver_manager)
+        case "del":
+            _rx_action_del(receiver_manager)
+        case "activate":
+            _rx_action_activate(receiver_manager)
+        case _:
+            _rx_action_configure(action, receiver_manager)
 
 
 def _aoi_action_new(db):
@@ -237,14 +238,15 @@ def _aoi_action_purge(db):
 
 
 def _dispatch_aoi_action(action, db):
-    if action == "new":
-        _aoi_action_new(db)
-    elif action == "del":
-        _aoi_action_del(db)
-    elif action == "purge":
-        _aoi_action_purge(db)
-    else:
-        raise HTTPError(400, "unknown action")
+    match action:
+        case "new":
+            _aoi_action_new(db)
+        case "del":
+            _aoi_action_del(db)
+        case "purge":
+            _aoi_action_purge(db)
+        case _:
+            raise HTTPError(400, "unknown action")
 
 
 def create_routes(config, ms, db, receiver_manager):

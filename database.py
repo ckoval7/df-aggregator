@@ -230,15 +230,16 @@ class Database:
         for x in aoi_data:
             aoi_type = x[1]
             distance = v.haversine(x[2], x[3], lat, lon)
-            if aoi_type == "exclusion":
-                if distance < x[4]:
-                    return False, in_aoi
-            elif aoi_type == "aoi":
-                if distance < x[4]:
-                    keep_list.append(True)
-                    in_aoi = x[0]
-                else:
-                    keep_list.append(False)
+            match aoi_type:
+                case "exclusion":
+                    if distance < x[4]:
+                        return False, in_aoi
+                case "aoi":
+                    if distance < x[4]:
+                        keep_list.append(True)
+                        in_aoi = x[0]
+                    else:
+                        keep_list.append(False)
         return any(keep_list), in_aoi
 
     def add_aoi(self, aoi_type, lat, lon, radius):

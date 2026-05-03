@@ -56,7 +56,7 @@
 - Please see the [Quickstart Guide](https://github.com/ckoval7/df-aggregator/wiki/GettingStarted)
 
 ## Dependencies:
-- Python >= 3.6
+- Python >= 3.10
 - [numpy](https://numpy.org/install/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)

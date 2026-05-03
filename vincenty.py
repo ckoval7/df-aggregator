@@ -240,14 +240,15 @@ if __name__ == '__main__':
         op3 = float(sys.argv[4])
         op4 = float(sys.argv[5])
 
-        if sys.argv[1] == "inverse":
-            output = inverse((op1, op2),(op3, op4))[0]
-        elif sys.argv[1] == "direct":
-            output = str(direct(op1, op2, op3, op4))[1:-1]
-        elif sys.argv[1] == "heading":
-            output = get_heading((op1, op2),(op3, op4))
-        else:
-            output = help
+        match sys.argv[1]:
+            case "inverse":
+                output = inverse((op1, op2),(op3, op4))[0]
+            case "direct":
+                output = str(direct(op1, op2, op3, op4))[1:-1]
+            case "heading":
+                output = get_heading((op1, op2),(op3, op4))
+            case _:
+                output = help
         print(output)
     except (IndexError, ValueError):
         print(help)

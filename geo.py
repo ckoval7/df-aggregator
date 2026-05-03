@@ -655,10 +655,11 @@ def wr_aoi_czml(db):
             'uid': x[0], 'aoi_type': x[1],
             'latitude': x[2], 'longitude': x[3], 'radius': x[4]
         }
-        if aoi['aoi_type'] == "aoi":
-            aoi_properties = area_of_interest_properties
-        elif aoi['aoi_type'] == "exclusion":
-            aoi_properties = exclusion_area_properties
+        match aoi['aoi_type']:
+            case "aoi":
+                aoi_properties = area_of_interest_properties
+            case "exclusion":
+                aoi_properties = exclusion_area_properties
         aoi_info = {"semiMajorAxis": aoi['radius'],
                     "semiMinorAxis": aoi['radius'], "rotation": 0}
         aoi_packets.append(Packet(id=aoi['aoi_type'] + str(aoi['uid']),
