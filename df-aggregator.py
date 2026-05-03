@@ -217,6 +217,10 @@ if __name__ == "__main__":
             geo.write_geojson(
                 *geo.process_data(db, ms.eps, ms.min_samp)[:2], app_config.geofile
             )
+        # SIGTERM, not sys.exit(): gevent's web thread blocks in epoll and
+        # ignores SystemExit raised in the main thread, so Ctrl+C alone
+        # leaves the process hung until you hit it again. The kernel reaps
+        # us regardless.
         kill(getpid(), signal.SIGTERM)
 
     dbwriter = threading.Thread(target=db.writer_loop)
