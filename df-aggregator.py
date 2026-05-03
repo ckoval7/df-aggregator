@@ -116,8 +116,8 @@ if __name__ == '__main__':
     dbwriter.daemon = True
     dbwriter.start()
 
-    web.create_routes(app_config, ms, db, rx_mgr)
-    web_thread = threading.Thread(target=web.start_server, args=(app_config,))
+    web_app = web.create_routes(app_config, ms, db, rx_mgr)
+    web_thread = threading.Thread(target=web.start_server, args=(app_config, web_app))
     web_thread.daemon = True
     web_thread.start()
 

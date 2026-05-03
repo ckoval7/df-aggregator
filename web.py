@@ -3,7 +3,7 @@ import json
 import socket
 from urllib.parse import urlsplit
 
-from bottle import route, run, request, get, put, response, redirect, template, static_file, app as bottle_app, HTTPError
+from bottle import Bottle, run, request, response, redirect, template, static_file, HTTPError
 from bottle.ext.websocket import GeventWebSocketServer, websocket
 
 import geo
@@ -94,17 +94,18 @@ def _validate_receiver_url(url):
 
 
 def create_routes(config, ms, db, receiver_manager):
+    app = Bottle()
 
-    @route('/static/<filepath:path>', name='static')
+    @app.route('/static/<filepath:path>', name='static')
     def server_static(filepath):
         resp = static_file(filepath, root='./static')
         resp.set_header(
             'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
         return resp
 
-    @get('/')
-    @get('/index')
-    @get('/cesium')
+    @app.get('/')
+    @app.get('/index')
+    @app.get('/cesium')
     def cesium():
         response.set_header(
             'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
@@ -119,7 +120,7 @@ def create_routes(config, ms, db, receiver_manager):
                          'lob_history_state': "checked" if ms.lob_history_enabled is True else "",
                          'receivers': receiver_manager.receivers})
 
-    @get('/update')
+    @app.get('/update')
     def update_cesium():
         ms.min_conf = float(
             request.query.minconf) if request.query.minconf else ms.min_conf
@@ -135,7 +136,7 @@ def create_routes(config, ms, db, receiver_manager):
             ms.lob_history_enabled = False
         return "OK"
 
-    @get('/rx_params')
+    @app.get('/rx_params')
     def rx_params():
         # No rx.update() here — the run_loop polls every ~1s; this endpoint
         # just returns cached state for the UI cards.
@@ -151,7 +152,7 @@ def create_routes(config, ms, db, receiver_manager):
         response.headers['Content-Type'] = 'application/json'
         return json.dumps(all_rx)
 
-    @get('/output.czml')
+    @app.get('/output.czml')
     def tx_czml_out():
         eps = request.query.eps if request.query.eps else str(ms.eps)
         min_samp = request.query.minpts if request.query.minpts else str(ms.min_samp)
@@ -166,13 +167,13 @@ def create_routes(config, ms, db, receiver_manager):
         output = geo.write_czml(*geo.process_data(db, eps, min_samp), plotallintersects, eps)
         return str(output)
 
-    @get('/api/pipeline-stats')
+    @app.get('/api/pipeline-stats')
     def pipeline_stats():
         response.headers['Content-Type'] = 'application/json'
         response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
         return json.dumps(geo.get_pipeline_stats())
 
-    @put('/rx_params/<action>')
+    @app.put('/rx_params/<action>')
     def update_rx(action):
         if action == "new":
             data = _read_json_body(required_keys=('station_url',))
@@ -220,7 +221,7 @@ def create_routes(config, ms, db, receiver_manager):
             receiver_manager.save_to_db()
         return redirect('/rx_params')
 
-    @get('/interest_areas')
+    @app.get('/interest_areas')
     def load_interest_areas():
         all_aoi = {'aois': {}}
         aoi_properties = []
@@ -234,7 +235,7 @@ def create_routes(config, ms, db, receiver_manager):
         response.headers['Content-Type'] = 'application/json'
         return json.dumps(all_aoi)
 
-    @put('/interest_areas/<action>')
+    @app.put('/interest_areas/<action>')
     def handle_interest_areas(action):
         if action == "new":
             data = _read_json_body(required_keys=('aoi_type', 'latitude', 'longitude', 'radius'))
@@ -274,17 +275,17 @@ def create_routes(config, ms, db, receiver_manager):
         else:
             raise HTTPError(400, "unknown action")
 
-    @get('/run_all_aoi_rules')
+    @app.get('/run_all_aoi_rules')
     def run_aoi_rules():
         return db.run_aoi_rules()
 
-    @get('/receivers.czml')
+    @app.get('/receivers.czml')
     def rx_czml():
         response.set_header(
             'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
         return geo.write_rx_czml(receiver_manager, ms)
 
-    @get('/lob_history.czml')
+    @app.get('/lob_history.czml')
     def lob_history():
         response.set_header(
             'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
@@ -298,11 +299,13 @@ def create_routes(config, ms, db, receiver_manager):
         }
         return geo.lob_history_czml(db, ms, params)
 
-    @get('/aoi.czml')
+    @app.get('/aoi.czml')
     def aoi_czml():
         response.set_header(
             'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
         return geo.wr_aoi_czml(db)
+
+    return app
 
 
 class GzipMiddleware:
@@ -405,9 +408,9 @@ class GzipMiddleware:
         return [compressed]
 
 
-def start_server(config):
+def start_server(config, app):
     try:
-        run(app=GzipMiddleware(bottle_app()), host=config.ip, port=config.port, quiet=True,
+        run(app=GzipMiddleware(app), host=config.ip, port=config.port, quiet=True,
             server=GeventWebSocketServer, debug=config.debugging)
     except OSError:
         print(f"Port {config.port} seems to be in use. Please select another port or " +
