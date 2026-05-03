@@ -97,9 +97,9 @@
   }
 
   function renderHighlights(merged) {
-    for (let i = 0; i < merged.length; i++) {
-      const fracStart = timeToFraction(merged[i][0]);
-      const fracEnd = timeToFraction(merged[i][1]);
+    for (const range of merged) {
+      const fracStart = timeToFraction(range[0]);
+      const fracEnd = timeToFraction(range[1]);
       const el = document.createElement('div');
       el.className = 'm-scrub-hl';
 

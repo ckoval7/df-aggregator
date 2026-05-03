@@ -326,8 +326,8 @@
       const aois = aoiJson.aois;
       let aoiCount = 0;
       let exCount = 0;
-      for (let i = 0; i < aois.length; i++) {
-        if (aois[i].aoi_type === 'exclusion') exCount++;
+      for (const aoi of aois) {
+        if (aoi.aoi_type === 'exclusion') exCount++;
         else aoiCount++;
       }
       document.getElementById('m-meter-aoi').innerHTML = aoiCount + ' <span class="unit">aoi</span> · ' + exCount + ' <span class="unit">excl</span>';
@@ -470,8 +470,7 @@
     exContainer.innerHTML = '';
 
     const aois = aoiJson.aois;
-    for (let i = 0; i < aois.length; i++) {
-      const aoi = aois[i];
+    for (const aoi of aois) {
       const isExclusion = aoi.aoi_type === 'exclusion';
       const kind = isExclusion ? 'exclusion' : 'aoi';
       const dotClass = isExclusion ? 'm-dot-warn' : 'm-dot-acc';

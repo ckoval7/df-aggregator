@@ -5,8 +5,7 @@ let isHistoryMode = false;
 function extractIntervals(dataSource) {
   const intervals = [];
   const entities = dataSource.entities.values;
-  for (let i = 0; i < entities.length; i++) {
-    const entity = entities[i];
+  for (const entity of entities) {
     if (entity.availability) {
       for (let j = 0; j < entity.availability.length; j++) {
         const interval = entity.availability.get(j);
@@ -24,7 +23,7 @@ function mergeIntervals(intervals) {
   if (intervals.length === 0) return [];
   const merged = [[intervals[0][0], intervals[0][1]]];
   for (let i = 1; i < intervals.length; i++) {
-    const last = merged[merged.length - 1];
+    const last = merged.at(-1);
     if (intervals[i][0] - last[1] <= HIGHLIGHT_GAP_THRESHOLD_MS) {
       last[1] = Math.max(last[1], intervals[i][1]);
     } else {
@@ -40,11 +39,11 @@ function renderTimelineHighlights(dataSource) {
   const merged = mergeIntervals(intervals);
 
   const color = Cesium.Color.GREEN.withAlpha(0.4);
-  for (let i = 0; i < merged.length; i++) {
+  for (const interval of merged) {
     const range = viewer.timeline.addHighlightRange(color, 5);
     range.setRange(
-      Cesium.JulianDate.fromDate(new Date(merged[i][0])),
-      Cesium.JulianDate.fromDate(new Date(merged[i][1]))
+      Cesium.JulianDate.fromDate(new Date(interval[0])),
+      Cesium.JulianDate.fromDate(new Date(interval[1]))
     );
     highlightRanges.push(range);
   }
@@ -57,8 +56,8 @@ function renderTimelineHighlights(dataSource) {
 function clearTimelineHighlights() {
   if (highlightRanges.length > 0) {
     const allRanges = viewer.timeline._highlightRanges;
-    for (let i = 0; i < highlightRanges.length; i++) {
-      const idx = allRanges.indexOf(highlightRanges[i]);
+    for (const range of highlightRanges) {
+      const idx = allRanges.indexOf(range);
       if (idx !== -1) { allRanges.splice(idx, 1); }
     }
     highlightRanges = [];
@@ -76,13 +75,13 @@ function renderScrubHighlights(merged) {
   const startVal = document.getElementById("history_start").value;
   const endVal = document.getElementById("history_end").value;
   const startMs = startVal ? new Date(startVal).getTime() : merged[0][0];
-  const endMs = endVal ? new Date(endVal).getTime() : merged[merged.length - 1][1];
+  const endMs = endVal ? new Date(endVal).getTime() : merged.at(-1)[1];
   const totalSpan = endMs - startMs;
   if (totalSpan <= 0) return;
 
-  for (let i = 0; i < merged.length; i++) {
-    const leftPct = ((merged[i][0] - startMs) / totalSpan) * 100;
-    const widthPct = ((merged[i][1] - merged[i][0]) / totalSpan) * 100;
+  for (const interval of merged) {
+    const leftPct = ((interval[0] - startMs) / totalSpan) * 100;
+    const widthPct = ((interval[1] - interval[0]) / totalSpan) * 100;
     const el = document.createElement('div');
     el.className = 'scrub-highlight';
     el.style.left = Math.max(0, leftPct) + '%';

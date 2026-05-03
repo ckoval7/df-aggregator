@@ -80,8 +80,8 @@ const statusBar = {
     const aois = aoiJson.aois;
     let aoiCount = 0;
     let exCount = 0;
-    for (let i = 0; i < aois.length; i++) {
-      if (aois[i].aoi_type === 'exclusion') {
+    for (const aoi of aois) {
+      if (aoi.aoi_type === 'exclusion') {
         exCount++;
       } else {
         aoiCount++;

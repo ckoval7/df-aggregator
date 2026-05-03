@@ -82,8 +82,7 @@ function createAois(aoi_json, id) {
   let aoiCount = 0;
   let exCount = 0;
 
-  for (let i = 0; i < interest_areas.length; i++) {
-    const aoi = interest_areas[i];
+  for (const aoi of interest_areas) {
     const isExclusion = aoi.aoi_type === 'exclusion';
     const kind = isExclusion ? 'exclusion' : 'aoi';
     const dotClass = isExclusion ? 'dot-warn' : 'dot-accent';
