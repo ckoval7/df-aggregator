@@ -272,7 +272,8 @@ class Database:
             stoptime = time.time()
             log.info("Purged 0 intersections and sorted 0 intersections into 0 AOIs in %.3f seconds.",
                      stoptime - starttime)
-            return "OK"
+            return {"sorted": 0, "purged": 0, "aois": 0,
+                    "elapsed_s": stoptime - starttime}
 
         if intersect_list:
             # Shape arrays once: points are (N,), AOIs are (M,). Distances
@@ -337,4 +338,5 @@ class Database:
         stoptime = time.time()
         log.info("Purged %d intersections and sorted %d intersections into %d AOIs in %.3f seconds.",
                  purged, sorted_count, n_aoi, stoptime - starttime)
-        return "OK"
+        return {"sorted": sorted_count, "purged": purged, "aois": int(n_aoi),
+                "elapsed_s": stoptime - starttime}

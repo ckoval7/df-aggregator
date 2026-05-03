@@ -1,6 +1,7 @@
 import gzip
 import json
 import logging
+import math
 import socket
 from urllib.parse import urlsplit
 
@@ -10,6 +11,9 @@ from bottle.ext.websocket import GeventWebSocketServer, websocket
 import geo
 
 log = logging.getLogger(__name__)
+
+_NO_CACHE = 'no-cache, no-store, must-revalidate, max-age=0'
+_JSON_CT = 'application/json'
 
 
 # NOTE: there is intentionally no authentication on these routes. The default
@@ -50,7 +54,7 @@ def _require_float(data, key, lo=None, hi=None):
         value = float(data[key])
     except (KeyError, TypeError, ValueError):
         raise HTTPError(400, f"field '{key}' must be a number")
-    if value != value:  # NaN
+    if math.isnan(value):
         raise HTTPError(400, f"field '{key}' must be finite")
     if lo is not None and value < lo:
         raise HTTPError(400, f"field '{key}' below minimum {lo}")
@@ -103,7 +107,7 @@ def create_routes(config, ms, db, receiver_manager):
     def server_static(filepath):
         resp = static_file(filepath, root='./static')
         resp.set_header(
-            'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            'Cache-Control', _NO_CACHE)
         return resp
 
     @app.get('/')
@@ -111,7 +115,7 @@ def create_routes(config, ms, db, receiver_manager):
     @app.get('/cesium')
     def cesium():
         response.set_header(
-            'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            'Cache-Control', _NO_CACHE)
         return template('cesium.tpl',
                         {'access_token': config.access_token,
                          'epsilon': ms.eps,
@@ -152,7 +156,7 @@ def create_routes(config, ms, db, receiver_manager):
             rx['uid'] = index
             rx_properties.append(rx)
         all_rx['receivers'] = rx_properties
-        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Type'] = _JSON_CT
         return json.dumps(all_rx)
 
     @app.get('/output.czml')
@@ -166,14 +170,14 @@ def create_routes(config, ms, db, receiver_manager):
         else:
             plotallintersects = ms.plotintersects
         response.set_header(
-            'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            'Cache-Control', _NO_CACHE)
         output = geo.write_czml(*geo.process_data(db, eps, min_samp), plotallintersects, eps)
         return str(output)
 
     @app.get('/api/pipeline-stats')
     def pipeline_stats():
-        response.headers['Content-Type'] = 'application/json'
-        response.set_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+        response.headers['Content-Type'] = _JSON_CT
+        response.set_header('Cache-Control', _NO_CACHE)
         return json.dumps(geo.get_pipeline_stats())
 
     @app.put('/rx_params/<action>')
@@ -235,7 +239,7 @@ def create_routes(config, ms, db, receiver_manager):
             }
             aoi_properties.append(aoi)
         all_aoi['aois'] = aoi_properties
-        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Type'] = _JSON_CT
         return json.dumps(all_aoi)
 
     @app.put('/interest_areas/<action>')
@@ -280,18 +284,19 @@ def create_routes(config, ms, db, receiver_manager):
 
     @app.get('/run_all_aoi_rules')
     def run_aoi_rules():
-        return db.run_aoi_rules()
+        response.headers['Content-Type'] = _JSON_CT
+        return json.dumps(db.run_aoi_rules())
 
     @app.get('/receivers.czml')
     def rx_czml():
         response.set_header(
-            'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            'Cache-Control', _NO_CACHE)
         return geo.write_rx_czml(receiver_manager, ms)
 
     @app.get('/lob_history.czml')
     def lob_history():
         response.set_header(
-            'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            'Cache-Control', _NO_CACHE)
         params = {
             'start': request.query.start,
             'end': request.query.end,
@@ -305,7 +310,7 @@ def create_routes(config, ms, db, receiver_manager):
     @app.get('/aoi.czml')
     def aoi_czml():
         response.set_header(
-            'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            'Cache-Control', _NO_CACHE)
         return geo.wr_aoi_czml(db)
 
     return app

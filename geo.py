@@ -74,10 +74,10 @@ def plot_intersects(lat_a, lon_a, doa_a, lat_b, lon_b, doa_b, max_distance=MAX_I
     # and safely above the degenerate floor — leaves the existing bearing
     # tolerance and max_distance checks in charge of "near-parallel but
     # nominally valid" rejection, where they belong.
-    L_mag = np.sqrt(L[0]**2 + L[1]**2 + L[2]**2)
-    if L_mag < 1e-12:
+    cross_mag = np.sqrt(L[0]**2 + L[1]**2 + L[2]**2)
+    if cross_mag < 1e-12:
         return None
-    X1 = L / L_mag
+    X1 = L / cross_mag
     X2 = -X1
 
     def mag(q):
@@ -121,7 +121,7 @@ def autoeps_calc(X):
     nearest_k = np.sort(dist_matrix, axis=1)[:, :k]
     sorted_distances = np.sort(nearest_k.ravel())
     slopes = np.diff(sorted_distances)
-    steep = np.where(slopes > AUTOEPS_SLOPE_THRESHOLD)[0]
+    steep = np.nonzero(slopes > AUTOEPS_SLOPE_THRESHOLD)[0]
     if len(steep) > 0:
         return sorted_distances[steep[0]]
     return 0
@@ -249,7 +249,11 @@ def process_data(db, epsilon, min_samp):
             clustermean = np.mean(cluster[:, 0:2], axis=0)
             likely_location.append(clustermean.tolist())
             cov_deg = np.cov(cluster[:, 0], cluster[:, 1])
-            if (cov_deg[0, 0] == 0.0 and cov_deg[1, 1] == 0.0):
+            # Degenerate cluster (all identical points) → covariance is the
+            # zero matrix. Use a tolerance because float equality on numpy
+            # outputs can give either exact 0 or 1e-30-ish; either way there's
+            # no ellipse to draw.
+            if cov_deg[0, 0] < 1e-30 and cov_deg[1, 1] < 1e-30:
                 continue
             center_latlon = clustermean.tolist()[::-1]
             m_per_deg_lon = v.inverse(center_latlon,
@@ -370,7 +374,7 @@ def write_czml(best_point, all_the_points, ellipsedata, plotallintersects, eps):
         scaled_time = minmax_scale(all_the_points[:, -1])
         all_the_points = np.column_stack((all_the_points, scaled_time))
         for x in all_the_points:
-            rgb = map(lambda x: int(x * 255), hsv_to_rgb(x[-1] / 3, 0.9, 0.9))
+            rgb = [int(c * 255) for c in hsv_to_rgb(x[-1] / 3, 0.9, 0.9)]
             color_property = {"color": {"rgba": [*rgb, 255]}}
             all_point_packets.append(Packet(id=str(x[1]) + ", " + str(x[0]),
                                             point={**point_properties, **color_property},
@@ -523,7 +527,7 @@ def lob_history_czml(db, ms, request_params):
 
     lob_packets = []
     for row in rows:
-        lob_time, station_id, lat, lon, conf, pwr, freq_val, doa = row
+        lob_time, station_id, lat, lon, conf, pwr, _, doa = row
         if conf > min_conf and pwr > min_power:
             lob_color = green
         elif conf <= min_conf and pwr > min_power:

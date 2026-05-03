@@ -313,7 +313,7 @@ class ReceiverManager:
             self.db.execute(command, [to_table], wait=True)
         self.db.commit()
 
-    def run_loop(self, config, ms):
+    def run_loop(self, ms):
         while ms.receiving:
             # Take one snapshot per cycle and iterate it everywhere below.
             # Iterating self.receivers directly would race with add()/remove()
@@ -428,7 +428,7 @@ class ReceiverManager:
                             lon_rxb = previous[1]
                             conf_rxb = previous[2]
                             doa_rxb = previous[3]
-                            spacial_diversity, z = v.inverse(
+                            spacial_diversity, _ = v.inverse(
                                 (lat_rxa, lon_rxa), (lat_rxb, lon_rxb))
                             min_diversity = MIN_SPATIAL_DIVERSITY_METERS
                             # angular_diff, not abs() — wrap-aware compass

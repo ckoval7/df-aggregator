@@ -1,12 +1,13 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
 class AppConfig:
     database_name: str
     debugging: bool = False
-    geofile: str = None
-    access_token: str = None
+    geofile: Optional[str] = None
+    access_token: Optional[str] = None
     ip: str = "127.0.0.1"
     port: int = 8080
 

@@ -170,7 +170,7 @@ if __name__ == '__main__':
                 log.info("Receiver running" if ms.receiving else "Receiver paused")
                 prev_receiving = ms.receiving
             if ms.receiving:
-                rx_mgr.run_loop(app_config, ms)
+                rx_mgr.run_loop(ms)
             time.sleep(1)
 
     except KeyboardInterrupt:

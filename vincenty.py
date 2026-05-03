@@ -59,7 +59,7 @@ def get_heading(coord1, coord2):
      if heading <0: heading += 360
      return heading
 
-def inverse(coord1,coord2,maxIter=200,tol=10**-12):
+def inverse(coord1,coord2,max_iter=200,tol=10**-12):
 
     phi_1,L_1,=coord1
     phi_2,L_2,=coord2
@@ -89,7 +89,7 @@ def inverse(coord1,coord2,maxIter=200,tol=10**-12):
     sin_sigma=0.0
     cos_sigma=1.0
     sigma=0.0
-    for i in range(0,maxIter):
+    for i in range(0,max_iter):
         cos_lambda=cos(Lambda)
         sin_lambda=sin(Lambda)
         sin_sigma=sqrt((cos_u2*sin(Lambda))**2+(cos_u1*sin_u2-sin_u1*cos_u2*cos_lambda)**2)
@@ -130,7 +130,7 @@ def inverse(coord1,coord2,maxIter=200,tol=10**-12):
         # diagnosable if it ever surfaces.
         log.warning("vincenty.inverse: did not converge after %d iters "
                     "for %s -> %s; result is approximate",
-                    maxIter, coord1, coord2)
+                    max_iter, coord1, coord2)
 
     u_sq=cos_sq_alpha*((a**2-b**2)/b**2)
     A=1+(u_sq/16384)*(4096+u_sq*(-768+u_sq*(320-175*u_sq)))
@@ -142,7 +142,7 @@ def inverse(coord1,coord2,maxIter=200,tol=10**-12):
     return (m,alpha12)
 
 
-def direct(phi1, lembda1, alpha12, s, maxIter=200): #lat, lon, bearing, distance
+def direct(phi1, lembda1, alpha12, s, max_iter=200): #lat, lon, bearing, distance
 
     # Zero-distance short-circuit. Without it the loop condition
     # `(last_sigma - sigma) / sigma` divides by zero on the very first
@@ -178,16 +178,16 @@ def direct(phi1, lembda1, alpha12, s, maxIter=200): #lat, lon, bearing, distance
     # two_sigma_m , delta_sigma
     # The spheroidal correction here converges in 2–6 iterations for any
     # realistic input (verified empirically across the full lat/bearing/
-    # distance space up to near-antipodal). The maxIter cap is defensive
+    # distance space up to near-antipodal). The max_iter cap is defensive
     # parity with inverse() — a runaway here would freeze the polling
     # thread, and the cost of bounding it is one comparison per iter.
     iters = 0
     while ( abs( (last_sigma - sigma) / sigma) > 1.0e-9 ):
         iters += 1
-        if iters > maxIter:
+        if iters > max_iter:
             log.warning("vincenty.direct: did not converge after %d iters "
                         "for (%s,%s) brg=%s s=%s; result is approximate",
-                        maxIter, phi1, lembda1, alpha12, s)
+                        max_iter, phi1, lembda1, alpha12, s)
             break
         two_sigma_m = 2 * sigma1 + sigma
         delta_sigma = B * sin(sigma) * ( cos(two_sigma_m) \
