@@ -4,7 +4,6 @@ CesiumJS/
 *.bak
 *.geojson
 test*
-!tests/
 *.db
 *.txt
 *.czml
@@ -15,3 +14,4 @@ static/node_modules
 static/cesium-kml-czml-editor
 package-lock.json
 package.json
+CLAUDE.md
