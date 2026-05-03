@@ -69,3 +69,20 @@ def test_overflow_drops_oldest_non_heartbeat():
     assert seen[-1] == 69
     # An early publish must have been dropped.
     assert 0 not in seen
+
+
+def test_heartbeat_fires():
+    broker = Broker(heartbeat_interval_s=0.05)
+    ch = broker.subscribe()
+    try:
+        # Within 1s, several heartbeats should arrive.
+        deadline = time.time() + 1.0
+        beats = 0
+        while time.time() < deadline and beats < 3:
+            f = ch.get(timeout=0.5)
+            if f.event_type == "heartbeat":
+                beats += 1
+        assert beats >= 3
+    finally:
+        broker.unsubscribe(ch)
+        broker.shutdown()
