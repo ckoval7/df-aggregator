@@ -235,6 +235,11 @@ if __name__ == "__main__":
                 prev_receiving = ms.receiving
             if ms.receiving:
                 rx_mgr.run_loop(ms)
+            else:
+                # While paused, run_loop doesn't run, but receivers can still
+                # be added/removed/activated via web actions. Tick the publish
+                # path so other tabs see those changes.
+                rx_mgr._publish_changes()
             time.sleep(1)
 
     except KeyboardInterrupt:
