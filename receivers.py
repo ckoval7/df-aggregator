@@ -218,6 +218,49 @@ class Receiver:
             return LOB_DRAW_DISTANCE_METERS
 
 
+def struct_fingerprint(receivers_list):
+    """Tuple of structural/configuration fields the UI re-renders on.
+
+    Live telemetry (doa, power, lat/lon, heading, doa_time, frequency,
+    confidence) is intentionally excluded so the fingerprint is stable across
+    successful poll cycles that didn't change configuration.
+    """
+    return tuple(
+        (
+            i,
+            r.station_id,
+            r.station_url,
+            r.isActive,
+            r.isAuto,
+            r.isMobile,
+            r.isSingle,
+            r.inverted,
+        )
+        for i, r in enumerate(receivers_list)
+    )
+
+
+def telemetry_fingerprint(receivers_list):
+    """Tuple of live telemetry fields. ``isActive`` is included so that the
+    UI flips a card to inactive in the same frame the receiver errored out,
+    without waiting for ``rx_config`` to fire."""
+    return tuple(
+        (
+            i,
+            r.isActive,
+            r.doa,
+            r.doa_time,
+            r.power,
+            r.confidence,
+            r.frequency,
+            r.latitude,
+            r.longitude,
+            r.heading,
+        )
+        for i, r in enumerate(receivers_list)
+    )
+
+
 class ReceiverManager:
     def __init__(self, db):
         self.db = db
