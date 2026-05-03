@@ -480,6 +480,69 @@ def _epoch_ms_to_iso(epoch_ms):
     return dt.strftime('%Y-%m-%dT%H:%M:%S.') + f'{dt.microsecond // 1000:03d}Z'
 
 
+_LOB_HIST_GREEN = [0, 255, 0, 153]
+_LOB_HIST_ORANGE = [255, 140, 0, 153]
+_LOB_HIST_RED = [255, 0, 0, 153]
+_LOB_HIST_OUTLINE = [0, 0, 0, 153]
+_LOB_HIST_HEIGHT = 50
+_LOB_HIST_FLASH_HALF_WINDOW_MS = 2500
+
+
+def _lob_history_color(conf, pwr, min_conf, min_power):
+    if pwr <= min_power:
+        return _LOB_HIST_RED
+    if conf > min_conf:
+        return _LOB_HIST_GREEN
+    return _LOB_HIST_ORANGE
+
+
+def _lob_history_availability(lob_time, end_iso, mode):
+    if mode == "accumulate":
+        return TimeInterval(start=_epoch_ms_to_iso(lob_time), end=end_iso)
+    return TimeInterval(
+        start=_epoch_ms_to_iso(lob_time - _LOB_HIST_FLASH_HALF_WINDOW_MS),
+        end=_epoch_ms_to_iso(lob_time + _LOB_HIST_FLASH_HALF_WINDOW_MS),
+    )
+
+
+def _query_lob_history(db, start, end, min_conf, min_power, freq):
+    base_sql = '''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
+        FROM lobs
+        WHERE time BETWEEN ? AND ?
+          AND confidence >= ?
+          AND power >= ?'''
+    params = [start, end, min_conf, min_power]
+    if freq:
+        return db.query(
+            base_sql + '\n          AND frequency = ?\n        ORDER BY time',
+            params + [float(freq)],
+        )
+    return db.query(base_sql + '\n        ORDER BY time', params)
+
+
+def _build_lob_history_packet(row, end_iso, mode, min_conf, min_power):
+    lob_time, station_id, lat, lon, conf, pwr, _, doa = row
+    color = _lob_history_color(conf, pwr, min_conf, min_power)
+    lob_stop_lat, lob_stop_lon = v.direct(lat, lon, doa, LOB_DRAW_DISTANCE_METERS)
+    return Packet(
+        id=f"LOB-HIST-{station_id}-{lob_time}",
+        availability=_lob_history_availability(lob_time, end_iso, mode),
+        polyline=Polyline(
+            material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
+                color=Color(rgba=color),
+                outlineColor=Color(rgba=_LOB_HIST_OUTLINE),
+                outlineWidth=1,
+            )),
+            clampToGround=True,
+            width=4,
+            positions=PositionList(cartographicDegrees=[
+                lon, lat, _LOB_HIST_HEIGHT,
+                lob_stop_lon, lob_stop_lat, _LOB_HIST_HEIGHT,
+            ]),
+        ),
+    )
+
+
 def lob_history_czml(db, ms, request_params):
     now_ms = time.time() * 1000
     start = int(request_params.get('start') or (now_ms - 3600000))
@@ -489,21 +552,7 @@ def lob_history_czml(db, ms, request_params):
     mode = request_params.get('mode') or "flash"
     freq = request_params.get('frequency')
 
-    if freq:
-        rows = db.query('''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
-            FROM lobs
-            WHERE time BETWEEN ? AND ?
-              AND confidence >= ?
-              AND power >= ?
-              AND frequency = ?
-            ORDER BY time''', [start, end, min_conf, min_power, float(freq)])
-    else:
-        rows = db.query('''SELECT time, station_id, latitude, longitude, confidence, power, frequency, lob
-            FROM lobs
-            WHERE time BETWEEN ? AND ?
-              AND confidence >= ?
-              AND power >= ?
-            ORDER BY time''', [start, end, min_conf, min_power])
+    rows = _query_lob_history(db, start, end, min_conf, min_power, freq)
 
     start_iso = _epoch_ms_to_iso(start)
     end_iso = _epoch_ms_to_iso(end)
@@ -515,51 +564,14 @@ def lob_history_czml(db, ms, request_params):
         clock=Clock(
             interval=TimeInterval(start=start_iso, end=end_iso),
             currentTime=start_iso,
-            multiplier=1.0
-        )
+            multiplier=1.0,
+        ),
     )
 
-    green = [0, 255, 0, 153]
-    orange = [255, 140, 0, 153]
-    red = [255, 0, 0, 153]
-    outline_color = [0, 0, 0, 153]
-    height = 50
-
-    lob_packets = []
-    for row in rows:
-        lob_time, station_id, lat, lon, conf, pwr, _, doa = row
-        if conf > min_conf and pwr > min_power:
-            lob_color = green
-        elif conf <= min_conf and pwr > min_power:
-            lob_color = orange
-        else:
-            lob_color = red
-        lob_stop_lat, lob_stop_lon = v.direct(lat, lon, doa, LOB_DRAW_DISTANCE_METERS)
-
-        if mode == "accumulate":
-            avail_start_iso = _epoch_ms_to_iso(lob_time)
-            avail_end_iso = end_iso
-        else:
-            avail_start_iso = _epoch_ms_to_iso(lob_time - 2500)
-            avail_end_iso = _epoch_ms_to_iso(lob_time + 2500)
-
-        avail = TimeInterval(start=avail_start_iso, end=avail_end_iso)
-
-        lob_packets.append(Packet(
-            id=f"LOB-HIST-{station_id}-{lob_time}",
-            availability=avail,
-            polyline=Polyline(
-                material=PolylineMaterial(polylineOutline=PolylineOutlineMaterial(
-                    color=Color(rgba=lob_color),
-                    outlineColor=Color(rgba=outline_color),
-                    outlineWidth=1
-                )),
-                clampToGround=True,
-                width=4,
-                positions=PositionList(cartographicDegrees=[
-                    lon, lat, height, lob_stop_lon, lob_stop_lat, height])
-            )
-        ))
+    lob_packets = [
+        _build_lob_history_packet(row, end_iso, mode, min_conf, min_power)
+        for row in rows
+    ]
 
     return Document(packets=[top] + lob_packets).dumps()
 

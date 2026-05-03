@@ -329,65 +329,23 @@ class GzipMiddleware:
     def __init__(self, wsgi_app):
         self.app = wsgi_app
 
-    def __call__(self, environ, start_response):
-        if (environ.get('HTTP_UPGRADE', '').lower() == 'websocket' and
-                'upgrade' in environ.get('HTTP_CONNECTION', '').lower()):
-            return self.app(environ, start_response)
+    @staticmethod
+    def _is_websocket_upgrade(environ):
+        return (environ.get('HTTP_UPGRADE', '').lower() == 'websocket' and
+                'upgrade' in environ.get('HTTP_CONNECTION', '').lower())
 
-        if 'gzip' not in environ.get('HTTP_ACCEPT_ENCODING', ''):
-            return self.app(environ, start_response)
-
-        captured_status = []
-        captured_headers = []
-
-        def _start_response(status, headers, exc_info=None):
-            if exc_info:
-                try:
-                    if captured_status:
-                        raise exc_info[1].with_traceback(exc_info[2])
-                finally:
-                    exc_info = None
-            captured_status[:] = [status]
-            captured_headers[:] = [headers]
-
-        result = self.app(environ, _start_response)
-
-        if not captured_status:
-            return result
-
-        status = captured_status[0]
-        headers = captured_headers[0]
-
+    def _is_compressible(self, headers):
         content_type = ''
-        already_encoded = False
         for name, value in headers:
             name_lower = name.lower()
+            if name_lower == 'content-encoding':
+                return False
             if name_lower == 'content-type':
                 content_type = value.lower()
-            elif name_lower == 'content-encoding':
-                already_encoded = True
+        return any(ct in content_type for ct in self._COMPRESSIBLE)
 
-        compressible = (
-            not already_encoded and
-            any(ct in content_type for ct in self._COMPRESSIBLE)
-        )
-
-        if not compressible:
-            start_response(status, headers)
-            return result
-
-        try:
-            body = b''.join(result)
-        finally:
-            if hasattr(result, 'close'):
-                result.close()
-
-        if len(body) < self._MIN_SIZE:
-            start_response(status, headers)
-            return [body]
-
-        compressed = gzip.compress(body, compresslevel=6)
-
+    @staticmethod
+    def _rebuild_headers_for_gzip(headers, compressed_len):
         # Merge Accept-Encoding into any existing Vary token list rather
         # than replacing it. Stripping an upstream `Vary: Cookie` would tell
         # caches a per-user response is safe to share — silent correctness
@@ -404,14 +362,52 @@ class GzipMiddleware:
                 continue
             new_headers.append((name, value))
 
-        vary_tokens = list(existing_vary_tokens)
-        if not any(t.lower() == 'accept-encoding' for t in vary_tokens):
-            vary_tokens.append('Accept-Encoding')
+        if not any(t.lower() == 'accept-encoding' for t in existing_vary_tokens):
+            existing_vary_tokens.append('Accept-Encoding')
 
         new_headers.append(('Content-Encoding', 'gzip'))
-        new_headers.append(('Content-Length', str(len(compressed))))
-        new_headers.append(('Vary', ', '.join(vary_tokens)))
+        new_headers.append(('Content-Length', str(compressed_len)))
+        new_headers.append(('Vary', ', '.join(existing_vary_tokens)))
+        return new_headers
 
+    def __call__(self, environ, start_response):
+        if (self._is_websocket_upgrade(environ) or
+                'gzip' not in environ.get('HTTP_ACCEPT_ENCODING', '')):
+            return self.app(environ, start_response)
+
+        captured_status = []
+        captured_headers = []
+
+        def _start_response(status, headers, exc_info=None):
+            if exc_info and captured_status:
+                raise exc_info[1].with_traceback(exc_info[2])
+            captured_status[:] = [status]
+            captured_headers[:] = [headers]
+
+        result = self.app(environ, _start_response)
+
+        if not captured_status:
+            return result
+
+        status = captured_status[0]
+        headers = captured_headers[0]
+
+        if not self._is_compressible(headers):
+            start_response(status, headers)
+            return result
+
+        try:
+            body = b''.join(result)
+        finally:
+            if hasattr(result, 'close'):
+                result.close()
+
+        if len(body) < self._MIN_SIZE:
+            start_response(status, headers)
+            return [body]
+
+        compressed = gzip.compress(body, compresslevel=6)
+        new_headers = self._rebuild_headers_for_gzip(headers, len(compressed))
         start_response(status, new_headers)
         return [compressed]
 

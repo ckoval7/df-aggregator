@@ -15,6 +15,58 @@ log = logging.getLogger(__name__)
 # local so the vectorized path doesn't reach into another module's globals.
 _EARTH_RADIUS_M = 6378137.0
 
+_SCHEMA_DDL = (
+    '''CREATE TABLE IF NOT EXISTS receivers (
+        station_id TEXT UNIQUE,
+        station_url TEXT,
+        isAuto INTEGER,
+        isMobile INTEGER,
+        isSingle INTEGER,
+        latitude REAL,
+        longitude REAL)''',
+    '''CREATE TABLE IF NOT EXISTS interest_areas (
+        uid INTEGER,
+        aoi_type TEXT,
+        latitude REAL,
+        longitude REAL,
+        radius INTEGER)''',
+    '''CREATE TABLE IF NOT EXISTS intersects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        time INTEGER,
+        latitude REAL,
+        longitude REAL,
+        num_parents INTEGER,
+        confidence INTEGER,
+        aoi_id INTEGER)''',
+    '''CREATE TABLE IF NOT EXISTS lobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        time INTEGER,
+        station_id TEXT,
+        latitude REAL,
+        longitude REAL,
+        confidence INTEGER,
+        power REAL,
+        frequency REAL,
+        lob REAL)''',
+)
+
+_LOBS_MIGRATIONS = (("power", "REAL"), ("frequency", "REAL"))
+
+_INDEX_DDL = (
+    '''CREATE INDEX IF NOT EXISTS idx_intersects_aoi_confidence
+        ON intersects(aoi_id, confidence DESC)''',
+    '''CREATE INDEX IF NOT EXISTS idx_intersects_time
+        ON intersects(time)''',
+    '''CREATE INDEX IF NOT EXISTS idx_lobs_station_time
+        ON lobs(station_id, time)''',
+    '''CREATE INDEX IF NOT EXISTS idx_lobs_time
+        ON lobs(time)''',
+    '''CREATE INDEX IF NOT EXISTS idx_interest_areas_uid
+        ON interest_areas(uid)''',
+    '''CREATE INDEX IF NOT EXISTS idx_interest_areas_type
+        ON interest_areas(aoi_type)''',
+)
+
 
 class Database:
     EDIT_QUEUE_MAXSIZE = 1000
@@ -73,52 +125,23 @@ class Database:
         conn.close()
         return result
 
-    def writer_loop(self):
-        conn = sqlite3.connect(self.config.database_name)
+    def _open_writer_connection(self):
         # WAL: writers don't block readers, readers don't block writers.
         # Persists in the DB file across opens so future connections inherit
         # it. synchronous=NORMAL: durable across app crashes, only loses
         # in-flight commits on OS-level power loss (vs. FULL's per-commit
         # fsync). busy_timeout: wait up to 5s on contention before raising
         # SQLITE_BUSY — replaces the default "fail immediately" behavior.
+        conn = sqlite3.connect(self.config.database_name)
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA synchronous = NORMAL")
         conn.execute(f"PRAGMA busy_timeout = {self._BUSY_TIMEOUT_MS}")
+        return conn
+
+    def _init_schema(self, conn):
         c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS receivers (
-            station_id TEXT UNIQUE,
-            station_url TEXT,
-            isAuto INTEGER,
-            isMobile INTEGER,
-            isSingle INTEGER,
-            latitude REAL,
-            longitude REAL)
-        ''')
-        c.execute('''CREATE TABLE IF NOT EXISTS interest_areas (
-            uid INTEGER,
-            aoi_type TEXT,
-            latitude REAL,
-            longitude REAL,
-            radius INTEGER)
-        ''')
-        c.execute('''CREATE TABLE IF NOT EXISTS intersects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            time INTEGER,
-            latitude REAL,
-            longitude REAL,
-            num_parents INTEGER,
-            confidence INTEGER,
-            aoi_id INTEGER)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS lobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            time INTEGER,
-            station_id TEXT,
-            latitude REAL,
-            longitude REAL,
-            confidence INTEGER,
-            power REAL,
-            frequency REAL,
-            lob REAL)''')
+        for ddl in _SCHEMA_DDL:
+            c.execute(ddl)
 
         # Schema evolution. The previous pattern was "try ALTER, swallow any
         # OperationalError" — that works in practice but quietly hides
@@ -130,37 +153,35 @@ class Database:
         # there's only ever been one migration event in this DB's lifetime
         # and a framework now would be speculative scaffolding.
         existing_lobs_cols = {row[1] for row in c.execute("PRAGMA table_info(lobs)")}
-        for col, col_type in [("power", "REAL"), ("frequency", "REAL")]:
+        for col, col_type in _LOBS_MIGRATIONS:
             if col not in existing_lobs_cols:
                 c.execute(f"ALTER TABLE lobs ADD COLUMN {col} {col_type}")
 
-        c.execute('''CREATE INDEX IF NOT EXISTS idx_intersects_aoi_confidence
-            ON intersects(aoi_id, confidence DESC)''')
-        c.execute('''CREATE INDEX IF NOT EXISTS idx_intersects_time
-            ON intersects(time)''')
-        c.execute('''CREATE INDEX IF NOT EXISTS idx_lobs_station_time
-            ON lobs(station_id, time)''')
-        c.execute('''CREATE INDEX IF NOT EXISTS idx_lobs_time
-            ON lobs(time)''')
-        c.execute('''CREATE INDEX IF NOT EXISTS idx_interest_areas_uid
-            ON interest_areas(uid)''')
-        c.execute('''CREATE INDEX IF NOT EXISTS idx_interest_areas_type
-            ON interest_areas(aoi_type)''')
+        for ddl in _INDEX_DDL:
+            c.execute(ddl)
         conn.commit()
+        return c
+
+    def _dispatch_writer_command(self, conn, c, command, items):
+        # Returns True if the loop should exit cleanly.
+        if command == "done":
+            conn.commit()
+            return False
+        if command == "close":
+            conn.commit()
+            conn.close()
+            return True
+        c.executemany(command, items)
+        return False
+
+    def writer_loop(self):
+        conn = self._open_writer_connection()
+        c = self._init_schema(conn)
 
         while True:
             command, items, reply_q = self._edit_q.get()
             try:
-                if command == "done":
-                    conn.commit()
-                elif command == "close":
-                    conn.commit()
-                    conn.close()
-                    if reply_q is not None:
-                        reply_q.put(True)
-                    break
-                else:
-                    c.executemany(command, items)
+                should_exit = self._dispatch_writer_command(conn, c, command, items)
             except Exception as ex:
                 log.error("Database writer error on '%s': %s: %s",
                           command[:60] if isinstance(command, str) else command,
@@ -170,6 +191,8 @@ class Database:
                 continue
             if reply_q is not None:
                 reply_q.put(True)
+            if should_exit:
+                break
 
     def invalidate_aoi_cache(self):
         with self._aoi_cache_lock:

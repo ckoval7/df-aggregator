@@ -89,7 +89,7 @@ def inverse(coord1,coord2,max_iter=200,tol=10**-12):
     sin_sigma=0.0
     cos_sigma=1.0
     sigma=0.0
-    for i in range(0,max_iter):
+    for _ in range(0, max_iter):
         cos_lambda=cos(Lambda)
         sin_lambda=sin(Lambda)
         sin_sigma=sqrt((cos_u2*sin(Lambda))**2+(cos_u1*sin_u2-sin_u1*cos_u2*cos_lambda)**2)
