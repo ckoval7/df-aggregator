@@ -44,3 +44,28 @@ def test_unsubscribe_stops_delivery():
     except _q.Empty:
         pass
     broker.shutdown()
+
+
+def test_overflow_drops_oldest_non_heartbeat():
+    broker = Broker(heartbeat_interval_s=3600)
+    ch = broker.subscribe()
+    # Fill the queue past capacity (queue size = 64).
+    for i in range(70):
+        broker.publish("rx_telemetry", {"i": i})
+    # Drain — we expect at most ~64 frames, and the earliest "i" should not be 0
+    # (it should have been dropped to make room).
+    seen = []
+    import queue as _q
+    while True:
+        try:
+            f = ch.get(timeout=0.05)
+            seen.append(json.loads(f.data_json)["i"])
+        except _q.Empty:
+            break
+    broker.unsubscribe(ch)
+    broker.shutdown()
+    assert len(seen) <= 64
+    # The latest publish must be present.
+    assert seen[-1] == 69
+    # An early publish must have been dropped.
+    assert 0 not in seen
