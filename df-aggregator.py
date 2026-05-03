@@ -31,7 +31,6 @@ if version_info.major != 3 or version_info.minor < 6:
 
 import argparse
 import logging
-import re
 import signal
 import threading
 import time
@@ -172,21 +171,6 @@ if __name__ == "__main__":
         handlers=handlers,
     )
 
-    # gevent's WSGI handler logs every request at INFO, including the 2.5s UI
-    # polls — too chatty. Demote successful (2xx/3xx) responses to DEBUG;
-    # keep 4xx/5xx visible at INFO so error responses still show up.
-    _access_log_re = re.compile(r'" (\d{3}) ')
-
-    def _demote_successful_access(record):
-        msg = record.getMessage()
-        m = _access_log_re.search(msg)
-        if m and m.group(1)[0] in ("2", "3"):
-            record.levelno = logging.DEBUG
-            record.levelname = "DEBUG"
-        return True
-
-    logging.getLogger("waitress").addFilter(_demote_successful_access)
-
     access_token = None
     if options.token_file:
         with open(options.token_file, "r") as token:
@@ -220,7 +204,7 @@ if __name__ == "__main__":
             geo.write_geojson(
                 *geo.process_data(db, ms.eps, ms.min_samp)[:2], app_config.geofile
             )
-        # SIGTERM, not sys.exit(): gevent's web thread blocks in epoll and
+        # SIGTERM, not sys.exit(): the web thread blocks in accept() and
         # ignores SystemExit raised in the main thread, so Ctrl+C alone
         # leaves the process hung until you hit it again. The kernel reaps
         # us regardless.
