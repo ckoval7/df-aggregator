@@ -15,6 +15,16 @@ import json
 import logging
 import queue
 import threading
+
+# ClientChannel.put_nowait reaches into queue.Queue internals to drop the oldest
+# non-heartbeat frame on overflow (queue.Queue has no public "drop oldest" API).
+# Assert at import that those private attributes still exist so a future Python
+# upgrade fails loud instead of silently corrupting the counter.
+_q_check = queue.Queue()
+assert all(hasattr(_q_check, a) for a in ("mutex", "queue", "unfinished_tasks", "not_full")), (
+    "queue.Queue internals changed — ClientChannel.put_nowait needs updating"
+)
+del _q_check
 from dataclasses import dataclass
 from typing import Optional
 
@@ -52,12 +62,14 @@ class ClientChannel:
                 for i, existing in enumerate(list(self._q.queue)):
                     if existing.event_type != "heartbeat":
                         del self._q.queue[i]
+                        # Manual decrement matches the del above. Not paired with task_done() —
+                        # join() must not be called on this queue.
                         self._q.unfinished_tasks -= 1
                         self._q.not_full.notify()
                         break
             self._q.put_nowait(frame)
         except queue.Full:
-            log.debug("SSE client queue full of heartbeats; dropping new frame")
+            log.debug("SSE client queue full (no evictable non-heartbeat slot); dropping new frame")
 
 
 class Broker:
