@@ -63,7 +63,7 @@ const statusBar = {
       this.els.freqStat.removeAttribute('title');
       this.els.freqValue.className = 'stat-value mono';
     } else if (uniqueFreqs.length === 1) {
-      this.els.freqValue.textContent = parseFloat(uniqueFreqs[0]).toFixed(1);
+      this.els.freqValue.textContent = Number.parseFloat(uniqueFreqs[0]).toFixed(1);
       this.els.freqUnit.textContent = 'MHz';
       this.els.freqStat.removeAttribute('title');
       this.els.freqValue.className = 'stat-value mono accent';

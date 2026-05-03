@@ -821,7 +821,7 @@
       var clustering_en = document.getElementById("clustering-toggle");
 
       if (minpointslider !== null) {
-        if (parseInt(minpointslider.value) > 0) {
+        if (Number.parseInt(minpointslider.value) > 0) {
           parameter += "minpts=" + minpointslider.value + "&";
         } else {
           parameter += "minpts=auto&";
@@ -829,7 +829,7 @@
       }
       if (clustering_en !== null) {
         if (clustering_en.classList.contains('on')) {
-          if (parseFloat(epsslider.value) === 0) {
+          if (Number.parseFloat(epsslider.value) === 0) {
             parameter += "eps=auto&";
           } else {
             parameter += "eps=" + epsslider.value + "&";
@@ -946,7 +946,7 @@
       if (s.epsilon != null) {
         epsSlider.value = s.epsilon;
         var epsVal = document.getElementById("eps-val");
-        if (parseFloat(s.epsilon) > 0) {
+        if (Number.parseFloat(s.epsilon) > 0) {
           epsVal.textContent = s.epsilon;
           epsVal.className = 'filt-val';
         } else {
@@ -957,7 +957,7 @@
       if (s.minpoints != null) {
         minpointSlider.value = s.minpoints;
         var mpVal = document.getElementById("minpoint-val");
-        if (parseInt(s.minpoints) > 0) {
+        if (Number.parseInt(s.minpoints) > 0) {
           mpVal.textContent = s.minpoints;
           mpVal.className = 'filt-val';
         } else {
@@ -994,13 +994,13 @@
         if (mEps) {
           mEps.value = epsSlider.value;
           var mEpsVal = document.getElementById('m-eps-val');
-          if (parseFloat(epsSlider.value) > 0) { mEpsVal.textContent = epsSlider.value; mEpsVal.className = 'm-filt-val'; }
+          if (Number.parseFloat(epsSlider.value) > 0) { mEpsVal.textContent = epsSlider.value; mEpsVal.className = 'm-filt-val'; }
           else { mEpsVal.textContent = 'AUTO'; mEpsVal.className = 'm-filt-val auto'; }
         }
         if (mMinpt) {
           mMinpt.value = minpointSlider.value;
           var mMinptVal = document.getElementById('m-minpoint-val');
-          if (parseInt(minpointSlider.value) > 0) { mMinptVal.textContent = minpointSlider.value; mMinptVal.className = 'm-filt-val'; }
+          if (Number.parseInt(minpointSlider.value) > 0) { mMinptVal.textContent = minpointSlider.value; mMinptVal.className = 'm-filt-val'; }
           else { mMinptVal.textContent = 'AUTO'; mMinptVal.className = 'm-filt-val auto'; }
         }
 
@@ -1050,9 +1050,9 @@
       var wheelTimer = null;
       slider.addEventListener('wheel', function(e) {
         e.preventDefault();
-        var step = parseFloat(this.step) || 1;
-        var val = parseFloat(this.value) + (e.deltaY < 0 ? step : -step);
-        this.value = Math.min(parseFloat(this.max), Math.max(parseFloat(this.min), val));
+        var step = Number.parseFloat(this.step) || 1;
+        var val = Number.parseFloat(this.value) + (e.deltaY < 0 ? step : -step);
+        this.value = Math.min(Number.parseFloat(this.max), Math.max(Number.parseFloat(this.min), val));
         this.dispatchEvent(new Event('input'));
         var self = this;
         clearTimeout(wheelTimer);
@@ -1075,7 +1075,7 @@
     var epsSlider = document.getElementById("epsilonRange");
     var epsVal = document.getElementById("eps-val");
     epsSlider.oninput = function() {
-      if (parseFloat(this.value) > 0) {
+      if (Number.parseFloat(this.value) > 0) {
         epsVal.textContent = this.value;
         epsVal.className = 'filt-val';
       } else {
@@ -1088,7 +1088,7 @@
     var minpointSlider = document.getElementById("minpointRange");
     var minpointVal = document.getElementById("minpoint-val");
     minpointSlider.oninput = function() {
-      if (parseInt(this.value) > 0) {
+      if (Number.parseInt(this.value) > 0) {
         minpointVal.textContent = this.value;
         minpointVal.className = 'filt-val';
       } else {

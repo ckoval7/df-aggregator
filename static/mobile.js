@@ -126,7 +126,7 @@
 
     mSlider.addEventListener('input', function() {
       const v = mSlider.value;
-      if (autoAt0 && parseFloat(v) === 0) {
+      if (autoAt0 && Number.parseFloat(v) === 0) {
         mVal.textContent = 'AUTO';
         mVal.className = 'm-filt-val auto';
       } else {
@@ -135,7 +135,7 @@
       }
       if (dSlider) dSlider.value = v;
       if (dVal) {
-        if (autoAt0 && parseFloat(v) === 0) {
+        if (autoAt0 && Number.parseFloat(v) === 0) {
           dVal.textContent = 'AUTO';
           dVal.className = 'filt-val filt-val-auto';
         } else {
@@ -171,7 +171,7 @@
     btn.addEventListener('click', function() {
       mTimePresets.querySelectorAll('button').forEach(function(b) { b.classList.remove('active'); });
       btn.classList.add('active');
-      const minutes = parseInt(btn.getAttribute('data-minutes'));
+      const minutes = Number.parseInt(btn.getAttribute('data-minutes'));
       const now = new Date();
       const start = new Date(now.getTime() - minutes * 60000);
       document.getElementById('history_start').value = toLocalISOString(start);
@@ -293,7 +293,7 @@
         freqEl.textContent = '—';
         freqEl.style.color = '';
       } else if (uniqueFreqs.length === 1) {
-        freqEl.textContent = parseFloat(uniqueFreqs[0]).toFixed(1);
+        freqEl.textContent = Number.parseFloat(uniqueFreqs[0]).toFixed(1);
         freqEl.style.color = 'var(--accent)';
       } else {
         freqEl.textContent = 'MIXED';
@@ -307,7 +307,7 @@
       if (uniqueFreqs.length === 0) {
         mFreqMeter.innerHTML = '— <span class="unit">no active rx</span>';
       } else if (uniqueFreqs.length === 1) {
-        mFreqMeter.innerHTML = parseFloat(uniqueFreqs[0]).toFixed(1) + ' <span class="unit">MHz</span>';
+        mFreqMeter.innerHTML = Number.parseFloat(uniqueFreqs[0]).toFixed(1) + ' <span class="unit">MHz</span>';
         mFreqMeter.style.color = 'var(--accent)';
       } else {
         mFreqMeter.innerHTML = 'MIXED <span class="unit">' + uniqueFreqs.length + ' freqs</span>';
@@ -427,8 +427,8 @@
       html += '</div>';
 
       html += '<div class="m-kvgrid">';
-      html += '<div class="m-kv"><span class="m-k">LAT</span><span class="m-v">' + parseFloat(rx.latitude).toFixed(5) + '°</span></div>';
-      html += '<div class="m-kv"><span class="m-k">LON</span><span class="m-v">' + parseFloat(rx.longitude).toFixed(5) + '°</span></div>';
+      html += '<div class="m-kv"><span class="m-k">LAT</span><span class="m-v">' + Number.parseFloat(rx.latitude).toFixed(5) + '°</span></div>';
+      html += '<div class="m-kv"><span class="m-k">LON</span><span class="m-v">' + Number.parseFloat(rx.longitude).toFixed(5) + '°</span></div>';
       html += '<div class="m-kv"><span class="m-k">HDG</span><span class="m-v">' + rx.heading + '°</span></div>';
       html += '<div class="m-kv"><span class="m-k">FREQ</span><span class="m-v accent">' + rx.frequency + ' MHz</span></div>';
       html += '</div>';
@@ -455,7 +455,7 @@
     // Wire toggles
     container.querySelectorAll('.m-rx-toggle').forEach(function(toggle) {
       toggle.addEventListener('click', function() {
-        const uid = parseInt(toggle.getAttribute('data-uid'));
+        const uid = Number.parseInt(toggle.getAttribute('data-uid'));
         const isCurrentlyOn = toggle.classList.contains('on');
         activateReceiver(uid, !isCurrentlyOn);
       });
@@ -485,8 +485,8 @@
       html += '<button class="m-remove-btn" data-uid="' + aoi.uid + '">Remove</button>';
       html += '</div>';
       html += '<div class="m-kvgrid">';
-      html += '<div class="m-kv"><span class="m-k">LAT</span><span class="m-v">' + parseFloat(aoi.latitude).toFixed(4) + '°</span></div>';
-      html += '<div class="m-kv"><span class="m-k">LON</span><span class="m-v">' + parseFloat(aoi.longitude).toFixed(4) + '°</span></div>';
+      html += '<div class="m-kv"><span class="m-k">LAT</span><span class="m-v">' + Number.parseFloat(aoi.latitude).toFixed(4) + '°</span></div>';
+      html += '<div class="m-kv"><span class="m-k">LON</span><span class="m-v">' + Number.parseFloat(aoi.longitude).toFixed(4) + '°</span></div>';
       html += '<div class="m-kv" style="grid-column:1/-1"><span class="m-k">RAD</span><span class="m-v">' + Number(aoi.radius).toLocaleString() + ' m</span></div>';
       html += '</div>';
 
@@ -497,7 +497,7 @@
     // Wire remove buttons
     document.querySelectorAll('#m-aoi-cards .m-remove-btn, #m-exclusion-cards .m-remove-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        deleteAoi(parseInt(btn.getAttribute('data-uid')));
+        deleteAoi(Number.parseInt(btn.getAttribute('data-uid')));
       });
     });
   }

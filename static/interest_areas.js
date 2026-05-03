@@ -109,8 +109,8 @@ function createAois(aoi_json, id) {
     html += '</div></div>';
 
     html += '<div class="aoi-grid">';
-    html += '<div class="kv"><span class="k">LAT</span><span class="v">' + parseFloat(aoi.latitude).toFixed(5) + '°</span></div>';
-    html += '<div class="kv"><span class="k">LON</span><span class="v">' + parseFloat(aoi.longitude).toFixed(5) + '°</span></div>';
+    html += '<div class="kv"><span class="k">LAT</span><span class="v">' + Number.parseFloat(aoi.latitude).toFixed(5) + '°</span></div>';
+    html += '<div class="kv"><span class="k">LON</span><span class="v">' + Number.parseFloat(aoi.longitude).toFixed(5) + '°</span></div>';
     html += '<div class="kv full"><span class="k">RADIUS</span><span class="v">' + Number(aoi.radius).toLocaleString() + ' m</span></div>';
     html += '</div>';
 
@@ -131,12 +131,12 @@ function createAois(aoi_json, id) {
 function wireAoiCardActions() {
   document.querySelectorAll('[data-action="delete-aoi"]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      deleteAoi(parseInt(btn.getAttribute('data-uid')));
+      deleteAoi(Number.parseInt(btn.getAttribute('data-uid')));
     });
   });
   document.querySelectorAll('[data-action="purge"]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      const uid = parseInt(btn.getAttribute('data-uid'));
+      const uid = Number.parseInt(btn.getAttribute('data-uid'));
       if (confirm("Purge all intersections inside this exclusion area?\nThis cannot be undone!")) {
         purgeAoi(uid);
       }

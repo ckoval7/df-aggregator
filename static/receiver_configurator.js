@@ -88,8 +88,8 @@ function buildRxCardHtml(rx) {
 
   html += '<div id="rx-body-' + rx.uid + '">';
   html += '<div class="rx-grid">';
-  html += '<div class="kv"><span class="k">LAT</span><span class="v">' + parseFloat(rx.latitude).toFixed(6) + '°</span></div>';
-  html += '<div class="kv"><span class="k">LON</span><span class="v">' + parseFloat(rx.longitude).toFixed(6) + '°</span></div>';
+  html += '<div class="kv"><span class="k">LAT</span><span class="v">' + Number.parseFloat(rx.latitude).toFixed(6) + '°</span></div>';
+  html += '<div class="kv"><span class="k">LON</span><span class="v">' + Number.parseFloat(rx.longitude).toFixed(6) + '°</span></div>';
   html += '<div class="kv"><span class="k">HDG</span><span class="v">' + rx.heading + '°</span></div>';
   html += '<div class="kv"><span class="k">FREQ</span><span class="v accent">' + rx.frequency + ' MHz</span></div>';
   html += '</div>';
@@ -133,7 +133,7 @@ function createReceivers(rx_json, id) {
 function wireRxCardActions() {
   document.getElementById("rx-cards").querySelectorAll('[data-action]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      let uid = parseInt(btn.getAttribute('data-uid'));
+      let uid = Number.parseInt(btn.getAttribute('data-uid'));
       let action = btn.getAttribute('data-action');
       if (action === 'delete') {
         deleteReceiver(uid);

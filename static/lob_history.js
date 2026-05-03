@@ -135,7 +135,7 @@ presetGroup.querySelectorAll('.seg-btn').forEach(function(btn) {
   btn.addEventListener("click", function() {
     presetGroup.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
-    const minutes = parseInt(btn.getAttribute("data-minutes"));
+    const minutes = Number.parseInt(btn.getAttribute("data-minutes"));
     const now = new Date();
     const start = new Date(now.getTime() - minutes * 60000);
     document.getElementById("history_start").value = toLocalISOString(start);
