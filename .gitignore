@@ -4,6 +4,7 @@ CesiumJS/
 *.bak
 *.geojson
 test*
+!tests/
 *.db
 *.txt
 *.czml
