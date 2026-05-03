@@ -408,7 +408,7 @@ class GzipMiddleware:
 def start_server(config):
     try:
         run(app=GzipMiddleware(bottle_app()), host=config.ip, port=config.port, quiet=True,
-            server=GeventWebSocketServer, debug=True)
+            server=GeventWebSocketServer, debug=config.debugging)
     except OSError:
         print(f"Port {config.port} seems to be in use. Please select another port or " +
               "check if another instance of DFA is already running.")
