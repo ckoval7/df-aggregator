@@ -30,7 +30,7 @@ import threading
 import time
 from os import kill, getpid
 
-from config import AppConfig, math_settings, clear
+from config import AppConfig, MathSettings, clear
 from database import Database
 from receivers import ReceiverManager
 import geo
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         port=options.port,
     )
 
-    ms = math_settings(options.eps, options.minsamp, options.conf, options.pwr)
+    ms = MathSettings(options.eps, options.minsamp, options.conf, options.pwr)
     ms.receiving = options.disable
     ms.plotintersects = options.plotintersects
     ms.lob_history_enabled = not options.no_lob_history

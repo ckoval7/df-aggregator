@@ -76,7 +76,7 @@ def _classify_error(ex):
     return ('transient', RECEIVER_MAX_RETRIES_TRANSIENT)
 
 
-class receiver:
+class Receiver:
     def __init__(self, station_url):
         self.station_url = station_url
         self.isAuto = True
@@ -233,7 +233,7 @@ class ReceiverManager:
             if any(x.station_url == receiver_url for x in self.receivers):
                 print("Duplicate receiver, ignoring.")
                 return
-        new_rx_obj = receiver(receiver_url)
+        new_rx_obj = Receiver(receiver_url)
         new_rx = new_rx_obj.receiver_dict()
         to_table = [new_rx['station_id'], new_rx['station_url'], new_rx['auto'],
                     new_rx['mobile'], new_rx['single'], new_rx['latitude'], new_rx['longitude']]

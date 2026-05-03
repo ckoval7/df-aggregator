@@ -12,7 +12,7 @@ class AppConfig:
 
 
 @dataclass
-class math_settings:
+class MathSettings:
     eps: str
     min_samp: str
     min_conf: float
