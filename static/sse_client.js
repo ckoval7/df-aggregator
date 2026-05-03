@@ -1,9 +1,9 @@
 (function() {
   function bind() {
-    var es = new EventSource('/events');
+    const es = new EventSource('/events');
 
     es.addEventListener('rx_config', function(e) {
-      var data = JSON.parse(e.data);
+      const data = JSON.parse(e.data);
       if (typeof createReceivers === 'function') createReceivers(data);
       if (globalThis.statusBar) statusBar.updateReceiverStats(data);
       if (globalThis.mobileUI) mobileUI.updateReceiverStats(data);
@@ -11,13 +11,13 @@
     });
 
     es.addEventListener('rx_telemetry', function(e) {
-      var data = JSON.parse(e.data);
+      const data = JSON.parse(e.data);
       if (typeof applyTelemetryUpdates === 'function') applyTelemetryUpdates(data);
       if (!isHistoryMode && typeof loadRxCzml === 'function') loadRxCzml();
     });
 
     es.addEventListener('aoi_config', function(e) {
-      var data = JSON.parse(e.data);
+      const data = JSON.parse(e.data);
       if (typeof createAois === 'function') createAois(data);
       if (globalThis.statusBar) statusBar.updateAoiStats(data);
       if (globalThis.mobileUI) mobileUI.updateAoiStats(data);

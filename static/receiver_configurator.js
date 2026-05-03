@@ -256,7 +256,7 @@ function setFieldWidth(card, field, pct) {
 }
 
 function applyTelemetryUpdates(payload) {
-  const receivers = (payload && payload.receivers) ? payload.receivers : [];
+  const receivers = payload?.receivers ?? [];
   let needsRebind = false;
   for (const t of receivers) {
     const card = document.getElementById('rx-' + t.uid);

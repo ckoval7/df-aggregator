@@ -103,7 +103,7 @@ const statusBar = {
   },
 
   setConnected: function(isConnected) {
-    if (!this.els || !this.els.connPill) return;
+    if (!this.els?.connPill) return;
     if (isConnected) {
       this.els.connPill.classList.remove('disconnected');
       this.els.connPill.classList.add('connected');
