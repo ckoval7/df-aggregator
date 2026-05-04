@@ -9,6 +9,7 @@ test*
 *.czml
 *.kmz
 *.db-journal
+.venv/
 fil-result/
 static/node_modules
 static/cesium-kml-czml-editor
