@@ -566,81 +566,86 @@ def write_rx_czml(receiver_manager, ms):
         "width": 48,
     }
 
+    # Stable IDs (no list-index suffix) so the frontend can call
+    # CzmlDataSource.process() and update polyline endpoints in place rather
+    # than rebuilding primitives. LOB/HEADING packets are emitted for every
+    # receiver every refresh; show=false hides inactive ones without removing
+    # the entity, so the next active tick lights the same primitive back up
+    # without a shader-cache miss.
+    #
     # Hold the lock while reading receiver state — the polling loop mutates
     # these fields concurrently and we need a consistent snapshot per packet.
     with receiver_manager.lock():
-        for index, x in enumerate(receiver_manager.receivers):
-            if x.isActive and ms.receiving:
+        for x in receiver_manager.receivers:
+            lob_visible = bool(x.isActive and ms.receiving)
+            if lob_visible:
                 if x.confidence > min_conf and x.power > min_power:
                     lob_color = green
                 elif x.confidence <= min_conf and x.power > min_power:
                     lob_color = orange
                 else:
                     lob_color = red
-                lob_start_lat = x.latitude
-                lob_start_lon = x.longitude
                 lob_stop_lat, lob_stop_lon = v.direct(
-                    lob_start_lat, lob_start_lon, x.doa, x.lob_length()
+                    x.latitude, x.longitude, x.doa, x.lob_length()
                 )
-                lob_packets.append(
-                    Packet(
-                        id=f"LOB-{x.station_id}-{index}",
-                        polyline=Polyline(
-                            material=PolylineMaterial(
-                                polylineOutline=PolylineOutlineMaterial(
-                                    color=Color(rgba=lob_color),
-                                    outlineColor=Color(rgba=[0, 0, 0, 255]),
-                                    outlineWidth=2,
-                                )
-                            ),
-                            clampToGround=True,
-                            width=5,
-                            positions=PositionList(
-                                cartographicDegrees=[
-                                    lob_start_lon,
-                                    lob_start_lat,
-                                    height,
-                                    lob_stop_lon,
-                                    lob_stop_lat,
-                                    height,
-                                ]
-                            ),
-                        ),
-                    )
-                )
-                heading_start_lat = x.latitude
-                heading_start_lon = x.longitude
                 heading_stop_lat, heading_stop_lon = v.direct(
-                    heading_start_lat,
-                    heading_start_lon,
-                    x.heading,
-                    HEADING_DRAW_DISTANCE_METERS,
+                    x.latitude, x.longitude, x.heading, HEADING_DRAW_DISTANCE_METERS
                 )
-                lob_packets.append(
-                    Packet(
-                        id=f"HEADING-{x.station_id}-{index}",
-                        polyline=Polyline(
-                            material=PolylineMaterial(
-                                polylineDash=PolylineDashMaterial(
-                                    color=Color(rgba=gray),
-                                    gapColor=Color(rgba=[0, 0, 0, 0]),
-                                )
-                            ),
-                            clampToGround=True,
-                            width=2,
-                            positions=PositionList(
-                                cartographicDegrees=[
-                                    heading_start_lon,
-                                    heading_start_lat,
-                                    height,
-                                    heading_stop_lon,
-                                    heading_stop_lat,
-                                    height,
-                                ]
-                            ),
+                lob_positions = [
+                    x.longitude, x.latitude, height,
+                    lob_stop_lon, lob_stop_lat, height,
+                ]
+                heading_positions = [
+                    x.longitude, x.latitude, height,
+                    heading_stop_lon, heading_stop_lat, height,
+                ]
+            else:
+                lob_color = green
+                # Sentinel positions for hidden polylines. Cesium requires a
+                # valid PositionList even when show=false; using the receiver's
+                # current location for both endpoints avoids a stale-bearing
+                # flash on the frame the entity becomes visible again.
+                lob_positions = [
+                    x.longitude, x.latitude, height,
+                    x.longitude, x.latitude, height,
+                ]
+                heading_positions = list(lob_positions)
+
+            lob_packets.append(
+                Packet(
+                    id=f"LOB-{x.station_id}",
+                    polyline=Polyline(
+                        show=lob_visible,
+                        material=PolylineMaterial(
+                            polylineOutline=PolylineOutlineMaterial(
+                                color=Color(rgba=lob_color),
+                                outlineColor=Color(rgba=[0, 0, 0, 255]),
+                                outlineWidth=2,
+                            )
                         ),
-                    )
+                        clampToGround=True,
+                        width=5,
+                        positions=PositionList(cartographicDegrees=lob_positions),
+                    ),
                 )
+            )
+            lob_packets.append(
+                Packet(
+                    id=f"HEADING-{x.station_id}",
+                    polyline=Polyline(
+                        show=lob_visible,
+                        material=PolylineMaterial(
+                            polylineDash=PolylineDashMaterial(
+                                color=Color(rgba=gray),
+                                gapColor=Color(rgba=[0, 0, 0, 0]),
+                            )
+                        ),
+                        clampToGround=True,
+                        width=2,
+                        positions=PositionList(cartographicDegrees=heading_positions),
+                    ),
+                )
+            )
 
             if x.isMobile is True:
                 rx_icon = {"image": {"uri": "/static/flipped_car.svg"}}
@@ -648,7 +653,7 @@ def write_rx_czml(receiver_manager, ms):
                 rx_icon = {"image": {"uri": "/static/tower.svg"}}
             receiver_point_packets.append(
                 Packet(
-                    id=f"{x.station_id}-{index}",
+                    id=f"RX-{x.station_id}",
                     billboard={**rx_properties, **rx_icon},
                     position={"cartographicDegrees": [x.longitude, x.latitude, 15]},
                 )

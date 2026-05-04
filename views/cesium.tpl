@@ -635,7 +635,9 @@
       timeline: true,
       animation: true,
       mapProjection: new Cesium.WebMercatorProjection(),
+      targetFrameRate: 30,
     });
+    viewer.targetFrameRate = 30;
 
     viewer.infoBox.frame.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
     viewer.infoBox.frame.srcdoc = "<!DOCTYPE html><html><head></head><body></body></html>";
@@ -869,12 +871,39 @@
       });
     }
 
+    // Receivers and their LOB/heading polylines use stable per-station ids
+    // (RX-/LOB-/HEADING-{station_id}), so we keep a long-lived data source
+    // and call process() to merge updates. Polyline endpoints update in
+    // place — no primitive rebuild, no shader recompile.
+    var receiversDataSourceInstalled = false;
     function loadRxCzml() {
-      swapDataSource(function() { return receiversDataSource; }, '/receivers.czml', function(fresh) {
-        receiversDataSource = fresh;
-      });
-      return receiversDataSource;
+      var p = receiversDataSource.process('/receivers.czml');
+      if (!receiversDataSourceInstalled) {
+        receiversDataSourceInstalled = true;
+        viewer.dataSources.add(receiversDataSource);
+      }
+      return p;
     }
+
+    // Remove receiver entities for station_ids the server no longer reports.
+    // Called by sse_client.js on rx_config events.
+    function pruneReceiverEntities(currentStationIds) {
+      var keep = new Set(currentStationIds);
+      var values = receiversDataSource.entities.values;
+      var toRemove = [];
+      for (var i = 0; i < values.length; i++) {
+        var id = values[i].id;
+        var sid = null;
+        if (id.startsWith('RX-')) sid = id.slice(3);
+        else if (id.startsWith('LOB-')) sid = id.slice(4);
+        else if (id.startsWith('HEADING-')) sid = id.slice(8);
+        if (sid !== null && !keep.has(sid)) toRemove.push(id);
+      }
+      for (var j = 0; j < toRemove.length; j++) {
+        receiversDataSource.entities.removeById(toRemove[j]);
+      }
+    }
+    globalThis.pruneReceiverEntities = pruneReceiverEntities;
 
     function loadAoiCzml() {
       swapDataSource(function() { return aoiDataSource; }, '/aoi.czml', function(fresh) {
