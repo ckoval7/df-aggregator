@@ -171,7 +171,9 @@ def _resolve_min_samp(min_samp, n_points):
     if isinstance(min_samp, str):
         if min_samp == "auto":
             return max(3, round(0.05 * n_points))
-        if min_samp.isnumeric():
+        # str.isdigit accepts only ASCII 0-9; isnumeric would let Unicode
+        # numerics like "³" through and crash int() downstream.
+        if min_samp.isdigit():
             return max(3, int(min_samp))
         return None
     return max(3, int(min_samp))

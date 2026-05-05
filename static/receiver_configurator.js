@@ -94,8 +94,8 @@ function buildRxCardHtml(rx) {
   html += '</div>';
 
   if (isActive) {
-    const sig = rx.signal || 0;
-    const conf = rx.conf || 0;
+    const sig = rx.power || 0;
+    const conf = rx.confidence || 0;
     html += '<div class="signal-bar">';
     html += '<div class="signal-label">SIG</div>';
     html += '<div class="signal-track"><div class="signal-fill" data-field="sig-fill" style="width:' + sig + '%"></div></div>';
@@ -276,8 +276,8 @@ function applyTelemetryUpdates(payload) {
         longitude: t.longitude,
         heading: t.heading,
         frequency: t.frequency,
-        signal: t.power,
-        conf: t.confidence,
+        power: t.power,
+        confidence: t.confidence,
       };
       const result = buildRxCardHtml(rxLike);
       card.className = 'card rx-card ' + result.stateClass;

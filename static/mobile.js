@@ -434,8 +434,8 @@
       html += '</div>';
 
       if (rx.active) {
-        const sig = rx.signal || 0;
-        const conf = rx.conf || 0;
+        const sig = rx.power || 0;
+        const conf = rx.confidence || 0;
         html += '<div class="m-meterbar">';
         html += '<div class="m-mlbl">SIG</div>';
         html += '<div class="m-mtrack"><div class="m-mfill" style="width:' + sig + '%"></div></div>';

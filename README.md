@@ -67,8 +67,8 @@
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [python-geojson](https://python-geojson.readthedocs.io/en/latest/)
 - [czml3](https://github.com/Stoops-ML/czml3)
-    - Version should be >= 1.0.0
-    - Note: czml3 has moved from poliastro to Stoops-ML and now uses Pydantic
+    - Version should be >= 3.0.0
+    - Note: czml3 has moved from poliastro to Stoops-ML and uses Pydantic v2 with strict validation
 
 ## Other things you'll need:
 - ~[Cesium Ion Token](https://cesium.com/docs/tutorials/quick-start/)~
@@ -127,14 +127,28 @@
     - Starts program with receiver turned off.
     - Useful for looking at stored data when you can't connect to receivers.
 
+-  --access_token=FILE
+    - Path to a single-line file containing your Cesium Ion access token.
+    - Optional; required only if you want Cesium World Terrain or other Ion assets.
+
 -  --ip=IP ADDRESS
-    - IP Address to serve from. Default 127.0.0.1
+    - IP Address to serve from. Default 127.0.0.1.
+    - WARNING: Binding to a non-loopback address exposes all mutating endpoints
+      without authentication. Put it behind a reverse proxy if you do this.
 
 -  --port=NUMBER
-    - Port number to serve from. Default 8080
+    - Port number to serve from. Default 8080.
 
 -  --debug
-    - Does not clear the screen. Useful for seeing errors and warnings.
+    - Enable DEBUG-level logging and Bottle's debug mode.
+
+-  --log-file=PATH
+    - Also write logs to this file (rotated at 10 MB, 5 backups kept).
+    - Stderr logging continues regardless.
+
+-  --no-lob-history
+    - Disable LOB history recording.
+    - Single-receiver triangulation still records LOBs (it needs them).
 
 Once the program is running, browse to 127.0.0.1:8080 or whatever IP/Port Number you specified.
 

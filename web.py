@@ -2,6 +2,7 @@ import gzip
 import json
 import logging
 import math
+import queue
 import socket
 from urllib.parse import urlsplit
 
@@ -353,9 +354,19 @@ def create_routes(config, ms, db, receiver_manager, broker):
         channel = broker.subscribe()
 
         def gen():
+            # Block in short windows so the generator wakes periodically. On
+            # Empty, yield an SSE comment line — waitress raises on the next
+            # write to a closed socket, which propagates out and lets the
+            # finally clause unsubscribe the channel. Without this, a tab
+            # close leaves channel.get() blocked forever and the channel
+            # leaks into broker._clients.
             try:
                 while True:
-                    frame = channel.get(timeout=None)
+                    try:
+                        frame = channel.get(timeout=15.0)
+                    except queue.Empty:
+                        yield ": keepalive\n\n"
+                        continue
                     yield f"event: {frame.event_type}\ndata: {frame.data_json}\n\n"
             finally:
                 broker.unsubscribe(channel)

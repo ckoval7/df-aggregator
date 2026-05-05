@@ -18,7 +18,7 @@
 
 from sys import version_info
 
-if version_info.major != 3 or version_info.minor < 6:
+if version_info.major != 3 or version_info.minor < 10:
     print(
         "Looks like you're running python version "
         + str(version_info.major)
@@ -26,11 +26,12 @@ if version_info.major != 3 or version_info.minor < 6:
         + str(version_info.minor)
         + ", which is no longer supported."
     )
-    print("Your python version is out of date, please update to 3.6 or newer.")
+    print("Your python version is out of date, please update to 3.10 or newer.")
     quit()
 
 import argparse
 import logging
+import logging.handlers
 import signal
 import threading
 import time
@@ -161,7 +162,13 @@ if __name__ == "__main__":
     root_level = logging.DEBUG if options.debugging else logging.INFO
     handlers = [logging.StreamHandler()]
     if options.log_file:
-        handlers.append(logging.FileHandler(options.log_file))
+        handlers.append(
+            logging.handlers.RotatingFileHandler(
+                options.log_file,
+                maxBytes=10 * 1024 * 1024,
+                backupCount=5,
+            )
+        )
     for h in handlers:
         h.setLevel(root_level)
     logging.basicConfig(
